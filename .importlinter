@@ -1,0 +1,36 @@
+[importlinter]
+root_package = src
+include_external_packages = True
+
+# The two invariants the architecture must never break. Adapters is allowed to
+# import infrastructure.di (the composition root, per ARCHITECTURE.md); every
+# other outward/inward violation is caught by the contracts below.
+
+[importlinter:contract:domain-is-pure]
+name = Domain imports only the standard library and itself
+type = forbidden
+source_modules =
+    src.domain
+forbidden_modules =
+    src.application
+    src.adapters
+    src.infrastructure
+    fastapi
+    starlette
+    sqlalchemy
+    pydantic
+    pydantic_settings
+
+[importlinter:contract:application-is-framework-free]
+name = Application never imports frameworks or outer layers
+type = forbidden
+source_modules =
+    src.application
+forbidden_modules =
+    src.adapters
+    src.infrastructure
+    fastapi
+    starlette
+    sqlalchemy
+    pydantic
+    pydantic_settings
