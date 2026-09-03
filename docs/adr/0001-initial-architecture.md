@@ -42,7 +42,7 @@ entity is a third, separate representation. Mapping between entity and ORM row i
 
 ### Composition via FastAPI `Depends`
 
-`src/infrastructure/di.py` is the single composition root: small factory functions that build a
+`src/infrastructure/di/` is the composition root: small factory functions that build a
 repository from a request-scoped `AsyncSession` and inject it into a use case. Controllers declare
 `use_case: CreateUserUseCase = Depends(get_create_user_use_case)` and know nothing about wiring. No
 DI container library — FastAPI's own dependency system is sufficient and already present.
@@ -58,7 +58,7 @@ error class and its status is a one-line change in one place.
 **Positive**
 
 - Business rules unit-test in milliseconds with no DB or ASGI server.
-- Swapping or adding a persistence backend touches `infrastructure` + `di.py` only.
+- Swapping or adding a persistence backend touches `infrastructure` + the `di/` package only.
 - The architecture is enforced automatically; violations are caught in CI, not review.
 - New slices follow a fixed, documented recipe (`ARCHITECTURE.md`).
 

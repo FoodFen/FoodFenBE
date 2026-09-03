@@ -9,12 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
-
-
-class CreateUserRequest(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
-    name: str = Field(min_length=1, max_length=255)
+from pydantic import BaseModel, ConfigDict
 
 
 class UserResponse(BaseModel):

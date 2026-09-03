@@ -11,6 +11,8 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "alembic>=1.13",
+    "pyjwt>=2.9",
+    "bcrypt>=4.2",
 ]
 
 [dependency-groups]

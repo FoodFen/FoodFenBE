@@ -15,7 +15,7 @@ from src.domain.enums import (
     SubscriptionTier,
     UnitSystem,
 )
-from src.domain.exceptions import InvalidUserAttributeException
+from src.domain.exceptions import InvalidUserAttributeException, WeakPasswordException
 from src.domain.validation import require_positive
 
 # Deliberately permissive: "something@something.something", no whitespace.
@@ -23,6 +23,8 @@ from src.domain.validation import require_positive
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 _EARLIEST_BIRTH_YEAR = 1900
+_MIN_PASSWORD_LEN = 8
+_MAX_PASSWORD_BYTES = 72  # bcrypt silently truncates beyond this
 
 
 @dataclass
@@ -90,8 +92,20 @@ class User:
     def is_premium(self) -> bool:
         return self.subscription_tier is SubscriptionTier.PREMIUM
 
+    @staticmethod
+    def validate_password_strength(plain: str) -> None:
+        """Policy check on a *plaintext* password, before it is hashed and discarded."""
+        if len(plain) < _MIN_PASSWORD_LEN:
+            raise WeakPasswordException(
+                f"password must be at least {_MIN_PASSWORD_LEN} characters"
+            )
+        if len(plain.encode("utf-8")) > _MAX_PASSWORD_BYTES:
+            raise WeakPasswordException(
+                f"password must be at most {_MAX_PASSWORD_BYTES} bytes"
+            )
+
     @classmethod
-    def create(cls, email: str, name: str) -> User:
+    def create(cls, email: str, name: str, password_hash: str | None = None) -> User:
         """Factory for a brand-new user: fresh id, active, free tier, created now."""
         return cls(
             id=uuid4(),
@@ -99,4 +113,5 @@ class User:
             name=name,
             is_active=True,
             created_at=datetime.now(UTC),
+            password_hash=password_hash,
         )

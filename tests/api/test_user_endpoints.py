@@ -1,59 +1,28 @@
-"""End-to-end API tests via httpx.AsyncClient against the ASGI app.
-
-Uses the app's own engine (DATABASE_URL / .env); schema is reset per test.
-"""
+"""GET /users/{id} — now behind auth. End-to-end against the real app + DB."""
 
 from __future__ import annotations
 
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
 
-from src.infrastructure.db.base import Base
-from src.infrastructure.db.models.user_model import UserORM  # noqa: F401 — registers the table
-from src.infrastructure.db.session import engine
-from src.main import app
+def _auth(tokens: dict) -> dict:
+    return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
-@pytest_asyncio.fixture(autouse=True)
-async def _reset_schema():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
-
-@pytest_asyncio.fixture
-async def client():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
-        yield c
-
-
-async def test_create_then_get_user(client):
-    resp = await client.post("/users", json={"email": "api@example.com", "name": "Api User"})
-    assert resp.status_code == 201
-    body = resp.json()
-    assert body["email"] == "api@example.com"
-    assert body["is_active"] is True
-
-    got = await client.get(f"/users/{body['id']}")
-    assert got.status_code == 200
-    assert got.json()["id"] == body["id"]
-
-
-async def test_get_missing_user_returns_404(client):
+async def test_get_user_requires_auth(client, registered):
     resp = await client.get("/users/00000000-0000-0000-0000-000000000000")
+    assert resp.status_code == 401
+
+
+async def test_get_own_user_via_me_then_by_id(client, registered):
+    me = await client.get("/auth/me", headers=_auth(registered))
+    user_id = me.json()["id"]
+
+    got = await client.get(f"/users/{user_id}", headers=_auth(registered))
+    assert got.status_code == 200
+    assert got.json()["id"] == user_id
+
+
+async def test_get_missing_user_is_404_when_authed(client, registered):
+    resp = await client.get(
+        "/users/00000000-0000-0000-0000-000000000000", headers=_auth(registered)
+    )
     assert resp.status_code == 404
-
-
-async def test_duplicate_email_returns_409(client):
-    await client.post("/users", json={"email": "dupe@example.com", "name": "A"})
-    resp = await client.post("/users", json={"email": "dupe@example.com", "name": "B"})
-    assert resp.status_code == 409
-
-
-async def test_invalid_email_returns_400(client):
-    resp = await client.post("/users", json={"email": "bad", "name": "A"})
-    assert resp.status_code == 400

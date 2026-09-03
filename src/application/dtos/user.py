@@ -10,12 +10,6 @@ from src.domain.entities.user import User
 
 
 @dataclass(frozen=True)
-class CreateUserInputDTO:
-    email: str
-    name: str
-
-
-@dataclass(frozen=True)
 class UserOutputDTO:
     id: UUID
     email: str

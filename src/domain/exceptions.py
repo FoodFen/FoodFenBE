@@ -23,3 +23,19 @@ class InvalidAttributeException(DomainException):
 
 class InvalidUserAttributeException(InvalidAttributeException):
     """A user attribute violates a domain invariant."""
+
+
+class WeakPasswordException(InvalidUserAttributeException):
+    """A proposed password does not meet the strength policy."""
+
+
+class AuthenticationException(DomainException):
+    """Authentication failed. Maps to HTTP 401."""
+
+
+class InvalidCredentialsException(AuthenticationException):
+    """Email and password did not match an active account."""
+
+
+class InvalidTokenException(AuthenticationException):
+    """A token is missing, malformed, expired, or revoked."""

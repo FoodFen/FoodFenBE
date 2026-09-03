@@ -22,7 +22,9 @@ Dependency direction: `domain <- application <- adapters | infrastructure`. Neve
 - **Always** access the DB session through the `get_db_session` dependency (commit-on-success, rollback-on-error per request).
 - **Always** run `uv run lint-imports` after touching imports. It is the architecture's guardrail and CI must stay green.
 - **Always** add an Alembic migration when you change an ORM model. Never edit the DB by hand.
-- **Always** register new use cases in `src/infrastructure/di.py` and inject them with `Depends`.
+- **Always** put a new use case's provider in its slice's `src/adapters/controllers/<slice>_deps.py`
+  (a `get_*_use_case` fn + an `Annotated[..., Depends(...)]` alias). Repository providers go in
+  `src/infrastructure/di/repositories.py`; shared primitives in `src/infrastructure/di/`.
 - **Always** use `Annotated` for router functions and other injected parameters that Python IDEs
   complain about (valid in FastAPI either way, but only `Annotated` type-checks cleanly). For example:
 
@@ -34,8 +36,9 @@ async def create_user(
 ) -> UserResponse:
 ```
 
-  This applies to `src/infrastructure/di.py` too — see the `SessionDep` / `UserRepositoryDep`
-  aliases there, and reuse that pattern rather than repeating `Annotated[...]` at each call site.
+  This applies to the `di/` package and the `*_deps.py` modules too — expose a named
+  `Annotated[UseCase, Depends(provider)]` alias and use it in the route signature, rather than
+  repeating `Annotated[...]` at each call site.
 
 ## Schema rules
 
@@ -54,6 +57,27 @@ async def create_user(
 - **Always** verify a migration matches the models before committing: compare `alembic upgrade head
   --sql` against the DDL rendered from `Base.metadata`. Offline downgrade needs a range
   (`alembic downgrade 0002:0001 --sql`), not a single revision.
+
+## Auth
+
+> New to JWT auth? `docs/authentication.md` is a full beginner walk-through of the flow.
+
+- **Access token**: stateless JWT (`type: "access"`, ~30 min). Never stored. Sent as `Authorization: Bearer`.
+- **Refresh token**: JWT (`type: "refresh"`) with a `jti`; every issued one gets a `refresh_tokens` row
+  (`jti` unique, `expires_at`, `revoked_at`). Accepted only if a matching **unrevoked, unexpired** row
+  exists, so logout and rotation take effect immediately. Rotated on every `/auth/refresh` — the
+  presented token is single-use.
+- **Protected routes**: depend on `CurrentUserDep` (or `dependencies=[Depends(get_current_user)]` when
+  the handler doesn't need the user). `get_current_user` lives in `src/infrastructure/di/security.py`.
+- **Never** log, return, or persist a plaintext password. Hashing is `PasswordHasherProtocol`
+  (bcrypt, cost 12) — the domain never sees bcrypt. The refresh JWT itself is never stored; only
+  its `jti` is.
+- **Never** raise `HTTPException` for auth failures. Raise `AuthenticationException` subclasses
+  (`InvalidCredentialsException`, `InvalidTokenException`) → mapped to 401 + `WWW-Authenticate: Bearer`.
+- Password policy (`>= 8` chars, `<= 72` bytes) is `User.validate_password_strength`, called by
+  `RegisterUserUseCase`. `bcrypt` truncates past 72 bytes — the schema caps it too.
+- `JWT_SECRET` has an insecure dev default; `main.lifespan` warns if it's still in use. Set a real one
+  (`openssl rand -hex 32`) via env for anything shared.
 
 ## Commands
 
