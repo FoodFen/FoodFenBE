@@ -19,7 +19,9 @@ class CreateUserUseCase:
         user = User.create(email=data.email, name=data.name)
 
         if await self.users.get_by_email(user.email) is not None:
-            raise UserAlreadyExistsException(f"user with email {user.email!r} already exists")
+            raise UserAlreadyExistsException(
+                f"user with email {user.email!r} already exists"
+            )
 
         created = await self.users.create(user)
         return UserOutputDTO.from_entity(created)

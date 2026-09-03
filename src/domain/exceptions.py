@@ -17,5 +17,9 @@ class UserAlreadyExistsException(DomainException):
     """A user with the same unique attribute (email) already exists."""
 
 
-class InvalidUserAttributeException(DomainException):
+class InvalidAttributeException(DomainException):
+    """An entity attribute violates a domain invariant."""
+
+
+class InvalidUserAttributeException(InvalidAttributeException):
     """A user attribute violates a domain invariant."""

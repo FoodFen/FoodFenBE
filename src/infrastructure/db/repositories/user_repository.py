@@ -1,7 +1,5 @@
 """Concrete ``UserRepositoryProtocol`` implementation backed by async SQLAlchemy."""
 
-from __future__ import annotations
-
 from uuid import UUID
 
 from sqlalchemy import select

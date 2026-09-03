@@ -37,6 +37,24 @@ async def create_user(
   This applies to `src/infrastructure/di.py` too — see the `SessionDep` / `UserRepositoryDep`
   aliases there, and reuse that pattern rather than repeating `Annotated[...]` at each call site.
 
+## Schema rules
+
+- **Always** register a new ORM model in `src/infrastructure/db/models/__init__.py`. Alembic and
+  `create_all` read `Base.metadata`; an unregistered model silently has no table.
+- **Always** model a fixed set of strings as a `StrEnum` in `src/domain/enums.py` and map it with
+  `enum_column()`. Never a bare `String`. `enum_column` sets `create_constraint=True` explicitly —
+  SQLAlchemy has defaulted that to `False` since 1.4, so omitting it gives a VARCHAR with no CHECK.
+- **Always** use `Decimal` / `Numeric` for money. Never `float`.
+- **In migrations**, pass **bare** CHECK-constraint names (`"gender"`, not `"ck_users_gender"`) to
+  `create_check_constraint` / `drop_constraint`. The metadata naming convention in
+  `src/infrastructure/db/base.py` prefixes `ck_<table>_` itself; passing a full name yields
+  `ck_users_ck_users_gender`. PK/FK/UNIQUE names are *not* composed this way — give those in full.
+- **Always** set `lazy="selectin"` on a relationship whose `to_domain()` reads it. The async engine
+  raises `MissingGreenlet` on a lazy load outside a greenlet context.
+- **Always** verify a migration matches the models before committing: compare `alembic upgrade head
+  --sql` against the DDL rendered from `Base.metadata`. Offline downgrade needs a range
+  (`alembic downgrade 0002:0001 --sql`), not a single revision.
+
 ## Commands
 
     make dev            # uvicorn --reload

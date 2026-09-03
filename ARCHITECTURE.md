@@ -60,6 +60,20 @@ Exception flow: use case raises `UserAlreadyExistsException` → propagates unto
 controller → handler in `main.py` maps the type to HTTP 409. Adding a new mapping is one tuple in
 `_EXCEPTION_STATUS`.
 
+## Current schema
+
+The full CalSnap ERD is implemented at the two innermost persistence layers: a domain entity in
+`src/domain/entities/` and an ORM model in `src/infrastructure/db/models/` for each of
+
+`User`, `DailyGoal`, `FoodEntry`, `Ingredient`, `ActivityLog`, `WeightLog`, `WaterLog`, `Streak`,
+`Quest`, `CoinTransaction`, `Subscription`
+
+Everything above that — ports, use cases, repositories, controllers — exists only for `User`. So a
+new slice starts at step 2 below: the entity and table are already there.
+
+`FoodEntry` is the one aggregate root with children; it owns its `Ingredient` list, and the ORM
+relationship is `lazy="selectin"` so `to_domain()` can read it under the async engine.
+
 ## Scaffolding a new slice (e.g. `Food`, `Meal`)
 
 Work inside-out. Each step compiles and `make lint-imports` stays green.
