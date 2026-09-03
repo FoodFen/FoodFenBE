@@ -7,7 +7,7 @@ Postgres.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -59,6 +59,7 @@ def _full_user() -> User:
     user.weight_goal = 55.0
     user.subscription_tier = SubscriptionTier.PREMIUM
     user.password_hash = "argon2$fake"
+    user.verify_email(datetime(2026, 9, 1, tzinfo=UTC))
     return user
 
 

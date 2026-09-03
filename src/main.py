@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -14,14 +13,16 @@ from src.adapters.controllers.user_controller import router as user_router
 from src.domain.exceptions import (
     AuthenticationException,
     DomainException,
+    EmailNotVerifiedException,
     EntityNotFoundException,
     InvalidAttributeException,
     UserAlreadyExistsException,
 )
 from src.infrastructure.config import DEV_JWT_SECRET, settings
 from src.infrastructure.db.session import engine
+from src.infrastructure.logging import configure_logging
 
-_log = logging.getLogger("foodfenbe")
+_log = configure_logging()
 
 # Domain exception type -> HTTP status. Registration order is irrelevant: Starlette
 # resolves a raised exception against the most specific registered base via its MRO.
@@ -29,6 +30,7 @@ _EXCEPTION_STATUS: list[tuple[type[DomainException], int]] = [
     (InvalidAttributeException, 400),  # + InvalidUserAttributeException, WeakPasswordException
     (UserAlreadyExistsException, 409),
     (AuthenticationException, 401),  # + InvalidCredentialsException, InvalidTokenException
+    (EmailNotVerifiedException, 403),
     (EntityNotFoundException, 404),  # + UserNotFoundException
     (DomainException, 400),  # catch-all
 ]

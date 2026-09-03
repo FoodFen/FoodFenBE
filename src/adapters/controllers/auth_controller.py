@@ -1,34 +1,84 @@
-"""Auth endpoints. HTTP <-> application DTO translation only."""
+"""Auth endpoints. HTTP <-> application DTO translation only.
+
+`register` and `resend-verification` hand the verification email off to a FastAPI
+background task: the response goes out first, delivery happens after, so a slow
+or failing mail server never blocks or fails the request.
+"""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, BackgroundTasks, Query, status
 
 from src.adapters.controllers.auth_deps import (
     LoginUseCaseDep,
     LogoutUseCaseDep,
     RefreshUseCaseDep,
     RegisterUseCaseDep,
+    ResendVerificationUseCaseDep,
+    VerifyEmailUseCaseDep,
 )
 from src.adapters.schemas.auth_schemas import (
     LoginRequest,
+    MessageResponse,
     RefreshRequest,
     RegisterRequest,
+    ResendVerificationRequest,
     TokenResponse,
 )
 from src.adapters.schemas.user_schemas import UserResponse
-from src.application.dtos.auth import LoginInputDTO, RefreshInputDTO, RegisterInputDTO
-from src.infrastructure.di import CurrentUserDep
+from src.application.dtos.auth import (
+    LoginInputDTO,
+    RefreshInputDTO,
+    RegisterInputDTO,
+    ResendVerificationInputDTO,
+)
+from src.infrastructure.di import CurrentUserDep, EmailVerificationNotifierDep
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(body: RegisterRequest, use_case: RegisterUseCaseDep) -> TokenResponse:
-    result = await use_case.execute(
+@router.post("/register", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+async def register(
+    body: RegisterRequest,
+    use_case: RegisterUseCaseDep,
+    notifier: EmailVerificationNotifierDep,
+    background_tasks: BackgroundTasks,
+) -> MessageResponse:
+    dispatch = await use_case.execute(
         RegisterInputDTO(email=body.email, password=body.password, name=body.name)
     )
-    return TokenResponse.model_validate(result)
+    background_tasks.add_task(
+        notifier.send_verification, dispatch.email, dispatch.name, dispatch.token
+    )
+    return MessageResponse(detail="Account created. Check your email to confirm your address.")
+
+
+@router.get("/verify-email", response_model=MessageResponse)
+async def verify_email(
+    use_case: VerifyEmailUseCaseDep,
+    token: str = Query(min_length=1),
+) -> MessageResponse:
+    await use_case.execute(token)
+    return MessageResponse(detail="Email confirmed. You can now log in.")
+
+
+@router.post(
+    "/resend-verification", response_model=MessageResponse, status_code=status.HTTP_202_ACCEPTED
+)
+async def resend_verification(
+    body: ResendVerificationRequest,
+    use_case: ResendVerificationUseCaseDep,
+    notifier: EmailVerificationNotifierDep,
+    background_tasks: BackgroundTasks,
+) -> MessageResponse:
+    dispatch = await use_case.execute(ResendVerificationInputDTO(email=body.email))
+    if dispatch is not None:
+        background_tasks.add_task(
+            notifier.send_verification, dispatch.email, dispatch.name, dispatch.token
+        )
+    return MessageResponse(
+        detail="If that address needs confirming, a new link is on its way."
+    )
 
 
 @router.post("/login", response_model=TokenResponse)

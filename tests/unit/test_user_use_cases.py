@@ -27,6 +27,10 @@ class InMemoryUserRepository:
         self._by_id[user.id] = user
         return user
 
+    async def update(self, user: User) -> User:
+        self._by_id[user.id] = user
+        return user
+
 
 async def test_get_user_returns_existing():
     repo = InMemoryUserRepository()

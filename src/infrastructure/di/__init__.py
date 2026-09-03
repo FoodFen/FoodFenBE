@@ -6,6 +6,10 @@ re-exported here.
 """
 
 from src.infrastructure.di.database import SessionDep
+from src.infrastructure.di.notifications import (
+    EmailVerificationNotifierDep,
+    get_email_verification_notifier,
+)
 from src.infrastructure.di.repositories import (
     RefreshTokenRepositoryDep,
     UserRepositoryDep,
@@ -23,12 +27,14 @@ from src.infrastructure.di.security import (
 
 __all__ = [
     "CurrentUserDep",
+    "EmailVerificationNotifierDep",
     "PasswordHasherDep",
     "RefreshTokenRepositoryDep",
     "SessionDep",
     "TokenServiceDep",
     "UserRepositoryDep",
     "get_current_user",
+    "get_email_verification_notifier",
     "get_password_hasher",
     "get_refresh_token_repository",
     "get_token_service",

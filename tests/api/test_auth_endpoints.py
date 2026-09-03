@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+_CREDS = {"email": "user@example.com", "password": "s3cret-pass"}
 
-async def test_register_returns_token_pair(client):
+
+async def test_register_creates_pending_account_and_queues_email(client, notifier):
     resp = await client.post(
         "/auth/register",
         json={"email": "New@Example.com", "password": "s3cret-pass", "name": "  New  "},
     )
     assert resp.status_code == 201
-    body = resp.json()
-    assert body["token_type"] == "bearer"
-    assert body["access_token"] and body["refresh_token"]
-    assert body["expires_in"] > 0
+    assert "access_token" not in resp.json()
+    assert resp.json()["detail"].lower().startswith("account created")
+    # background task ran before the response fully completed
+    assert notifier.sent[-1]["email"] == "new@example.com"
+    assert notifier.last_token
 
 
 async def test_register_duplicate_is_409(client, registered):
@@ -28,22 +31,67 @@ async def test_register_short_password_is_422(client):
         "/auth/register",
         json={"email": "weak@example.com", "password": "1234567", "name": "W"},
     )
-    # Pydantic min_length rejects a 7-char password before it reaches the domain policy.
     assert resp.status_code == 422
 
 
-async def test_login_ok_and_wrong_password_401(client, registered):
-    ok = await client.post(
-        "/auth/login", json={"email": "user@example.com", "password": "s3cret-pass"}
-    )
-    assert ok.status_code == 200
-    assert ok.json()["access_token"]
+async def test_login_before_verification_is_403(client, registered):
+    resp = await client.post("/auth/login", json=_CREDS)
+    assert resp.status_code == 403
+    assert "confirm your email" in resp.json()["detail"].lower()
 
-    bad = await client.post(
+
+async def test_verify_then_login_succeeds(client, registered):
+    v = await client.get(
+        "/auth/verify-email", params={"token": registered["verification_token"]}
+    )
+    assert v.status_code == 200
+
+    login = await client.post("/auth/login", json=_CREDS)
+    assert login.status_code == 200
+    assert login.json()["access_token"]
+
+
+async def test_verify_is_idempotent(client, registered):
+    params = {"token": registered["verification_token"]}
+    assert (await client.get("/auth/verify-email", params=params)).status_code == 200
+    assert (await client.get("/auth/verify-email", params=params)).status_code == 200
+
+
+async def test_verify_with_garbage_token_is_401(client):
+    resp = await client.get("/auth/verify-email", params={"token": "not-a-jwt"})
+    assert resp.status_code == 401
+
+
+async def test_resend_verification_always_202_and_reissues(client, registered, notifier):
+    before = len(notifier.sent)
+
+    r = await client.post("/auth/resend-verification", json={"email": "user@example.com"})
+    assert r.status_code == 202
+    assert len(notifier.sent) == before + 1
+
+    # unknown address: still 202, nothing queued
+    r = await client.post("/auth/resend-verification", json={"email": "ghost@example.com"})
+    assert r.status_code == 202
+    assert len(notifier.sent) == before + 1
+
+    # the freshly resent token verifies
+    v = await client.get("/auth/verify-email", params={"token": notifier.last_token})
+    assert v.status_code == 200
+
+
+async def test_resend_after_verified_queues_nothing(client, verified, notifier):
+    before = len(notifier.sent)
+    r = await client.post("/auth/resend-verification", json={"email": "user@example.com"})
+    assert r.status_code == 202
+    assert len(notifier.sent) == before
+
+
+async def test_login_wrong_password_is_401(client, verified):
+    resp = await client.post(
         "/auth/login", json={"email": "user@example.com", "password": "nope-nope"}
     )
-    assert bad.status_code == 401
-    assert bad.headers["www-authenticate"] == "Bearer"
+    assert resp.status_code == 401
+    assert resp.headers["www-authenticate"] == "Bearer"
 
 
 async def test_login_unknown_user_is_401(client):
@@ -53,43 +101,36 @@ async def test_login_unknown_user_is_401(client):
     assert resp.status_code == 401
 
 
-async def test_me_requires_and_accepts_token(client, registered):
+async def test_me_requires_and_accepts_token(client, verified):
     assert (await client.get("/auth/me")).status_code == 401
 
     resp = await client.get(
-        "/auth/me", headers={"Authorization": f"Bearer {registered['access_token']}"}
+        "/auth/me", headers={"Authorization": f"Bearer {verified['access_token']}"}
     )
     assert resp.status_code == 200
     assert resp.json()["email"] == "user@example.com"
 
 
-async def test_me_rejects_refresh_token_as_access(client, registered):
+async def test_me_rejects_refresh_token_as_access(client, verified):
     resp = await client.get(
-        "/auth/me", headers={"Authorization": f"Bearer {registered['refresh_token']}"}
+        "/auth/me", headers={"Authorization": f"Bearer {verified['refresh_token']}"}
     )
     assert resp.status_code == 401
 
 
-async def test_refresh_rotates_pair_and_revokes_old(client, registered):
-    first = registered["refresh_token"]
+async def test_refresh_rotates_pair_and_revokes_old(client, verified):
+    first = verified["refresh_token"]
 
     rotated = await client.post("/auth/refresh", json={"refresh_token": first})
     assert rotated.status_code == 200
     assert rotated.json()["refresh_token"] != first
 
-    # old refresh token no longer works
     replay = await client.post("/auth/refresh", json={"refresh_token": first})
     assert replay.status_code == 401
 
 
-async def test_logout_then_refresh_401(client, registered):
-    rt = registered["refresh_token"]
-
-    out = await client.post("/auth/logout", json={"refresh_token": rt})
-    assert out.status_code == 204
-
-    resp = await client.post("/auth/refresh", json={"refresh_token": rt})
-    assert resp.status_code == 401
-
-    # logout is idempotent
+async def test_logout_then_refresh_401(client, verified):
+    rt = verified["refresh_token"]
+    assert (await client.post("/auth/logout", json={"refresh_token": rt})).status_code == 204
+    assert (await client.post("/auth/refresh", json={"refresh_token": rt})).status_code == 401
     assert (await client.post("/auth/logout", json={"refresh_token": rt})).status_code == 204

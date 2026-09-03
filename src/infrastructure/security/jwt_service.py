@@ -12,6 +12,7 @@ from src.domain.exceptions import InvalidTokenException
 
 _ACCESS = "access"
 _REFRESH = "refresh"
+_VERIFICATION = "email_verification"
 
 
 class JwtTokenService:
@@ -21,17 +22,22 @@ class JwtTokenService:
         algorithm: str,
         access_ttl: timedelta,
         refresh_ttl: timedelta,
+        verification_ttl: timedelta,
     ) -> None:
         self._secret = secret
         self._algorithm = algorithm
         self._access_ttl = access_ttl
         self._refresh_ttl = refresh_ttl
+        self._verification_ttl = verification_ttl
 
     def issue_access_token(self, user_id: UUID) -> IssuedToken:
         return self._issue(user_id, _ACCESS, self._access_ttl, {})
 
     def issue_refresh_token(self, user_id: UUID, jti: UUID) -> IssuedToken:
         return self._issue(user_id, _REFRESH, self._refresh_ttl, {"jti": str(jti)})
+
+    def issue_verification_token(self, user_id: UUID) -> IssuedToken:
+        return self._issue(user_id, _VERIFICATION, self._verification_ttl, {})
 
     def read_access_token(self, token: str) -> UUID:
         payload = self._decode(token, _ACCESS)
@@ -43,6 +49,10 @@ class JwtTokenService:
             return RefreshClaims(user_id=UUID(payload["sub"]), jti=UUID(payload["jti"]))
         except (KeyError, ValueError) as exc:
             raise InvalidTokenException("refresh token is missing claims") from exc
+
+    def read_verification_token(self, token: str) -> UUID:
+        payload = self._decode(token, _VERIFICATION)
+        return UUID(payload["sub"])
 
     def _issue(
         self, user_id: UUID, token_type: str, ttl: timedelta, extra: dict[str, str]

@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.user import User
+from src.domain.exceptions import UserNotFoundException
 from src.infrastructure.db.models.user_model import UserORM
 
 
@@ -28,4 +29,14 @@ class SQLAlchemyUserRepository:
         self._session.add(row)
         await self._session.flush()
         await self._session.refresh(row)
+        return row.to_domain()
+
+    async def update(self, user: User) -> User:
+        row = await self._session.get(UserORM, user.id)
+        if row is None:
+            raise UserNotFoundException(f"user {user.id} not found")
+        fresh = UserORM.from_domain(user)
+        for column in UserORM.__table__.columns.keys():
+            setattr(row, column, getattr(fresh, column))
+        await self._session.flush()
         return row.to_domain()

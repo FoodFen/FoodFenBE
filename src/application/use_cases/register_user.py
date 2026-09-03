@@ -1,17 +1,13 @@
-"""Register a new user and hand back a token pair."""
+"""Register a new (unverified) user and produce the data for a verification email."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.application.dtos.auth import RegisterInputDTO, TokenPairDTO
+from src.application.dtos.auth import RegisterInputDTO, VerificationDispatchDTO
 from src.application.ports.password_hasher import PasswordHasherProtocol
-from src.application.ports.refresh_token_repository import (
-    RefreshTokenRepositoryProtocol,
-)
 from src.application.ports.token_service import TokenServiceProtocol
 from src.application.ports.user_repository import UserRepositoryProtocol
-from src.application.use_cases.token_pair import issue_token_pair
 from src.domain.entities.user import User
 from src.domain.exceptions import UserAlreadyExistsException
 
@@ -19,17 +15,16 @@ from src.domain.exceptions import UserAlreadyExistsException
 @dataclass
 class RegisterUserUseCase:
     users: UserRepositoryProtocol
-    refresh_tokens: RefreshTokenRepositoryProtocol
     hasher: PasswordHasherProtocol
     tokens: TokenServiceProtocol
 
-    async def execute(self, data: RegisterInputDTO) -> TokenPairDTO:
+    async def execute(self, data: RegisterInputDTO) -> VerificationDispatchDTO:
         User.validate_password_strength(data.password)
         user = User.create(
             email=data.email,
             name=data.name,
             password_hash=self.hasher.hash(data.password),
-        )
+        )  # email_verified_at is None -> login is blocked until confirmed
 
         if await self.users.get_by_email(user.email) is not None:
             raise UserAlreadyExistsException(
@@ -37,4 +32,5 @@ class RegisterUserUseCase:
             )
 
         created = await self.users.create(user)
-        return await issue_token_pair(created.id, self.tokens, self.refresh_tokens)
+        token = self.tokens.issue_verification_token(created.id)
+        return VerificationDispatchDTO(email=created.email, name=created.name, token=token.token)

@@ -62,20 +62,27 @@ async def create_user(
 
 > New to JWT auth? `docs/authentication.md` is a full beginner walk-through of the flow.
 
-- **Access token**: stateless JWT (`type: "access"`, ~30 min). Never stored. Sent as `Authorization: Bearer`.
-- **Refresh token**: JWT (`type: "refresh"`) with a `jti`; every issued one gets a `refresh_tokens` row
-  (`jti` unique, `expires_at`, `revoked_at`). Accepted only if a matching **unrevoked, unexpired** row
-  exists, so logout and rotation take effect immediately. Rotated on every `/auth/refresh` — the
-  presented token is single-use.
+- **Three JWT types**, distinguished by a `type` claim (checked on decode): `access` (~30 min,
+  stateless), `refresh` (30 d, carries a `jti`), `email_verification` (24 h). One `JwtTokenService`.
+- **Refresh token**: every issued one gets a `refresh_tokens` row (`jti` unique, `expires_at`,
+  `revoked_at`). Accepted only if a matching **unrevoked, unexpired** row exists, so logout and
+  rotation take effect immediately. Rotated on every `/auth/refresh` — single-use.
+- **Email verification**: `User.email_verified_at` (nullable, migration 0004). Register creates the
+  user with it `None` and returns **no tokens** — just a 201 message; `LoginUseCase` raises
+  `EmailNotVerifiedException` (→ **403**) until it is set. `GET /auth/verify-email?token=` and
+  `POST /auth/resend-verification` (always 202). The email itself is sent from the **controller** via
+  `BackgroundTasks` (a use case can't reach it) — the use case returns a `VerificationDispatchDTO`.
 - **Protected routes**: depend on `CurrentUserDep` (or `dependencies=[Depends(get_current_user)]` when
   the handler doesn't need the user). `get_current_user` lives in `src/infrastructure/di/security.py`.
 - **Never** log, return, or persist a plaintext password. Hashing is `PasswordHasherProtocol`
-  (bcrypt, cost 12) — the domain never sees bcrypt. The refresh JWT itself is never stored; only
-  its `jti` is.
-- **Never** raise `HTTPException` for auth failures. Raise `AuthenticationException` subclasses
-  (`InvalidCredentialsException`, `InvalidTokenException`) → mapped to 401 + `WWW-Authenticate: Bearer`.
+  (bcrypt, cost 12) — the domain never sees bcrypt. No JWT is stored; only the refresh token's `jti` is.
+- **Never** raise `HTTPException` for auth failures. Raise a `DomainException` subclass
+  (`InvalidCredentialsException`/`InvalidTokenException` → 401, `EmailNotVerifiedException` → 403);
+  `src/main.py` maps the type to a status. 401s also carry `WWW-Authenticate: Bearer`.
 - Password policy (`>= 8` chars, `<= 72` bytes) is `User.validate_password_strength`, called by
   `RegisterUserUseCase`. `bcrypt` truncates past 72 bytes — the schema caps it too.
+- App logs go through `configure_logging()` (`src/infrastructure/logging.py`) — a bare
+  `getLogger("foodfenbe")` produces no output under uvicorn.
 - `JWT_SECRET` has an insecure dev default; `main.lifespan` warns if it's still in use. Set a real one
   (`openssl rand -hex 32`) via env for anything shared.
 

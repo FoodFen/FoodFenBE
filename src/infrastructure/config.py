@@ -19,6 +19,19 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
+    verification_token_expire_hours: int = 24
+
+    # Public origin used to build links in emails (no trailing slash needed).
+    app_base_url: str = "http://localhost:8000"
+
+    # Email: "console" logs the link (dev/test default); "smtp" actually sends.
+    email_backend: str = "console"
+    email_from: str = "no-reply@foodfen.local"
+    smtp_host: str = "localhost"
+    smtp_port: int = 1025
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_starttls: bool = True
 
 
 settings = Settings()

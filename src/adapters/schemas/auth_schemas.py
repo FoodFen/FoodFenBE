@@ -21,6 +21,10 @@ class RefreshRequest(BaseModel):
     refresh_token: str = Field(min_length=1)
 
 
+class ResendVerificationRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+
 class TokenResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -28,3 +32,7 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int  # seconds until the access token expires
+
+
+class MessageResponse(BaseModel):
+    detail: str

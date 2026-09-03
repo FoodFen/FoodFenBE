@@ -10,7 +10,7 @@ from src.application.ports.refresh_token_repository import RefreshTokenRepositor
 from src.application.ports.token_service import TokenServiceProtocol
 from src.application.ports.user_repository import UserRepositoryProtocol
 from src.application.use_cases.token_pair import issue_token_pair
-from src.domain.exceptions import InvalidCredentialsException
+from src.domain.exceptions import EmailNotVerifiedException, InvalidCredentialsException
 
 
 @dataclass
@@ -32,6 +32,10 @@ class LoginUseCase:
             or not self.hasher.verify(data.password, user.password_hash)
         ):
             raise InvalidCredentialsException("invalid email or password")
+        if user.email_verified_at is None:
+            raise EmailNotVerifiedException(
+                "please confirm your email address before logging in"
+            )
         if not user.is_active:
             raise InvalidCredentialsException("account is disabled")
 

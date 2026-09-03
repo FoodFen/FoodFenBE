@@ -16,9 +16,9 @@ for every endpoint.
 
 Both are in `pyproject.toml` under `[project].dependencies`. Install with `uv sync`.
 
-Nothing else was needed. FastAPI already ships the `HTTPBearer` helper we use to
-read the `Authorization` header, and Python's standard library gives us `uuid`
-and `datetime`.
+Nothing else was needed. FastAPI ships the `HTTPBearer` helper and
+`BackgroundTasks`; email goes out through the standard-library `smtplib` +
+`email.message`.
 
 ---
 
@@ -121,7 +121,7 @@ This is an **allowlist**: the row must be present and alive. Consequences:
 
 - **Logout** = set `revoked_at = now` on the row. The JWT is now dead even though
   its `exp` is weeks away.
-- **Rotation** (see 4.3) = on every refresh, revoke the row you just used and
+- **Rotation** (see 4.4) = on every refresh, revoke the row you just used and
   insert a new one. A refresh token is **single-use**.
 
 The access token is deliberately *not* in this table — it is stateless and simply
@@ -135,41 +135,44 @@ Everything is under `/auth`, except the protected example `GET /users/{id}`.
 
 ### 4.1 `POST /auth/register`
 
+The account is created **inactive**: no tokens come back, and login is blocked
+until the email is confirmed.
+
 ```
 Request:
   { "email": "u@example.com", "password": "s3cret-pass", "name": "U" }
 
 Response 201:
-  { "access_token": "eyJ...", "refresh_token": "eyJ...",
-    "token_type": "bearer", "expires_in": 1799 }
+  { "detail": "Account created. Check your email to confirm your address." }
 ```
 
 ```
-client              RegisterUserUseCase              bcrypt / PyJWT       DB
-  | email,pw,name -->  |
-  |                    | User.validate_password_strength(pw)
-  |                    |   (>= 8 chars, <= 72 bytes)
-  |                    | hash = bcrypt.hashpw(pw) -------> "$2b$12$..."
-  |                    | User.create(email, name, password_hash=hash)
-  |                    | users.get_by_email() --------------------------> SELECT
-  |                    |   (raise -> HTTP 409 if it already exists)
-  |                    | users.create(user) ---------------------------> INSERT users
-  |                    | -- issue_token_pair() --
-  |                    |   access  = JWT(sub=id, type=access, 30 min)
-  |                    |   jti     = uuid4()
-  |                    |   refresh = JWT(sub=id, type=refresh, jti, 30 d)
-  |                    |   refresh_tokens.add(row) --------------------> INSERT refresh_tokens
-  | <-- 201 + pair ----|
+client            RegisterUserUseCase             bcrypt / PyJWT       DB
+  | email,pw,name -> |
+  |                  | User.validate_password_strength(pw)   (>= 8 chars, <= 72 bytes)
+  |                  | hash = bcrypt.hashpw(pw) --------> "$2b$12$..."
+  |                  | User.create(...)  -> email_verified_at = None
+  |                  | users.get_by_email()  --------------------------> SELECT
+  |                  |   (raise -> HTTP 409 if it already exists)
+  |                  | users.create(user)  ---------------------------> INSERT users
+  |                  | token = JWT(sub=id, type=email_verification, 24h)
+  |                  | return VerificationDispatchDTO(email, name, token)
+  | <-- 201 + msg ---|
+        |
+   controller schedules  background_tasks.add_task(notifier.send_verification, ...)
+        |                 (runs AFTER the response is sent)
+   notifier -> SMTP: "click https://APP_BASE_URL/auth/verify-email?token=<jwt>"
 ```
 
-`expires_in` is the number of seconds until the **access** token expires (about
-1800), so a mobile app knows when to call `/auth/refresh`.
+No refresh-token row is created here — that only happens at login, once the
+account is verified.
 
 ### 4.2 `POST /auth/login`
 
 ```
 Request:      { "email": "u@example.com", "password": "s3cret-pass" }
-Response 200: same token-pair shape as register
+Response 200: { "access_token": "eyJ...", "refresh_token": "eyJ...",
+                "token_type": "bearer", "expires_in": 1799 }
 ```
 
 ```
@@ -179,15 +182,58 @@ LoginUseCase:
      or user.password_hash is None
      or not bcrypt.checkpw(password, user.password_hash):
          raise InvalidCredentialsException        -> HTTP 401
+  if user.email_verified_at is None:
+         raise EmailNotVerifiedException          -> HTTP 403
   if not user.is_active:
          raise InvalidCredentialsException        -> HTTP 401
-  return issue_token_pair(user.id)                # same helper as register
+  return issue_token_pair(user.id)  # mints the access + refresh pair, stores the refresh row
 ```
 
-Note: **"no such user" and "wrong password" return the same 401 message.** That is
-deliberate — it stops an attacker probing which emails have accounts.
+`expires_in` is the seconds until the **access** token expires (~1800), so a
+mobile app knows when to call `/auth/refresh`.
 
-### 4.3 `POST /auth/refresh` — the rotation dance
+Two deliberate points:
+- **"no such user" and "wrong password" return the same 401 message** — stops an
+  attacker probing which emails have accounts.
+- **Unverified is a distinct `403`**, not a `401` — the password was right, so the
+  client can show a "resend confirmation email" screen instead of "check your
+  password".
+
+### 4.3 Email verification
+
+**`GET /auth/verify-email?token=<jwt>`** — the link from the email.
+
+```
+VerifyEmailUseCase:
+  user_id = read_verification_token(token)     # PyJWT sig + exp; type must be
+                                               # "email_verification"
+                                               # -> InvalidTokenException (401) otherwise
+  user = users.get_by_id(user_id)              # -> 404 if the account is gone
+  if user.is_email_verified:  return           # idempotent: clicking twice is fine
+  user.verify_email(now)                        # sets email_verified_at
+  users.update(user)  ------------------------> UPDATE users SET email_verified_at = now
+  -> 200 { "detail": "Email confirmed. You can now log in." }
+```
+
+It is a `GET` so the link works straight from a mail client. A link-scanning
+proxy that pre-fetches it would verify the address early — harmless here, since
+confirming the real owner's email is the whole goal.
+
+**`POST /auth/resend-verification`** — body `{ "email": "..." }`.
+
+```
+ResendVerificationUseCase:
+  user = users.get_by_email(email.lower())
+  if user is None or user.is_email_verified:
+      return None                               # nothing to do
+  return VerificationDispatchDTO(email, name, new_token)
+```
+
+The controller schedules a background send when the use case returns a dispatch,
+and **always answers `202` with the same message** — so the response never
+reveals whether an address is registered or already confirmed.
+
+### 4.4 `POST /auth/refresh` — the rotation dance
 
 ```
 Request:      { "refresh_token": "eyJ...(the refresh JWT)" }
@@ -210,7 +256,7 @@ RefreshTokenUseCase:
 Because the old row is revoked, **replaying the same refresh token a second time
 returns 401**. The client must always use the newest refresh token it received.
 
-### 4.4 `POST /auth/logout`
+### 4.5 `POST /auth/logout`
 
 ```
 Request:      { "refresh_token": "eyJ..." }
@@ -234,7 +280,7 @@ logout, `/auth/refresh` with that token returns 401.
 > Killing the access token instantly too would need a denylist cache (e.g. Redis)
 > — not built here, listed under limitations.
 
-### 4.5 Calling a protected endpoint
+### 4.6 Calling a protected endpoint
 
 Every request to a protected route carries the access token in a header:
 
@@ -283,35 +329,36 @@ src/domain/                        (pure Python, no libraries)
   exceptions.py                    AuthenticationException
                                      |- InvalidCredentialsException  -> 401
                                      |- InvalidTokenException        -> 401
-                                   WeakPasswordException             -> 400
+                                   EmailNotVerifiedException          -> 403
+                                   WeakPasswordException              -> 400
+  entities/user.py                 email_verified_at, verify_email(now)
 
 src/application/                   (orchestration, still no libraries)
   dtos/auth.py                     RegisterInputDTO, LoginInputDTO, TokenPairDTO, ...
   ports/password_hasher.py         PasswordHasherProtocol   (interface only)
   ports/token_service.py           TokenServiceProtocol     (interface only)
   ports/refresh_token_repository.py
-  use_cases/register_user.py       the flows from section 4
-  use_cases/login.py
-  use_cases/refresh_token.py
-  use_cases/logout.py
-  use_cases/token_pair.py          shared "mint access + refresh + store the row"
+  ports/email_verification_notifier.py   EmailVerificationNotifierProtocol
+  use_cases/register_user.py       creates the user, returns a VerificationDispatchDTO
+  use_cases/verify_email.py        confirms the address from the token
+  use_cases/resend_verification.py
+  use_cases/login.py   logout.py   refresh_token.py   token_pair.py
 
 src/infrastructure/                (the real libraries live here)
   security/password_hasher.py      BcryptPasswordHasher   -> implements the port
   security/jwt_service.py          JwtTokenService (PyJWT) -> implements the port
   db/models/refresh_token_model.py RefreshTokenORM (SQLAlchemy) + to_/from_domain
   db/repositories/refresh_token_repository.py
-  di/database.py                   SessionDep
-  di/repositories.py               UserRepositoryDep, RefreshTokenRepositoryDep
-  di/security.py                   PasswordHasherDep, TokenServiceDep (both lru_cache'd),
-                                   get_current_user, CurrentUserDep
-  config.py                        JWT settings
+  notifications/email_verification_notifier.py   Logging + Smtp notifiers
+  di/database.py  di/repositories.py  di/security.py  di/notifications.py
+  config.py                        JWT + email settings
 
 src/adapters/                      (HTTP surface)
   schemas/auth_schemas.py          Pydantic request / response models
-  controllers/auth_controller.py   the 5 routes; translate JSON <-> DTO only
+  controllers/auth_controller.py   the 7 routes; register/resend also schedule
+                                   the verification email as a BackgroundTask
 
-src/main.py                        maps AuthenticationException -> 401 + WWW-Authenticate
+src/main.py                        DomainException type -> HTTP status (400/401/403/404/409)
 ```
 
 **Why the `Protocol` ports?** The use cases say "I need something that can
@@ -332,6 +379,13 @@ and a fake token service — no bcrypt, no PyJWT, no DB — see
 | `jwt_algorithm` | `JWT_ALGORITHM` | `HS256` | HMAC with a shared secret. |
 | `access_token_expire_minutes` | `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | |
 | `refresh_token_expire_days` | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | |
+| `verification_token_expire_hours` | `VERIFICATION_TOKEN_EXPIRE_HOURS` | `24` | |
+| `app_base_url` | `APP_BASE_URL` | `http://localhost:8000` | origin used to build the verification link |
+| `email_backend` | `EMAIL_BACKEND` | `console` | `console` logs the link; `smtp` sends it |
+| `email_from` | `EMAIL_FROM` | `no-reply@foodfen.local` | |
+| `smtp_host` / `smtp_port` | `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` | |
+| `smtp_username` / `smtp_password` | `SMTP_USERNAME` / `SMTP_PASSWORD` | empty | omit to skip AUTH |
+| `smtp_starttls` | `SMTP_STARTTLS` | `true` | |
 
 Generate a real secret:
 
@@ -355,34 +409,42 @@ With the database up (`docker compose up -d`) and migrations applied
 uv run uvicorn src.main:app --reload
 ```
 
-Then, in another shell:
+Keep `EMAIL_BACKEND=console` (the default) so the verification link is printed to
+the uvicorn log instead of emailed. Then, in another shell:
 
 ```bash
 BASE=http://127.0.0.1:8000
+CREDS='{"email":"me@example.com","password":"s3cret-pass"}'
 
-# 1. register -> receive a token pair
-REG=$(curl -s -X POST $BASE/auth/register -H 'Content-Type: application/json' \
-  -d '{"email":"me@example.com","password":"s3cret-pass","name":"Me"}')
-echo "$REG" | python -m json.tool
+# 1. register -> 201, no tokens; the link is now in the uvicorn log
+curl -s -X POST $BASE/auth/register -H 'Content-Type: application/json' \
+  -d '{"email":"me@example.com","password":"s3cret-pass","name":"Me"}'
 
-ACCESS=$(echo "$REG"  | python -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-REFRESH=$(echo "$REG" | python -c "import sys,json; print(json.load(sys.stdin)['refresh_token'])")
+# 2. login before verifying -> 403
+curl -s -o /dev/null -w 'login pre-verify: %{http_code}\n' \
+  -X POST $BASE/auth/login -H 'Content-Type: application/json' -d "$CREDS"
 
-# 2. call a protected endpoint
+# 3. copy the full verify-email URL from the log line, then:
+LINK='paste http://.../auth/verify-email?token=... here'
+curl -s "$LINK"                          # -> 200 "Email confirmed."
+
+# 4. login now works -> 200 + token pair
+TOKENS=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' -d "$CREDS")
+echo "$TOKENS" | python -m json.tool
+ACCESS=$(echo "$TOKENS"  | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+REFRESH=$(echo "$TOKENS" | python -c "import sys,json;print(json.load(sys.stdin)['refresh_token'])")
+
+# 5. protected endpoint, then no token -> 401
 curl -s $BASE/auth/me -H "Authorization: Bearer $ACCESS" | python -m json.tool
+curl -s -o /dev/null -w 'no token: %{http_code}\n' $BASE/auth/me
 
-# 3. no token -> 401
-curl -s -o /dev/null -w '%{http_code}\n' $BASE/auth/me
-
-# 4. refresh -> new pair; the old refresh token then dies
-curl -s -X POST $BASE/auth/refresh -H 'Content-Type: application/json' \
-  -d "{\"refresh_token\":\"$REFRESH\"}" | python -m json.tool
+# 6. refresh, then replay the old one -> 401
 curl -s -o /dev/null -w 'replay: %{http_code}\n' -X POST $BASE/auth/refresh \
   -H 'Content-Type: application/json' -d "{\"refresh_token\":\"$REFRESH\"}"
 
-# 5. log in again with the password
-curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"me@example.com","password":"s3cret-pass"}' | python -m json.tool
+# 7. resend (always 202) drops a fresh link in the log
+curl -s -o /dev/null -w 'resend: %{http_code}\n' -X POST $BASE/auth/resend-verification \
+  -H 'Content-Type: application/json' -d '{"email":"me@example.com"}'
 ```
 
 Interactive docs with a green **Authorize** button: `http://127.0.0.1:8000/docs`.
@@ -396,6 +458,8 @@ Interactive docs with a green **Authorize** button: `http://127.0.0.1:8000/docs`
 | Login does not equalise response time when the email is unknown | Network jitter dwarfs the bcrypt timing delta | If login timing becomes a measured concern — add a constant-time dummy verify |
 | Replaying a revoked refresh token just fails; it does not revoke the whole token family | MVP; theft detection is a larger feature | Add "on reuse of a revoked `jti`, revoke all of that user's tokens" |
 | Logout kills only the refresh token, not the paired access token | The access token lives at most 30 minutes | Add a short-lived denylist cache (Redis) keyed by the access token's id |
-| No email verification, password reset, or account lockout | Out of scope for the first auth slice | Each is its own slice, following the same pattern |
+| A verification email lost after the response (app crash before the background task ran) is never retried | The user can `POST /auth/resend-verification` | Move sending to a real task queue (arq / Celery) with retries |
+| Old verification tokens stay valid until they expire after a resend | 24 h window, low stakes — the link only confirms an address | Track a `jti` per verification token if single-use matters |
+| No password reset or account lockout | Out of scope for this slice | Each is its own slice, following the same pattern |
 
 These are marked with `ponytail:` comments at the relevant spots in the code.

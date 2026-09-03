@@ -46,6 +46,8 @@ class User:
     # Auth. Nullable: social-login accounts never set one, and the hashing
     # itself belongs to an infrastructure adapter, not the domain.
     password_hash: str | None = None
+    # None until the user confirms their address via the emailed link.
+    email_verified_at: datetime | None = None
 
     # Onboarding profile.
     gender: Gender | None = None
@@ -91,6 +93,15 @@ class User:
     @property
     def is_premium(self) -> bool:
         return self.subscription_tier is SubscriptionTier.PREMIUM
+
+    @property
+    def is_email_verified(self) -> bool:
+        return self.email_verified_at is not None
+
+    def verify_email(self, now: datetime) -> None:
+        """Mark the address confirmed. Idempotent — re-confirming keeps the first time."""
+        if self.email_verified_at is None:
+            self.email_verified_at = now
 
     @staticmethod
     def validate_password_strength(plain: str) -> None:

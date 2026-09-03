@@ -26,6 +26,20 @@ class RefreshInputDTO:
 
 
 @dataclass(frozen=True)
+class ResendVerificationInputDTO:
+    email: str
+
+
+@dataclass(frozen=True)
+class VerificationDispatchDTO:
+    """Everything the controller needs to send a verification email in the background."""
+
+    email: str
+    name: str
+    token: str
+
+
+@dataclass(frozen=True)
 class IssuedToken:
     """A freshly minted JWT and the moment it stops being valid."""
 

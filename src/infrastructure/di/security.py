@@ -43,6 +43,7 @@ def _token_service() -> JwtTokenService:
         algorithm=settings.jwt_algorithm,
         access_ttl=timedelta(minutes=settings.access_token_expire_minutes),
         refresh_ttl=timedelta(days=settings.refresh_token_expire_days),
+        verification_ttl=timedelta(hours=settings.verification_token_expire_hours),
     )
 
 

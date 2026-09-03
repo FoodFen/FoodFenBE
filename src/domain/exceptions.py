@@ -33,6 +33,10 @@ class AuthenticationException(DomainException):
     """Authentication failed. Maps to HTTP 401."""
 
 
+class EmailNotVerifiedException(DomainException):
+    """Credentials are valid but the account's email is not confirmed. Maps to HTTP 403."""
+
+
 class InvalidCredentialsException(AuthenticationException):
     """Email and password did not match an active account."""
 

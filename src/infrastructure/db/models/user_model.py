@@ -33,6 +33,9 @@ class UserORM(UUIDPrimaryKey, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     gender: Mapped[Gender | None] = mapped_column(enum_column(Gender, "gender"), nullable=True)
     birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -69,6 +72,7 @@ class UserORM(UUIDPrimaryKey, Base):
             is_active=self.is_active,
             created_at=self.created_at,
             password_hash=self.password_hash,
+            email_verified_at=self.email_verified_at,
             gender=self.gender,
             birth_year=self.birth_year,
             unit_system=self.unit_system,
@@ -90,6 +94,7 @@ class UserORM(UUIDPrimaryKey, Base):
             is_active=user.is_active,
             created_at=user.created_at,
             password_hash=user.password_hash,
+            email_verified_at=user.email_verified_at,
             gender=user.gender,
             birth_year=user.birth_year,
             unit_system=user.unit_system,
