@@ -20,18 +20,23 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
     verification_token_expire_hours: int = 24
+    # Shorter than verification: a leaked reset link is more damaging.
+    password_reset_token_expire_minutes: int = 60
 
-    # Public origin used to build links in emails (no trailing slash needed).
     app_base_url: str = "http://localhost:8000"
 
-    # Email: "console" logs the link (dev/test default); "smtp" actually sends.
-    email_backend: str = "console"
+    email_backend: str = "console"  # "console" logs the link; "smtp" actually sends
     email_from: str = "no-reply@foodfen.local"
     smtp_host: str = "localhost"
     smtp_port: int = 1025
     smtp_username: str = ""
     smtp_password: str = ""
     smtp_starttls: bool = True
+
+    # Comma-separated (an app usually has more than one client id). Empty
+    # fails that provider's sign-in closed rather than accepting any audience.
+    google_oauth_client_ids: str = ""
+    apple_client_ids: str = ""
 
 
 settings = Settings()

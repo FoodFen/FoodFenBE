@@ -1,7 +1,7 @@
 """Repository providers — one factory + one ``Annotated`` alias per table.
 
-Grows by ~4 lines per entity. Use cases receive these; slice-local ``*_deps``
-modules compose them into use-case providers.
+Grows by ~4 lines per entity. Use-case providers in ``use_cases.py`` compose
+these; nothing outside the ``di/`` package builds a repository directly.
 """
 
 from __future__ import annotations
@@ -11,9 +11,13 @@ from typing import Annotated
 from fastapi import Depends
 
 from src.application.ports.refresh_token_repository import RefreshTokenRepositoryProtocol
+from src.application.ports.social_identity_repository import SocialIdentityRepositoryProtocol
 from src.application.ports.user_repository import UserRepositoryProtocol
 from src.infrastructure.db.repositories.refresh_token_repository import (
     SQLAlchemyRefreshTokenRepository,
+)
+from src.infrastructure.db.repositories.social_identity_repository import (
+    SQLAlchemySocialIdentityRepository,
 )
 from src.infrastructure.db.repositories.user_repository import SQLAlchemyUserRepository
 from src.infrastructure.di.database import SessionDep
@@ -32,4 +36,13 @@ def get_refresh_token_repository(session: SessionDep) -> RefreshTokenRepositoryP
 
 RefreshTokenRepositoryDep = Annotated[
     RefreshTokenRepositoryProtocol, Depends(get_refresh_token_repository)
+]
+
+
+def get_social_identity_repository(session: SessionDep) -> SocialIdentityRepositoryProtocol:
+    return SQLAlchemySocialIdentityRepository(session)
+
+
+SocialIdentityRepositoryDep = Annotated[
+    SocialIdentityRepositoryProtocol, Depends(get_social_identity_repository)
 ]

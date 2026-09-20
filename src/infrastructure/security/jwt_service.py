@@ -13,6 +13,7 @@ from src.domain.exceptions import InvalidTokenException
 _ACCESS = "access"
 _REFRESH = "refresh"
 _VERIFICATION = "email_verification"
+_PASSWORD_RESET = "password_reset"
 
 
 class JwtTokenService:
@@ -23,39 +24,48 @@ class JwtTokenService:
         access_ttl: timedelta,
         refresh_ttl: timedelta,
         verification_ttl: timedelta,
+        password_reset_ttl: timedelta,
     ) -> None:
         self._secret = secret
         self._algorithm = algorithm
         self._access_ttl = access_ttl
         self._refresh_ttl = refresh_ttl
         self._verification_ttl = verification_ttl
+        self._password_reset_ttl = password_reset_ttl
 
-    def issue_access_token(self, user_id: UUID) -> IssuedToken:
+    def issue_access_token(self, user_id: int) -> IssuedToken:
         return self._issue(user_id, _ACCESS, self._access_ttl, {})
 
-    def issue_refresh_token(self, user_id: UUID, jti: UUID) -> IssuedToken:
+    def issue_refresh_token(self, user_id: int, jti: UUID) -> IssuedToken:
         return self._issue(user_id, _REFRESH, self._refresh_ttl, {"jti": str(jti)})
 
-    def issue_verification_token(self, user_id: UUID) -> IssuedToken:
+    def issue_verification_token(self, user_id: int) -> IssuedToken:
         return self._issue(user_id, _VERIFICATION, self._verification_ttl, {})
 
-    def read_access_token(self, token: str) -> UUID:
+    def issue_password_reset_token(self, user_id: int) -> IssuedToken:
+        return self._issue(user_id, _PASSWORD_RESET, self._password_reset_ttl, {})
+
+    def read_access_token(self, token: str) -> int:
         payload = self._decode(token, _ACCESS)
-        return UUID(payload["sub"])
+        return int(payload["sub"])
 
     def read_refresh_token(self, token: str) -> RefreshClaims:
         payload = self._decode(token, _REFRESH)
         try:
-            return RefreshClaims(user_id=UUID(payload["sub"]), jti=UUID(payload["jti"]))
+            return RefreshClaims(user_id=int(payload["sub"]), jti=UUID(payload["jti"]))
         except (KeyError, ValueError) as exc:
             raise InvalidTokenException("refresh token is missing claims") from exc
 
-    def read_verification_token(self, token: str) -> UUID:
+    def read_verification_token(self, token: str) -> int:
         payload = self._decode(token, _VERIFICATION)
-        return UUID(payload["sub"])
+        return int(payload["sub"])
+
+    def read_password_reset_token(self, token: str) -> int:
+        payload = self._decode(token, _PASSWORD_RESET)
+        return int(payload["sub"])
 
     def _issue(
-        self, user_id: UUID, token_type: str, ttl: timedelta, extra: dict[str, str]
+        self, user_id: int, token_type: str, ttl: timedelta, extra: dict[str, str]
     ) -> IssuedToken:
         now = datetime.now(UTC)
         expires_at = now + ttl

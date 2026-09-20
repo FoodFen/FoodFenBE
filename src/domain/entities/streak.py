@@ -13,7 +13,7 @@ from src.domain.validation import require_non_negative
 @dataclass
 class Streak:
     id: UUID
-    user_id: UUID
+    user_id: int
     current_streak: int = 0
     longest_streak: int = 0
     last_active_date: date | None = None
@@ -28,6 +28,6 @@ class Streak:
             )
 
     @classmethod
-    def create(cls, user_id: UUID) -> Streak:
+    def create(cls, user_id: int) -> Streak:
         """A fresh streak: nothing logged yet."""
         return cls(id=uuid4(), user_id=user_id)

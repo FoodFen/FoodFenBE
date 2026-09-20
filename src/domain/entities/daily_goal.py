@@ -18,7 +18,7 @@ class DailyGoal:
     """
 
     id: UUID
-    user_id: UUID
+    user_id: int
     target_kcal: int
     target_carbs_g: float
     target_protein_g: float
@@ -39,7 +39,7 @@ class DailyGoal:
     @classmethod
     def create(
         cls,
-        user_id: UUID,
+        user_id: int,
         target_kcal: int,
         target_carbs_g: float,
         target_protein_g: float,

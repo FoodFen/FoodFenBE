@@ -13,7 +13,7 @@ from src.domain.validation import require_non_negative, require_positive
 @dataclass
 class Quest:
     id: UUID
-    user_id: UUID
+    user_id: int
     quest_type: QuestType
     target: int
     reward_coins: int
@@ -36,7 +36,7 @@ class Quest:
     @classmethod
     def create(
         cls,
-        user_id: UUID,
+        user_id: int,
         quest_type: QuestType,
         target: int,
         reward_coins: int,

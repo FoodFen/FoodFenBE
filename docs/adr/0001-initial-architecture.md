@@ -49,9 +49,12 @@ DI container library — FastAPI's own dependency system is sufficient and alrea
 
 ### Domain exceptions mapped to HTTP centrally
 
-Application and domain raise `DomainException` subclasses. `src/main.py` holds one table mapping
-exception type → status code (400 / 404 / 409). Controllers never catch or translate. Adding an
-error class and its status is a one-line change in one place.
+Application and domain raise `DomainException` subclasses. `src/adapters/exception_handlers.py`
+holds one table mapping exception type → status code (400 / 401 / 404, plus 422 for Pydantic's own
+request-validation errors, reshaped to the same body), registered onto the app from `main.py`.
+Controllers never catch or translate. Adding an error class and its status is a one-line change in
+one place. The failure body shape (`{message, error, errors}`) follows the front-end API contract —
+see `docs/authentication.md`.
 
 ## Consequences
 

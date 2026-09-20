@@ -5,20 +5,28 @@ not built auth with FastAPI before. It covers **what was installed**, **the
 concepts**, **how our code is wired**, and **the exact request/response flow**
 for every endpoint.
 
+Endpoint names, field names (camelCase), and response shapes follow a
+front-end API contract — a real, already-implemented mobile client, not a
+design we chose ourselves. Where this doc and that contract would disagree,
+the contract wins; a few endpoints here (`verify-email`,
+`resend-verification`, `reset-password`) are extras it doesn't require.
+
 ---
 
-## 1. The two libraries we added
+## 1. The libraries we added
 
 | Package | Version | What it does | Why this one |
 |---|---|---|---|
 | **PyJWT** (`pyjwt`) | `>=2.9` | Encode / decode / verify JSON Web Tokens | The plain, well-maintained JWT library. No framework baggage. |
 | **bcrypt** | `>=4.2` | Hash and verify passwords | The password-hashing standard. We call it directly — no `passlib` wrapper, which is heavy and semi-abandoned. |
+| **python-multipart** | `>=0.0.12` | Parses form-encoded request bodies | Required by `OAuth2PasswordRequestForm` (§4.8) — Swagger's login form posts form data, not JSON. |
 
-Both are in `pyproject.toml` under `[project].dependencies`. Install with `uv sync`.
+All three are in `pyproject.toml` under `[project].dependencies`. Install with `uv sync`.
 
-Nothing else was needed. FastAPI ships the `HTTPBearer` helper and
+Nothing else was needed. FastAPI ships `OAuth2PasswordBearer` and
 `BackgroundTasks`; email goes out through the standard-library `smtplib` +
-`email.message`.
+`email.message`; camelCase JSON comes from Pydantic's own
+`alias_generators.to_camel`.
 
 ---
 
@@ -62,7 +70,7 @@ Our payload (`src/infrastructure/security/jwt_service.py`):
 
 ```json
 {
-  "sub":  "416bbbb9-dbd7-49a4-a7cc-78e3ae22a589",
+  "sub":  "1",
   "type": "access",
   "iat":  1788446042,
   "exp":  1788447842,
@@ -72,8 +80,8 @@ Our payload (`src/infrastructure/security/jwt_service.py`):
 
 | claim | meaning |
 |---|---|
-| `sub` | the user's UUID ("subject") |
-| `type` | `"access"` or `"refresh"` — stops one being used in place of the other |
+| `sub` | the user's id (a plain integer, as a string — JWT requires `sub` to be a string) |
+| `type` | `"access"`, `"refresh"`, `"email_verification"`, or `"password_reset"` — stops one being used in place of another |
 | `iat` | issued-at, unix seconds |
 | `exp` | expires-at — PyJWT refuses the token automatically once this passes |
 | `jti` | *refresh tokens only* — a unique id for this token, used for revocation |
@@ -103,8 +111,8 @@ Created by migration `0003_refresh_tokens.py`. One row per issued refresh token:
 
 | column | meaning |
 |---|---|
-| `id` | row primary key |
-| `user_id` | FK to `users`, `ON DELETE CASCADE` |
+| `id` | row primary key (UUID — see §4.0 on why `users` is the one table that differs) |
+| `user_id` | FK to `users`, `ON DELETE CASCADE` (an integer — see §4.0) |
 | `jti` | the `jti` claim from the JWT (unique) |
 | `expires_at` | a real timestamp copy of the JWT's `exp` |
 | `revoked_at` | `NULL` = still usable; a timestamp = killed |
@@ -119,9 +127,9 @@ Created by migration `0003_refresh_tokens.py`. One row per issued refresh token:
 
 This is an **allowlist**: the row must be present and alive. Consequences:
 
-- **Logout** = set `revoked_at = now` on the row. The JWT is now dead even though
+- **Sign-out** = set `revoked_at = now` on the row. The JWT is now dead even though
   its `exp` is weeks away.
-- **Rotation** (see 4.4) = on every refresh, revoke the row you just used and
+- **Rotation** (see §4.3) = on every refresh, revoke the row you just used and
   insert a new one. A refresh token is **single-use**.
 
 The access token is deliberately *not* in this table — it is stateless and simply
@@ -131,48 +139,86 @@ expires.
 
 ## 4. The endpoints and their exact flow
 
-Everything is under `/auth`, except the protected example `GET /users/{id}`.
+Everything is under `/auth`, except the extra `GET /users/{id}`. There is one
+more session-establishing endpoint not detailed here —
+`POST /auth/social` (Google/Apple sign-in) — because it's involved enough to
+get its own page: see [`social-sign-in.md`](./social-sign-in.md). It returns
+the identical `AuthSession` shape as sign-up/sign-in/refresh below.
 
-### 4.1 `POST /auth/register`
+### 4.0 Two contract quirks worth knowing up front
 
-The account is created **inactive**: no tokens come back, and login is blocked
-until the email is confirmed.
+- **`User.id` is a plain integer**, not a UUID — the front-end contract types it
+  as a number. `users` is the *only* table built that way (`IntPrimaryKey`
+  mixin, Postgres `SERIAL`/identity); every other table in the app keeps a UUID
+  PK. That means `User.id` doesn't exist until the row is actually inserted
+  (`User.create()` leaves it `None`) — unlike every other entity, which mints
+  its own UUID up front and never needs the database to tell it its id.
+- **The wire format is camelCase**: `accessToken`, `refreshToken`, `expiresAt`,
+  `displayName`, `weeklyRateKg`, etc. Python stays snake_case internally;
+  `src/adapters/schemas/base.py::CamelModel` (a Pydantic `alias_generator`)
+  translates both directions. `docs/authentication.md` below always shows the
+  wire (camelCase) shape.
+- **Failure bodies** are `{"message"?: str, "error"?: str, "errors"?: {field:
+  str}}` — never FastAPI's default `{"detail": ...}`. Every domain exception
+  and even Pydantic's own request-validation errors are reshaped to this by
+  `src/adapters/exception_handlers.py`.
+
+### 4.1 `POST /auth/sign-up` — no auth required
+
+Unlike a design where signup blocks until email verification, **this returns a
+live, usable session immediately** — the contract's client has no "please
+verify your email" screen, so there is nothing to block on.
 
 ```
 Request:
-  { "email": "u@example.com", "password": "s3cret-pass", "name": "U" }
+  { "email": "u@example.com", "password": "s3cret-pass", "displayName": "U" }
+  (displayName is optional)
 
-Response 201:
-  { "detail": "Account created. Check your email to confirm your address." }
+Response 200:
+  { "accessToken": "eyJ...", "refreshToken": "eyJ...", "expiresAt": 1788447842000,
+    "user": { "id": 1, "email": "u@example.com", "displayName": "U", "gender": null,
+              "birthYear": null, "unitSystem": "metric", "height": null,
+              "weightCurrent": null, "weightGoal": null, "activityLevel": null,
+              "dietType": null, "calorieCalcMode": "auto", "calorieLeftMode": null,
+              "subscriptionTier": "free", "weeklyRateKg": null,
+              "createdAt": "2026-09-19T11:49:13Z" } }
 ```
 
+`expiresAt` is **epoch milliseconds** (not seconds, not ISO) — the contract's
+type, and what `Date.now()` compares against directly.
+
 ```
-client            RegisterUserUseCase             bcrypt / PyJWT       DB
-  | email,pw,name -> |
-  |                  | User.validate_password_strength(pw)   (>= 8 chars, <= 72 bytes)
-  |                  | hash = bcrypt.hashpw(pw) --------> "$2b$12$..."
-  |                  | User.create(...)  -> email_verified_at = None
-  |                  | users.get_by_email()  --------------------------> SELECT
-  |                  |   (raise -> HTTP 409 if it already exists)
-  |                  | users.create(user)  ---------------------------> INSERT users
-  |                  | token = JWT(sub=id, type=email_verification, 24h)
-  |                  | return VerificationDispatchDTO(email, name, token)
-  | <-- 201 + msg ---|
+client                 RegisterUserUseCase                bcrypt / PyJWT       DB
+  | email,pw,name -->     |
+  |                       | User.validate_password_strength(pw)  (>= 8 chars, <= 72 bytes)
+  |                       | hash = bcrypt.hashpw(pw) --------> "$2b$12$..."
+  |                       | User.create(...) -> id=None, email_verified_at=None
+  |                       | users.get_by_email() ---------------------------> SELECT
+  |                       |   (raise -> HTTP 400, errors.email, if it exists)
+  |                       | users.create(user) ----------------------------> INSERT, id assigned
+  |                       | issue_session(user) — mints access+refresh, stores refresh row
+  |                       | ALSO: token = JWT(sub=id, type=email_verification, 24h)
+  |                       | return RegisterResultDTO(session, verification_token)
+  | <-- 200 + session ----|
         |
    controller schedules  background_tasks.add_task(notifier.send_verification, ...)
-        |                 (runs AFTER the response is sent)
+        |                 (runs AFTER the response is sent — a slow/down mail
+        |                  server can never block or fail sign-up)
    notifier -> SMTP: "click https://APP_BASE_URL/auth/verify-email?token=<jwt>"
 ```
 
-No refresh-token row is created here — that only happens at login, once the
-account is verified.
+A duplicate email is a **`400`** with a field-keyed body, not a generic error:
 
-### 4.2 `POST /auth/login`
+```json
+{ "message": "user with email 'u@example.com' already exists",
+  "errors": { "email": "user with email 'u@example.com' already exists" } }
+```
+
+### 4.2 `POST /auth/sign-in` — no auth required
 
 ```
-Request:      { "email": "u@example.com", "password": "s3cret-pass" }
-Response 200: { "access_token": "eyJ...", "refresh_token": "eyJ...",
-                "token_type": "bearer", "expires_in": 1799 }
+Request:  { "email": "u@example.com", "password": "s3cret-pass" }
+Response 200: the same session shape as sign-up
 ```
 
 ```
@@ -182,67 +228,26 @@ LoginUseCase:
      or user.password_hash is None
      or not bcrypt.checkpw(password, user.password_hash):
          raise InvalidCredentialsException        -> HTTP 401
-  if user.email_verified_at is None:
-         raise EmailNotVerifiedException          -> HTTP 403
   if not user.is_active:
          raise InvalidCredentialsException        -> HTTP 401
-  return issue_token_pair(user.id)  # mints the access + refresh pair, stores the refresh row
+  return issue_session(user)   # same helper sign-up and refresh use
 ```
 
-`expires_in` is the seconds until the **access** token expires (~1800), so a
-mobile app knows when to call `/auth/refresh`.
+**"no such user" and "wrong password" return the same 401 message** —
+deliberate, so a client can't use this endpoint to probe which emails have
+accounts. There is no email-verified check here at all: verification never
+gates anything.
 
-Two deliberate points:
-- **"no such user" and "wrong password" return the same 401 message** — stops an
-  attacker probing which emails have accounts.
-- **Unverified is a distinct `403`**, not a `401` — the password was right, so the
-  client can show a "resend confirmation email" screen instead of "check your
-  password".
-
-### 4.3 Email verification
-
-**`GET /auth/verify-email?token=<jwt>`** — the link from the email.
+### 4.3 `POST /auth/refresh` — no auth required — the rotation dance
 
 ```
-VerifyEmailUseCase:
-  user_id = read_verification_token(token)     # PyJWT sig + exp; type must be
-                                               # "email_verification"
-                                               # -> InvalidTokenException (401) otherwise
-  user = users.get_by_id(user_id)              # -> 404 if the account is gone
-  if user.is_email_verified:  return           # idempotent: clicking twice is fine
-  user.verify_email(now)                        # sets email_verified_at
-  users.update(user)  ------------------------> UPDATE users SET email_verified_at = now
-  -> 200 { "detail": "Email confirmed. You can now log in." }
-```
-
-It is a `GET` so the link works straight from a mail client. A link-scanning
-proxy that pre-fetches it would verify the address early — harmless here, since
-confirming the real owner's email is the whole goal.
-
-**`POST /auth/resend-verification`** — body `{ "email": "..." }`.
-
-```
-ResendVerificationUseCase:
-  user = users.get_by_email(email.lower())
-  if user is None or user.is_email_verified:
-      return None                               # nothing to do
-  return VerificationDispatchDTO(email, name, new_token)
-```
-
-The controller schedules a background send when the use case returns a dispatch,
-and **always answers `202` with the same message** — so the response never
-reveals whether an address is registered or already confirmed.
-
-### 4.4 `POST /auth/refresh` — the rotation dance
-
-```
-Request:      { "refresh_token": "eyJ...(the refresh JWT)" }
-Response 200: a BRAND NEW token pair
+Request:      { "refreshToken": "eyJ...(the refresh JWT)" }
+Response 200: a BRAND NEW session — tokens *and* the user, same as sign-in
 ```
 
 ```
 RefreshTokenUseCase:
-  claims = tokens.read_refresh_token(refresh_token)
+  claims = tokens.read_refresh_token(refreshToken)
       # PyJWT verifies signature + exp; we also check type == "refresh"
       # -> InvalidTokenException (401) if any of that fails
   row = refresh_tokens.get_by_jti(claims.jti)
@@ -250,22 +255,32 @@ RefreshTokenUseCase:
       raise InvalidTokenException                 -> HTTP 401
   row.revoke(now)                                 # the presented token is now spent
   refresh_tokens.revoke(row) ---------------------> UPDATE refresh_tokens SET revoked_at = now
-  return issue_token_pair(claims.user_id)         # inserts a NEW jti row
+  user = users.get_by_id(claims.user_id)          # -> 404 if the account is gone
+  return issue_session(user)                      # inserts a NEW jti row
 ```
 
-Because the old row is revoked, **replaying the same refresh token a second time
-returns 401**. The client must always use the newest refresh token it received.
+Because the old row is revoked, **replaying the same refresh token a second
+time returns 401**. The client must always use the newest refresh token it
+received. The contract requires the response to include the `user` even
+though a refresh is not a login — this is the same reason `issue_session` is
+shared by all three endpoints.
 
-### 4.5 `POST /auth/logout`
+### 4.4 `POST /auth/sign-out` — **requires** a valid access token
+
+Unlike sign-up/sign-in/refresh, sign-out is *not* in the contract's
+`skipAuth` list — a bearer token is required in addition to the refresh token
+in the body (route-level `dependencies=[Depends(get_current_user)]`, the
+resulting user isn't otherwise used).
 
 ```
-Request:      { "refresh_token": "eyJ..." }
-Response 204  (no body)
+Request:      Authorization: Bearer <access token>
+              { "refreshToken": "eyJ..." }
+Response 204  (no body — the contract says the client ignores it anyway)
 ```
 
 ```
 LogoutUseCase:
-  try:  claims = tokens.read_refresh_token(refresh_token)
+  try:  claims = tokens.read_refresh_token(refreshToken)
   except InvalidTokenException:  return           # already unusable -> nothing to do
   row = refresh_tokens.get_by_jti(claims.jti)
   if row and row.revoked_at is None:
@@ -273,16 +288,56 @@ LogoutUseCase:
       refresh_tokens.revoke(row) -----------------> UPDATE ... SET revoked_at = now
 ```
 
-Idempotent: calling it twice, or with a garbage token, still returns 204. After
-logout, `/auth/refresh` with that token returns 401.
+Idempotent: calling it twice, or with a garbage refresh token (as long as the
+access token is valid), still returns 204.
 
-> The **access token** issued alongside it still works until its 30-minute `exp`.
-> Killing the access token instantly too would need a denylist cache (e.g. Redis)
-> — not built here, listed under limitations.
+> The **access token** used to call this still works until its own 30-minute
+> `exp` — sign-out only kills the refresh token. Instantly killing the access
+> token too would need a denylist cache (e.g. Redis); not built here, see §8.
 
-### 4.6 Calling a protected endpoint
+### 4.5 `POST /auth/password-reset` — no auth required
 
-Every request to a protected route carries the access token in a header:
+```
+Request:  { "email": "u@example.com" }
+Response 202 (any 2xx; the contract says the client ignores the body)
+  { "message": "If that address has an account, a reset link is on its way." }
+```
+
+```
+RequestPasswordResetUseCase:
+  user = users.get_by_email(email.lower())
+  if user is None:
+      return None                                 # nothing to send
+  token = JWT(sub=user.id, type=password_reset, 1h)
+  return VerificationDispatchDTO(email, name, token)
+```
+
+**Always answers the same way regardless of whether the email is
+registered** — same enumeration-safe pattern as sign-up's duplicate-email
+check would otherwise leak, and as `resend-verification` below. The email (if
+sent) is scheduled as a `BackgroundTask`, same mechanism as sign-up's
+verification email.
+
+The contract only documents *requesting* a reset — there is no "confirm"
+endpoint in it (a reset is presumably meant to complete on a web page, not in
+the app). We still built one, since a request with no way to complete it does
+nothing:
+
+**`POST /auth/reset-password`** (extra, not in the contract) —
+`{ "token": "...", "newPassword": "..." }` → verifies the `password_reset`
+JWT, applies `User.validate_password_strength`, updates the hash. `200` on
+success, `401` on a bad/expired token.
+
+### 4.6 `GET /auth/me` — requires a valid access token
+
+```
+Response 200: the User object shown in §4.1, unwrapped (no session envelope)
+```
+
+Used to refresh the client's copy of the account's server-side profile
+without re-authenticating.
+
+### 4.7 Calling a protected endpoint
 
 ```
 GET /auth/me
@@ -291,9 +346,9 @@ Authorization: Bearer eyJ...(the access JWT)
 
 ```
 get_current_user   (src/infrastructure/di/security.py):
-  creds = HTTPBearer(auto_error=False)            # reads "Authorization: Bearer X"
-  if creds is None:            raise InvalidTokenException          -> 401
-  user_id = tokens.read_access_token(creds.credentials)
+  token = OAuth2PasswordBearer(tokenUrl="auth/token")   # reads "Authorization: Bearer X"
+  if token is None:            raise InvalidTokenException          -> 401
+  user_id = tokens.read_access_token(token)
       # PyJWT verifies signature + exp; we check type == "access"
       # -> InvalidTokenException (401) if bad / expired / wrong type
   user = users.get_by_id(user_id)
@@ -308,12 +363,36 @@ Any route can require login in one of two ways:
 @router.get("/me")
 async def me(current_user: CurrentUserDep) -> UserResponse: ...
 
-# the handler only needs "must be logged in":
-router = APIRouter(prefix="/users", dependencies=[Depends(get_current_user)])
+# the handler only needs "must be logged in" (e.g. sign-out):
+@router.post("/sign-out", dependencies=[Depends(get_current_user)])
+async def sign_out(...): ...
 ```
 
 A failed auth always returns **`401` plus the header `WWW-Authenticate: Bearer`**
 (the HTTP-standard way to say "this endpoint needs a bearer token").
+
+### 4.8 Logging in from Swagger UI (`/docs`)
+
+`get_current_user` depends on `OAuth2PasswordBearer`, not the plainer `HTTPBearer` —
+functionally identical (it still just reads `Authorization: Bearer <token>`), but
+it makes FastAPI declare an OAuth2 "password flow" security scheme in the OpenAPI
+document, and Swagger UI renders that as a real login form behind the
+**Authorize** button, instead of a bare "paste your token" field:
+
+```
+1. Click Authorize -> enter your email as "username" and your password
+2. Swagger POSTs (form-encoded) to tokenUrl = "auth/token"
+3. It stores the returned accessToken and attaches
+   "Authorization: Bearer <token>" to every "Try it out" call from then on
+```
+
+`POST /auth/token` exists only to be that form's target — it takes the
+`OAuth2PasswordRequestForm` shape the OAuth2 spec requires (`username`,
+`password`, form-encoded) rather than the JSON `{email, password}` of the real
+`POST /auth/sign-in`, and calls the identical `LoginUseCase`. It is marked
+`include_in_schema=False` so it doesn't appear as a second, confusing login
+endpoint in the docs. Needs the `python-multipart` package (anything parsing a
+form body does).
 
 ---
 
@@ -324,48 +403,67 @@ layers on purpose:
 
 ```
 src/domain/                        (pure Python, no libraries)
-  entities/user.py                 User.validate_password_strength()
+  entities/user.py                 id: int | None, email_verified_at, verify_email(now),
+                                   validate_password_strength()
   entities/refresh_token.py        RefreshToken: is_active(now), revoke(now)
+  entities/social_identity.py      SocialIdentity — links (provider, subject) -> user_id
   exceptions.py                    AuthenticationException
                                      |- InvalidCredentialsException  -> 401
                                      |- InvalidTokenException        -> 401
-                                   EmailNotVerifiedException          -> 403
                                    WeakPasswordException              -> 400
-  entities/user.py                 email_verified_at, verify_email(now)
 
 src/application/                   (orchestration, still no libraries)
-  dtos/auth.py                     RegisterInputDTO, LoginInputDTO, TokenPairDTO, ...
+  dtos/auth.py                     AuthSessionDTO, RegisterResultDTO, RefreshClaims, ...
+  dtos/user.py                     UserOutputDTO — mirrors the contract's User shape
   ports/password_hasher.py         PasswordHasherProtocol   (interface only)
   ports/token_service.py           TokenServiceProtocol     (interface only)
   ports/refresh_token_repository.py
+  ports/social_identity_repository.py    ports/social_identity_verifier.py
   ports/email_verification_notifier.py   EmailVerificationNotifierProtocol
-  use_cases/register_user.py       creates the user, returns a VerificationDispatchDTO
-  use_cases/verify_email.py        confirms the address from the token
-  use_cases/resend_verification.py
-  use_cases/login.py   logout.py   refresh_token.py   token_pair.py
+                                   (also carries send_password_reset)
+  use_cases/register_user.py       creates the user, returns RegisterResultDTO
+  use_cases/login.py               returns AuthSessionDTO directly — no gate
+  use_cases/refresh_token.py       also fetches the user (contract needs it in the response)
+  use_cases/logout.py
+  use_cases/verify_email.py        resend_verification.py     (extras)
+  use_cases/request_password_reset.py   reset_password.py     (extras)
+  use_cases/social_sign_in.py      resolve/create/link an account — see social-sign-in.md
+  use_cases/token_pair.py          issue_session() — shared by every session-issuing use case
 
 src/infrastructure/                (the real libraries live here)
   security/password_hasher.py      BcryptPasswordHasher   -> implements the port
   security/jwt_service.py          JwtTokenService (PyJWT) -> implements the port
+                                   4 token types: access, refresh, email_verification, password_reset
+  security/social_identity_verifier.py   JwtSocialIdentityVerifier — PyJWKClient, no new
+                                   heavyweight dependency (no google-auth)
+  db/mixins.py                     IntPrimaryKey (users only) vs UUIDPrimaryKey (everything else)
+  db/models/user_model.py          UserORM(IntPrimaryKey, Base)
   db/models/refresh_token_model.py RefreshTokenORM (SQLAlchemy) + to_/from_domain
+  db/models/social_identity_model.py     SocialIdentityORM
   db/repositories/refresh_token_repository.py
-  notifications/email_verification_notifier.py   Logging + Smtp notifiers
+  db/repositories/social_identity_repository.py
+  notifications/email_verification_notifier.py   Logging + Smtp notifiers (both emails)
   di/database.py  di/repositories.py  di/security.py  di/notifications.py
+  di/use_cases.py                  every get_*_use_case provider, one file, all slices
   config.py                        JWT + email settings
 
 src/adapters/                      (HTTP surface)
-  schemas/auth_schemas.py          Pydantic request / response models
-  controllers/auth_controller.py   the 7 routes; register/resend also schedule
-                                   the verification email as a BackgroundTask
+  schemas/base.py                  CamelModel — the camelCase <-> snake_case translation
+  schemas/auth_schemas.py          SignUpRequest, SignInRequest, AuthSessionResponse, ...
+  schemas/user_schemas.py          UserResponse.from_dto() — maps UserOutputDTO.name -> displayName
+  controllers/auth_controller.py   the contract's 7 routes + 3 extras + hidden /auth/token
+  exception_handlers.py            DomainException / RequestValidationError -> {message, errors}
 
-src/main.py                        DomainException type -> HTTP status (400/401/403/404/409)
+src/main.py                        app factory only: routers + lifespan + calls
+                                   register_exception_handlers(app)
 ```
 
 **Why the `Protocol` ports?** The use cases say "I need something that can
 `hash()` and `verify()`" without knowing it is bcrypt. Tests pass in a fake hasher
 and a fake token service — no bcrypt, no PyJWT, no DB — see
-`tests/unit/test_auth_use_cases.py`. The real classes are assembled only in the
-`di/` package and the slice `*_deps.py` modules.
+`tests/unit/test_auth_use_cases.py`. The real classes are assembled only in
+`di/use_cases.py`; controllers only ever import the resulting `Annotated` aliases
+from `src.infrastructure.di`.
 
 ---
 
@@ -380,7 +478,8 @@ and a fake token service — no bcrypt, no PyJWT, no DB — see
 | `access_token_expire_minutes` | `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | |
 | `refresh_token_expire_days` | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | |
 | `verification_token_expire_hours` | `VERIFICATION_TOKEN_EXPIRE_HOURS` | `24` | |
-| `app_base_url` | `APP_BASE_URL` | `http://localhost:8000` | origin used to build the verification link |
+| `password_reset_token_expire_minutes` | `PASSWORD_RESET_TOKEN_EXPIRE_MINUTES` | `60` | shorter than verification — a leaked reset link is more damaging |
+| `app_base_url` | `APP_BASE_URL` | `http://localhost:8000` | origin used to build links in emails |
 | `email_backend` | `EMAIL_BACKEND` | `console` | `console` logs the link; `smtp` sends it |
 | `email_from` | `EMAIL_FROM` | `no-reply@foodfen.local` | |
 | `smtp_host` / `smtp_port` | `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` | |
@@ -409,42 +508,41 @@ With the database up (`docker compose up -d`) and migrations applied
 uv run uvicorn src.main:app --reload
 ```
 
-Keep `EMAIL_BACKEND=console` (the default) so the verification link is printed to
-the uvicorn log instead of emailed. Then, in another shell:
+Keep `EMAIL_BACKEND=console` (the default) so links print to the uvicorn log
+instead of being emailed. Then, in another shell:
 
 ```bash
 BASE=http://127.0.0.1:8000
 CREDS='{"email":"me@example.com","password":"s3cret-pass"}'
 
-# 1. register -> 201, no tokens; the link is now in the uvicorn log
-curl -s -X POST $BASE/auth/register -H 'Content-Type: application/json' \
-  -d '{"email":"me@example.com","password":"s3cret-pass","name":"Me"}'
+# 1. sign-up -> 200, a full session already (no verification needed to use it)
+SESSION=$(curl -s -X POST $BASE/auth/sign-up -H 'Content-Type: application/json' \
+  -d '{"email":"me@example.com","password":"s3cret-pass","displayName":"Me"}')
+echo "$SESSION" | python -m json.tool
+ACCESS=$(echo "$SESSION"  | python -c "import sys,json;print(json.load(sys.stdin)['accessToken'])")
+REFRESH=$(echo "$SESSION" | python -c "import sys,json;print(json.load(sys.stdin)['refreshToken'])")
 
-# 2. login before verifying -> 403
-curl -s -o /dev/null -w 'login pre-verify: %{http_code}\n' \
-  -X POST $BASE/auth/login -H 'Content-Type: application/json' -d "$CREDS"
-
-# 3. copy the full verify-email URL from the log line, then:
-LINK='paste http://.../auth/verify-email?token=... here'
-curl -s "$LINK"                          # -> 200 "Email confirmed."
-
-# 4. login now works -> 200 + token pair
-TOKENS=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' -d "$CREDS")
-echo "$TOKENS" | python -m json.tool
-ACCESS=$(echo "$TOKENS"  | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
-REFRESH=$(echo "$TOKENS" | python -c "import sys,json;print(json.load(sys.stdin)['refresh_token'])")
-
-# 5. protected endpoint, then no token -> 401
+# 2. protected endpoint, then no token -> 401
 curl -s $BASE/auth/me -H "Authorization: Bearer $ACCESS" | python -m json.tool
 curl -s -o /dev/null -w 'no token: %{http_code}\n' $BASE/auth/me
 
-# 6. refresh, then replay the old one -> 401
-curl -s -o /dev/null -w 'replay: %{http_code}\n' -X POST $BASE/auth/refresh \
-  -H 'Content-Type: application/json' -d "{\"refresh_token\":\"$REFRESH\"}"
+# 3. sign-in works right away too (verification never gates it)
+curl -s -X POST $BASE/auth/sign-in -H 'Content-Type: application/json' -d "$CREDS" \
+  | python -m json.tool
 
-# 7. resend (always 202) drops a fresh link in the log
-curl -s -o /dev/null -w 'resend: %{http_code}\n' -X POST $BASE/auth/resend-verification \
-  -H 'Content-Type: application/json' -d '{"email":"me@example.com"}'
+# 4. refresh returns a new session (tokens + user); replaying the old token -> 401
+curl -s -X POST $BASE/auth/refresh -H 'Content-Type: application/json' \
+  -d "{\"refreshToken\":\"$REFRESH\"}" | python -m json.tool
+curl -s -o /dev/null -w 'replay: %{http_code}\n' -X POST $BASE/auth/refresh \
+  -H 'Content-Type: application/json' -d "{\"refreshToken\":\"$REFRESH\"}"
+
+# 5. sign-out needs the access token too, not just the refresh token
+curl -s -o /dev/null -w 'no auth: %{http_code}\n' -X POST $BASE/auth/sign-out \
+  -H 'Content-Type: application/json' -d "{\"refreshToken\":\"$REFRESH\"}"
+
+# 6. password-reset always 2xx, whether or not the email exists
+curl -s -o /dev/null -w 'reset: %{http_code}\n' -X POST $BASE/auth/password-reset \
+  -H 'Content-Type: application/json' -d '{"email":"ghost@example.com"}'
 ```
 
 Interactive docs with a green **Authorize** button: `http://127.0.0.1:8000/docs`.
@@ -457,9 +555,10 @@ Interactive docs with a green **Authorize** button: `http://127.0.0.1:8000/docs`
 |---|---|---|
 | Login does not equalise response time when the email is unknown | Network jitter dwarfs the bcrypt timing delta | If login timing becomes a measured concern — add a constant-time dummy verify |
 | Replaying a revoked refresh token just fails; it does not revoke the whole token family | MVP; theft detection is a larger feature | Add "on reuse of a revoked `jti`, revoke all of that user's tokens" |
-| Logout kills only the refresh token, not the paired access token | The access token lives at most 30 minutes | Add a short-lived denylist cache (Redis) keyed by the access token's id |
-| A verification email lost after the response (app crash before the background task ran) is never retried | The user can `POST /auth/resend-verification` | Move sending to a real task queue (arq / Celery) with retries |
-| Old verification tokens stay valid until they expire after a resend | 24 h window, low stakes — the link only confirms an address | Track a `jti` per verification token if single-use matters |
-| No password reset or account lockout | Out of scope for this slice | Each is its own slice, following the same pattern |
+| Sign-out kills only the refresh token, not the paired access token | The access token lives at most 30 minutes | Add a short-lived denylist cache (Redis) keyed by the access token's id |
+| A verification/reset email lost after the response (app crash before the background task ran) is never retried | The user can resend / re-request | Move sending to a real task queue (arq / Celery) with retries |
+| Old verification/reset tokens stay valid until they naturally expire, even after a resend | Short windows (24h / 1h), low stakes | Track a `jti` per token if single-use matters |
+| No account lockout after repeated failed logins | Out of scope for this slice | Its own slice, same pattern as everything else here |
+| Migration `0005` (UUID -> int user ids) truncates all user data | No production data existed yet | N/A — a one-time pre-launch migration, not a pattern to repeat |
 
 These are marked with `ponytail:` comments at the relevant spots in the code.

@@ -1,23 +1,25 @@
-"""Exchange a valid refresh token for a new token pair, rotating the old one."""
+"""Exchange a valid refresh token for a new session, rotating the old token."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from src.application.dtos.auth import RefreshInputDTO, TokenPairDTO
+from src.application.dtos.auth import AuthSessionDTO, RefreshInputDTO
 from src.application.ports.refresh_token_repository import RefreshTokenRepositoryProtocol
 from src.application.ports.token_service import TokenServiceProtocol
-from src.application.use_cases.token_pair import issue_token_pair
-from src.domain.exceptions import InvalidTokenException
+from src.application.ports.user_repository import UserRepositoryProtocol
+from src.application.use_cases.token_pair import issue_session
+from src.domain.exceptions import InvalidTokenException, UserNotFoundException
 
 
 @dataclass
 class RefreshTokenUseCase:
+    users: UserRepositoryProtocol
     refresh_tokens: RefreshTokenRepositoryProtocol
     tokens: TokenServiceProtocol
 
-    async def execute(self, data: RefreshInputDTO) -> TokenPairDTO:
+    async def execute(self, data: RefreshInputDTO) -> AuthSessionDTO:
         claims = self.tokens.read_refresh_token(data.refresh_token)
 
         stored = await self.refresh_tokens.get_by_jti(claims.jti)
@@ -29,4 +31,8 @@ class RefreshTokenUseCase:
         stored.revoke(now)
         await self.refresh_tokens.revoke(stored)
 
-        return await issue_token_pair(claims.user_id, self.tokens, self.refresh_tokens)
+        user = await self.users.get_by_id(claims.user_id)
+        if user is None:
+            raise UserNotFoundException(f"user {claims.user_id} not found")
+
+        return await issue_session(user, self.tokens, self.refresh_tokens)

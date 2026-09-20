@@ -7,7 +7,6 @@ Requires a reachable database. Override with TEST_DATABASE_URL; defaults to the
 from __future__ import annotations
 
 import os
-from uuid import uuid4
 
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -61,4 +60,4 @@ async def test_get_by_email(session):
 
 async def test_get_by_id_missing_returns_none(session):
     repo = SQLAlchemyUserRepository(session)
-    assert await repo.get_by_id(uuid4()) is None
+    assert await repo.get_by_id(999_999) is None

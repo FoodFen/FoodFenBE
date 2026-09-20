@@ -9,6 +9,7 @@ from src.infrastructure.db.models.daily_goal_model import DailyGoalORM
 from src.infrastructure.db.models.food_entry_model import FoodEntryORM, IngredientORM
 from src.infrastructure.db.models.quest_model import QuestORM
 from src.infrastructure.db.models.refresh_token_model import RefreshTokenORM
+from src.infrastructure.db.models.social_identity_model import SocialIdentityORM
 from src.infrastructure.db.models.streak_model import StreakORM
 from src.infrastructure.db.models.subscription_model import SubscriptionORM
 from src.infrastructure.db.models.user_model import UserORM
@@ -23,6 +24,7 @@ __all__ = [
     "IngredientORM",
     "QuestORM",
     "RefreshTokenORM",
+    "SocialIdentityORM",
     "StreakORM",
     "SubscriptionORM",
     "UserORM",

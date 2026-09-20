@@ -21,7 +21,7 @@ class FoodEntry:
     """
 
     id: UUID
-    user_id: UUID
+    user_id: int
     input_method: InputMethod
     total_kcal: int
     carbs_g: float
@@ -47,7 +47,7 @@ class FoodEntry:
     @classmethod
     def create(
         cls,
-        user_id: UUID,
+        user_id: int,
         input_method: InputMethod,
         total_kcal: int,
         carbs_g: float,

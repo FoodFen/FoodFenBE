@@ -13,7 +13,7 @@ from src.domain.validation import require_non_empty, require_non_negative
 @dataclass
 class ActivityLog:
     id: UUID
-    user_id: UUID
+    user_id: int
     activity_type: str
     calories_burned: int
     source: ActivitySource = ActivitySource.MANUAL
@@ -26,7 +26,7 @@ class ActivityLog:
     @classmethod
     def create(
         cls,
-        user_id: UUID,
+        user_id: int,
         activity_type: str,
         calories_burned: int,
         source: ActivitySource = ActivitySource.MANUAL,

@@ -6,26 +6,36 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 import src.infrastructure.db.models  # noqa: F401 — register every table on Base.metadata
+from src.application.dtos.auth import VerifiedIdentity
+from src.domain.exceptions import InvalidTokenException
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.session import engine
-from src.infrastructure.di import get_email_verification_notifier
+from src.infrastructure.di import get_email_verification_notifier, get_social_identity_verifier
 from src.main import app
 
-_CREDENTIALS = {"email": "user@example.com", "password": "s3cret-pass", "name": "User"}
+_CREDENTIALS = {"email": "user@example.com", "password": "s3cret-pass", "displayName": "User"}
 
 
 class RecordingNotifier:
-    """Captures the verification token instead of sending an email."""
+    """Captures tokens instead of sending an email."""
 
     def __init__(self) -> None:
         self.sent: list[dict[str, str]] = []
+        self.password_resets: list[dict[str, str]] = []
 
-    async def send_verification(self, email: str, name: str, token: str) -> None:
+    async def send_verification(self, email: str, name: str | None, token: str) -> None:
         self.sent.append({"email": email, "name": name, "token": token})
+
+    async def send_password_reset(self, email: str, name: str | None, token: str) -> None:
+        self.password_resets.append({"email": email, "name": name, "token": token})
 
     @property
     def last_token(self) -> str:
         return self.sent[-1]["token"]
+
+    @property
+    def last_reset_token(self) -> str:
+        return self.password_resets[-1]["token"]
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -46,28 +56,41 @@ def notifier():
     app.dependency_overrides.pop(get_email_verification_notifier, None)
 
 
+class FakeSocialVerifier:
+    """Maps a raw token string to a canned identity — no real Google/Apple call."""
+
+    def __init__(self) -> None:
+        self._identities: dict[str, VerifiedIdentity] = {}
+
+    def stub(self, token: str, identity: VerifiedIdentity) -> None:
+        self._identities[token] = identity
+
+    def verify(self, provider, id_token):
+        if id_token not in self._identities:
+            raise InvalidTokenException("invalid identity token")
+        return self._identities[id_token]
+
+
 @pytest_asyncio.fixture
-async def client(notifier):  # notifier override must be installed before requests
+def social_verifier():
+    fake = FakeSocialVerifier()
+    app.dependency_overrides[get_social_identity_verifier] = lambda: fake
+    yield fake
+    app.dependency_overrides.pop(get_social_identity_verifier, None)
+
+
+@pytest_asyncio.fixture
+async def client(notifier, social_verifier):  # overrides must be installed before requests
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
 
 
 @pytest_asyncio.fixture
-async def registered(client, notifier):
-    """A registered but NOT-yet-verified user."""
-    resp = await client.post("/auth/register", json=_CREDENTIALS)
-    assert resp.status_code == 201
-    return {**_CREDENTIALS, "verification_token": notifier.last_token}
-
-
-@pytest_asyncio.fixture
-async def verified(client, registered):
-    """A verified user plus a live access + refresh token pair."""
-    v = await client.get("/auth/verify-email", params={"token": registered["verification_token"]})
-    assert v.status_code == 200
-    login = await client.post(
-        "/auth/login", json={"email": _CREDENTIALS["email"], "password": _CREDENTIALS["password"]}
-    )
-    assert login.status_code == 200
-    return {**_CREDENTIALS, **login.json()}
+async def signed_up(client, notifier):
+    """A freshly signed-up user: sign-up returns a live session immediately —
+    no verification step required to use the app."""
+    resp = await client.post("/auth/sign-up", json=_CREDENTIALS)
+    assert resp.status_code == 200
+    body = resp.json()
+    return {**_CREDENTIALS, **body, "verificationToken": notifier.last_token}

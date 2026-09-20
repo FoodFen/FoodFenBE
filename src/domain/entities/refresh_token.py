@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 @dataclass
 class RefreshToken:
     id: UUID
-    user_id: UUID
+    user_id: int
     jti: UUID
     expires_at: datetime
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -30,5 +30,5 @@ class RefreshToken:
             self.revoked_at = now
 
     @classmethod
-    def issue(cls, user_id: UUID, jti: UUID, expires_at: datetime) -> RefreshToken:
+    def issue(cls, user_id: int, jti: UUID, expires_at: datetime) -> RefreshToken:
         return cls(id=uuid4(), user_id=user_id, jti=jti, expires_at=expires_at)

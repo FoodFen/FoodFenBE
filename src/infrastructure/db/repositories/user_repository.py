@@ -1,7 +1,5 @@
 """Concrete ``UserRepositoryProtocol`` implementation backed by async SQLAlchemy."""
 
-from uuid import UUID
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +12,7 @@ class SQLAlchemyUserRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def get_by_id(self, user_id: UUID) -> User | None:
+    async def get_by_id(self, user_id: int) -> User | None:
         row = await self._session.get(UserORM, user_id)
         return row.to_domain() if row is not None else None
 
