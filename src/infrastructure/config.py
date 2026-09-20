@@ -38,5 +38,9 @@ class Settings(BaseSettings):
     google_oauth_client_ids: str = ""
     apple_client_ids: str = ""
 
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-flash-latest"
+    chat_history_limit: int = 10
+
 
 settings = Settings()

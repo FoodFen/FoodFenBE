@@ -14,11 +14,13 @@ from typing import Annotated
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
+from src.application.ports.ai_chat_provider import AiChatProviderProtocol
 from src.application.ports.password_hasher import PasswordHasherProtocol
 from src.application.ports.social_identity_verifier import SocialIdentityVerifierProtocol
 from src.application.ports.token_service import TokenServiceProtocol
 from src.domain.entities.user import User
 from src.domain.exceptions import InvalidTokenException
+from src.infrastructure.ai.gemini_chat_provider import GeminiChatProvider
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import UserRepositoryDep
 from src.infrastructure.security.jwt_service import JwtTokenService
@@ -76,6 +78,18 @@ def get_social_identity_verifier() -> SocialIdentityVerifierProtocol:
 SocialIdentityVerifierDep = Annotated[
     SocialIdentityVerifierProtocol, Depends(get_social_identity_verifier)
 ]
+
+
+@lru_cache
+def _ai_chat_provider() -> GeminiChatProvider:
+    return GeminiChatProvider(api_key=settings.gemini_api_key, model=settings.gemini_model)
+
+
+def get_ai_chat_provider() -> AiChatProviderProtocol:
+    return _ai_chat_provider()
+
+
+AiChatProviderDep = Annotated[AiChatProviderProtocol, Depends(get_ai_chat_provider)]
 
 # Over plain HTTPBearer so Swagger's Authorize button gets a login form
 # (POSTs to tokenUrl) instead of a bare token field. auto_error=False: we

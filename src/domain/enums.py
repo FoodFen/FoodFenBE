@@ -15,6 +15,11 @@ class AuthProvider(StrEnum):
     APPLE = "apple"
 
 
+class ChatRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
 class Gender(StrEnum):
     MALE = "male"
     FEMALE = "female"

@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from sqlalchemy import text
 
 from src.adapters.controllers.auth_controller import router as auth_router
+from src.adapters.controllers.chat_controller import router as chat_router
 from src.adapters.controllers.user_controller import router as user_router
 from src.adapters.exception_handlers import register_exception_handlers
 from src.infrastructure.config import DEV_JWT_SECRET, settings
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="FoodFenBE", version="0.1.0", lifespan=lifespan)
     app.include_router(auth_router)
     app.include_router(user_router)
+    app.include_router(chat_router)
     register_exception_handlers(app)
     return app
 

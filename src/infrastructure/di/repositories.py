@@ -10,9 +10,13 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from src.application.ports.chat_message_repository import ChatMessageRepositoryProtocol
 from src.application.ports.refresh_token_repository import RefreshTokenRepositoryProtocol
 from src.application.ports.social_identity_repository import SocialIdentityRepositoryProtocol
 from src.application.ports.user_repository import UserRepositoryProtocol
+from src.infrastructure.db.repositories.chat_message_repository import (
+    SQLAlchemyChatMessageRepository,
+)
 from src.infrastructure.db.repositories.refresh_token_repository import (
     SQLAlchemyRefreshTokenRepository,
 )
@@ -45,4 +49,13 @@ def get_social_identity_repository(session: SessionDep) -> SocialIdentityReposit
 
 SocialIdentityRepositoryDep = Annotated[
     SocialIdentityRepositoryProtocol, Depends(get_social_identity_repository)
+]
+
+
+def get_chat_message_repository(session: SessionDep) -> ChatMessageRepositoryProtocol:
+    return SQLAlchemyChatMessageRepository(session)
+
+
+ChatMessageRepositoryDep = Annotated[
+    ChatMessageRepositoryProtocol, Depends(get_chat_message_repository)
 ]

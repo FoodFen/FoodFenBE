@@ -11,6 +11,7 @@ from typing import Annotated
 from fastapi import Depends
 
 from src.application.use_cases.get_user import GetUserUseCase
+from src.application.use_cases.list_chat_messages import ListChatMessagesUseCase
 from src.application.use_cases.login import LoginUseCase
 from src.application.use_cases.logout import LogoutUseCase
 from src.application.use_cases.refresh_token import RefreshTokenUseCase
@@ -18,14 +19,18 @@ from src.application.use_cases.register_user import RegisterUserUseCase
 from src.application.use_cases.request_password_reset import RequestPasswordResetUseCase
 from src.application.use_cases.resend_verification import ResendVerificationUseCase
 from src.application.use_cases.reset_password import ResetPasswordUseCase
+from src.application.use_cases.send_chat_message import SendChatMessageUseCase
 from src.application.use_cases.social_sign_in import SocialSignInUseCase
 from src.application.use_cases.verify_email import VerifyEmailUseCase
+from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
+    ChatMessageRepositoryDep,
     RefreshTokenRepositoryDep,
     SocialIdentityRepositoryDep,
     UserRepositoryDep,
 )
 from src.infrastructure.di.security import (
+    AiChatProviderDep,
     PasswordHasherDep,
     SocialIdentityVerifierDep,
     TokenServiceDep,
@@ -115,6 +120,22 @@ def get_social_sign_in_use_case(
     )
 
 
+def get_list_chat_messages_use_case(
+    chat_messages: ChatMessageRepositoryDep,
+) -> ListChatMessagesUseCase:
+    return ListChatMessagesUseCase(chat_messages=chat_messages)
+
+
+def get_send_chat_message_use_case(
+    chat_messages: ChatMessageRepositoryDep, provider: AiChatProviderDep
+) -> SendChatMessageUseCase:
+    return SendChatMessageUseCase(
+        chat_messages=chat_messages,
+        provider=provider,
+        history_limit=settings.chat_history_limit,
+    )
+
+
 RegisterUseCaseDep = Annotated[RegisterUserUseCase, Depends(get_register_use_case)]
 LoginUseCaseDep = Annotated[LoginUseCase, Depends(get_login_use_case)]
 RefreshUseCaseDep = Annotated[RefreshTokenUseCase, Depends(get_refresh_use_case)]
@@ -128,3 +149,9 @@ RequestPasswordResetUseCaseDep = Annotated[
 ]
 ResetPasswordUseCaseDep = Annotated[ResetPasswordUseCase, Depends(get_reset_password_use_case)]
 SocialSignInUseCaseDep = Annotated[SocialSignInUseCase, Depends(get_social_sign_in_use_case)]
+ListChatMessagesUseCaseDep = Annotated[
+    ListChatMessagesUseCase, Depends(get_list_chat_messages_use_case)
+]
+SendChatMessageUseCaseDep = Annotated[
+    SendChatMessageUseCase, Depends(get_send_chat_message_use_case)
+]

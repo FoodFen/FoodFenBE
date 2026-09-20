@@ -10,7 +10,11 @@ from src.application.dtos.auth import VerifiedIdentity
 from src.domain.exceptions import InvalidTokenException
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.session import engine
-from src.infrastructure.di import get_email_verification_notifier, get_social_identity_verifier
+from src.infrastructure.di import (
+    get_ai_chat_provider,
+    get_email_verification_notifier,
+    get_social_identity_verifier,
+)
 from src.main import app
 
 _CREDENTIALS = {"email": "user@example.com", "password": "s3cret-pass", "displayName": "User"}
@@ -79,8 +83,27 @@ def social_verifier():
     app.dependency_overrides.pop(get_social_identity_verifier, None)
 
 
+class FakeAiChatProvider:
+    """Yields a scripted reply instead of calling a real LLM."""
+
+    def __init__(self) -> None:
+        self.deltas = ["Hello", ", world!"]
+
+    async def stream_reply(self, history, user_message):
+        for delta in self.deltas:
+            yield delta
+
+
 @pytest_asyncio.fixture
-async def client(notifier, social_verifier):  # overrides must be installed before requests
+def ai_chat_provider():
+    fake = FakeAiChatProvider()
+    app.dependency_overrides[get_ai_chat_provider] = lambda: fake
+    yield fake
+    app.dependency_overrides.pop(get_ai_chat_provider, None)
+
+
+@pytest_asyncio.fixture
+async def client(notifier, social_verifier, ai_chat_provider):  # overrides before requests
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
