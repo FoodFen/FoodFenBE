@@ -20,7 +20,7 @@ class CoinTransaction:
     """
 
     id: UUID
-    user_id: UUID
+    user_id: int
     amount: int
     reason: CoinReason
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -30,7 +30,7 @@ class CoinTransaction:
             raise InvalidAttributeException("amount must not be zero")
 
     @classmethod
-    def create(cls, user_id: UUID, amount: int, reason: CoinReason) -> CoinTransaction:
+    def create(cls, user_id: int, amount: int, reason: CoinReason) -> CoinTransaction:
         return cls(
             id=uuid4(),
             user_id=user_id,

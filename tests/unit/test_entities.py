@@ -7,7 +7,7 @@ Postgres.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -26,6 +26,7 @@ from src.domain.entities.water_log import WaterLog
 from src.domain.entities.weight_log import WeightLog
 from src.domain.enums import (
     ActivitySource,
+    CalorieLeftMode,
     CoinReason,
     Gender,
     InputMethod,
@@ -46,7 +47,7 @@ from src.infrastructure.db.models.user_model import UserORM
 from src.infrastructure.db.models.water_log_model import WaterLogORM
 from src.infrastructure.db.models.weight_log_model import WeightLogORM
 
-USER_ID = uuid4()
+USER_ID = 1  # user_id FKs are int now; only Ingredient/RefreshToken.jti etc. stay UUID
 TODAY = date(2026, 9, 3)
 
 
@@ -59,6 +60,9 @@ def _full_user() -> User:
     user.weight_goal = 55.0
     user.subscription_tier = SubscriptionTier.PREMIUM
     user.password_hash = "argon2$fake"
+    user.calorie_left_mode = CalorieLeftMode.SMART
+    user.weekly_rate_kg = 0.5
+    user.verify_email(datetime(2026, 9, 1, tzinfo=UTC))
     return user
 
 
@@ -123,12 +127,12 @@ def test_food_entry_round_trip_keeps_ingredients():
 
 def test_user_rejects_implausible_birth_year():
     with pytest.raises(InvalidUserAttributeException):
-        User(id=uuid4(), email="a@b.co", name="A", birth_year=1723)
+        User(email="a@b.co", name="A", birth_year=1723)
 
 
 def test_user_rejects_non_positive_height():
     with pytest.raises(InvalidUserAttributeException):
-        User(id=uuid4(), email="a@b.co", name="A", height=0.0)
+        User(email="a@b.co", name="A", height=0.0)
 
 
 def test_ingredient_rejects_negative_macros():
@@ -182,3 +186,18 @@ def test_quest_is_achieved_at_target():
     assert not quest.is_achieved
     quest.progress = 3
     assert quest.is_achieved
+
+
+def test_user_allows_missing_display_name():
+    user = User(email="a@b.co", name=None)
+    assert user.name is None
+
+
+def test_user_blank_name_collapses_to_none():
+    user = User(email="a@b.co", name="   ")
+    assert user.name is None
+
+
+def test_user_rejects_negative_weekly_rate():
+    with pytest.raises(InvalidUserAttributeException):
+        User(email="a@b.co", name="A", weekly_rate_kg=-0.5)

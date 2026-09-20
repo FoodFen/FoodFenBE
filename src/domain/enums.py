@@ -10,6 +10,16 @@ from __future__ import annotations
 from enum import StrEnum
 
 
+class AuthProvider(StrEnum):
+    GOOGLE = "google"
+    APPLE = "apple"
+
+
+class ChatRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
 class Gender(StrEnum):
     MALE = "male"
     FEMALE = "female"
@@ -39,10 +49,13 @@ class DietType(StrEnum):
 
 
 class CalorieCalcMode(StrEnum):
-    """How the daily calorie target is derived."""
+    AUTO = "auto"  # from the profile, via Mifflin-St Jeor
+    MANUAL = "manual"
 
-    AUTO = "auto"  # computed from the profile (Mifflin-St Jeor)
-    MANUAL = "manual"  # user sets the number themselves
+
+class CalorieLeftMode(StrEnum):
+    SMART = "smart"
+    ALL_CALORIES = "all_calories"
 
 
 class SubscriptionTier(StrEnum):
@@ -60,8 +73,6 @@ class InputMethod(StrEnum):
 
 
 class AiFeedback(StrEnum):
-    """Thumbs up / down on an AI-estimated entry."""
-
     UP = "up"
     DOWN = "down"
 

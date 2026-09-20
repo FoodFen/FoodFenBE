@@ -44,21 +44,26 @@ infrastructure ─┘
 - ORM models (`db/models/`) are **separate classes** from domain entities, with `to_domain()` and
   `from_domain()` for explicit mapping. `Base` (the declarative metadata) lives in `db/base.py`.
 - Engine / session wiring in `db/session.py`. Settings in `config.py` (pydantic-settings).
-- `di.py` is the **composition root**: functions that build repositories and inject them into use
-  cases, consumed by controllers through FastAPI `Depends`.
-- `src/main.py` is the outermost shell: app factory, router registration, domain-exception → HTTP
-  status handlers, lifespan DB check.
+- `di/` is the **composition root**, and the only place that wires anything: `di/database.py`
+  (session), `di/repositories.py` (one factory + alias per table), `di/security.py` (hasher, token
+  service, `get_current_user`), `di/notifications.py` (outbound email), `di/use_cases.py` (every
+  `get_*_use_case` provider, for every slice — kept in one file rather than split per controller).
+  `di/__init__.py` re-exports all of it; controllers only ever `from src.infrastructure.di import ...`.
+- `src/adapters/exception_handlers.py` maps `DomainException` subclasses to HTTP status codes
+  (`EXCEPTION_STATUS`) and registers the handlers onto the app.
+- `src/main.py` is the outermost shell: app factory, router registration, calling
+  `register_exception_handlers`, lifespan DB check. It holds no policy of its own.
 
 ## Dependency inversion, concretely
 
 The use case depends on `UserRepositoryProtocol` (an abstraction it owns). `SQLAlchemyUserRepository`
 (infrastructure) depends on that same abstraction by implementing it. Neither the use case nor the
 domain knows SQLAlchemy exists. Swapping PostgreSQL for anything else touches only `infrastructure`
-and `di.py`. Tests swap in a hand-written in-memory class — no mocking library needed.
+and the `di/` package. Tests swap in a hand-written in-memory class — no mocking library needed.
 
 Exception flow: use case raises `UserAlreadyExistsException` → propagates untouched through the
-controller → handler in `main.py` maps the type to HTTP 409. Adding a new mapping is one tuple in
-`_EXCEPTION_STATUS`.
+controller → a handler registered by `src/adapters/exception_handlers.py` maps the type to HTTP 409.
+Adding a new mapping is one tuple in `EXCEPTION_STATUS` there.
 
 ## Current schema
 
@@ -68,8 +73,17 @@ The full CalSnap ERD is implemented at the two innermost persistence layers: a d
 `User`, `DailyGoal`, `FoodEntry`, `Ingredient`, `ActivityLog`, `WeightLog`, `WaterLog`, `Streak`,
 `Quest`, `CoinTransaction`, `Subscription`
 
-Everything above that — ports, use cases, repositories, controllers — exists only for `User`. So a
-new slice starts at step 2 below: the entity and table are already there.
+Full vertical slices exist for **auth** (`POST /auth/sign-up|sign-in|refresh|sign-out|social`,
+`POST /auth/password-reset`, `GET /auth/me` — endpoint names and shapes follow a front-end API
+contract, see `docs/authentication.md` and `docs/social-sign-in.md`) and for reading a `User` by id
+(`GET /users/{id}`, token-protected, not part of that contract). Auth added six application ports —
+`PasswordHasherProtocol`, `TokenServiceProtocol`, `RefreshTokenRepositoryProtocol`,
+`EmailVerificationNotifierProtocol`, `SocialIdentityVerifierProtocol`,
+`SocialIdentityRepositoryProtocol` — implemented in `src/infrastructure/security/`,
+`src/infrastructure/notifications/`, and `src/infrastructure/db/repositories/`. `User` is also the
+one table with an integer PK (see `docs/authentication.md`); every other entity — including
+`SocialIdentity` — has just its domain entity + ORM model with a UUID PK,
+so a new slice starts at step 2 below.
 
 `FoodEntry` is the one aggregate root with children; it owns its `Ingredient` list, and the ORM
 relationship is `lazy="selectin"` so `to_domain()` can read it under the async engine.
@@ -94,12 +108,15 @@ Work inside-out. Each step compiles and `make lint-imports` stays green.
    - `src/infrastructure/db/repositories/food_repository.py` — `SQLAlchemyFoodRepository`
      implementing the protocol.
    - `alembic revision -m "create foods table"` then hand-write / check the migration; `make migrate`.
-   - Add `get_food_repository`, `get_create_food_use_case`, `get_get_food_use_case` to `di.py`.
+   - Add `get_food_repository` + `FoodRepositoryDep` to `src/infrastructure/di/repositories.py`.
+   - Add `get_*_food_use_case` + their `Annotated` aliases to `src/infrastructure/di/use_cases.py`,
+     and re-export them from `src/infrastructure/di/__init__.py`.
 4. **Adapters**
    - `src/adapters/schemas/food_schemas.py` — `CreateFoodRequest`, `FoodResponse` (Pydantic v2).
-   - `src/adapters/controllers/food_controller.py` — `APIRouter(prefix="/foods")`, thin routes.
-   - Register the router in `src/main.py`; add exception mappings if new domain errors need distinct
-     status codes.
+   - `src/adapters/controllers/food_controller.py` — `APIRouter(prefix="/foods")`, thin routes,
+     importing its use-case deps from `src.infrastructure.di`.
+   - Register the router in `src/main.py`; add a tuple to `EXCEPTION_STATUS` in
+     `src/adapters/exception_handlers.py` if new domain errors need distinct status codes.
 5. **Tests**
    - `tests/unit/test_food_use_cases.py` — in-memory repo, no DB.
    - `tests/integration/test_food_repository.py` — real DB, schema per test.

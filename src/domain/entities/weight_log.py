@@ -12,7 +12,7 @@ from src.domain.validation import require_positive
 @dataclass
 class WeightLog:
     id: UUID
-    user_id: UUID
+    user_id: int
     weight: float
     recorded_at: date
 
@@ -20,7 +20,7 @@ class WeightLog:
         require_positive(self.weight, "weight")
 
     @classmethod
-    def create(cls, user_id: UUID, weight: float, recorded_at: date | None = None) -> WeightLog:
+    def create(cls, user_id: int, weight: float, recorded_at: date | None = None) -> WeightLog:
         return cls(
             id=uuid4(),
             user_id=user_id,

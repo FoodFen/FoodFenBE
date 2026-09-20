@@ -1,0 +1,197 @@
+"""End-to-end auth flow via httpx.AsyncClient against the real ASGI app + DB.
+
+Endpoint names/shapes follow the front-end API contract: sign-up, sign-in,
+refresh, sign-out, password-reset, all camelCase JSON. verify-email,
+resend-verification, and reset-password are extras beyond that contract.
+"""
+
+from __future__ import annotations
+
+_CREDS = {"email": "user@example.com", "password": "s3cret-pass"}
+
+
+def _auth(session: dict) -> dict:
+    return {"Authorization": f"Bearer {session['accessToken']}"}
+
+
+async def test_sign_up_returns_live_session_immediately(client, notifier):
+    resp = await client.post(
+        "/auth/sign-up",
+        json={"email": "New@Example.com", "password": "s3cret-pass", "displayName": "  New  "},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["accessToken"] and body["refreshToken"]
+    assert isinstance(body["expiresAt"], int) and body["expiresAt"] > 0
+    assert body["user"]["email"] == "new@example.com"
+    assert body["user"]["displayName"] == "New"
+    assert isinstance(body["user"]["id"], int)
+    # a verification email still went out, just doesn't gate anything
+    assert notifier.sent[-1]["email"] == "new@example.com"
+
+
+async def test_sign_up_without_display_name(client):
+    resp = await client.post(
+        "/auth/sign-up", json={"email": "noname@example.com", "password": "s3cret-pass"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["user"]["displayName"] is None
+
+
+async def test_sign_up_duplicate_email_is_validation_failure(client, signed_up):
+    resp = await client.post(
+        "/auth/sign-up",
+        json={"email": "user@example.com", "password": "another-pass"},
+    )
+    assert resp.status_code == 400
+    body = resp.json()
+    assert "email" in body["errors"]
+    assert body["message"]
+
+
+async def test_sign_up_short_password_is_422_with_errors_shape(client):
+    resp = await client.post(
+        "/auth/sign-up", json={"email": "weak@example.com", "password": "1234567"}
+    )
+    assert resp.status_code == 422
+    body = resp.json()
+    assert "message" in body
+    assert "errors" in body
+
+
+async def test_sign_in_ok_and_wrong_password(client, signed_up):
+    ok = await client.post("/auth/sign-in", json=_CREDS)
+    assert ok.status_code == 200
+    assert ok.json()["accessToken"]
+    assert ok.json()["user"]["id"] == signed_up["user"]["id"]
+
+    bad = await client.post(
+        "/auth/sign-in", json={"email": "user@example.com", "password": "nope-nope"}
+    )
+    assert bad.status_code == 401
+    assert bad.json()["message"]
+
+
+async def test_sign_in_unknown_user_is_401(client):
+    resp = await client.post(
+        "/auth/sign-in", json={"email": "ghost@example.com", "password": "whatever1"}
+    )
+    assert resp.status_code == 401
+
+
+async def test_me_requires_and_accepts_token(client, signed_up):
+    assert (await client.get("/auth/me")).status_code == 401
+
+    resp = await client.get("/auth/me", headers=_auth(signed_up))
+    assert resp.status_code == 200
+    assert resp.json()["email"] == "user@example.com"
+    assert resp.json()["id"] == signed_up["user"]["id"]
+
+
+async def test_me_rejects_refresh_token_as_access(client, signed_up):
+    resp = await client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {signed_up['refreshToken']}"}
+    )
+    assert resp.status_code == 401
+
+
+async def test_refresh_returns_full_session_and_rotates(client, signed_up):
+    first = signed_up["refreshToken"]
+
+    rotated = await client.post("/auth/refresh", json={"refreshToken": first})
+    assert rotated.status_code == 200
+    body = rotated.json()
+    assert body["refreshToken"] != first
+    assert body["user"]["id"] == signed_up["user"]["id"]  # AuthSession always carries the user
+
+    # old refresh token no longer works
+    replay = await client.post("/auth/refresh", json={"refreshToken": first})
+    assert replay.status_code == 401
+
+
+async def test_sign_out_requires_auth(client, signed_up):
+    # not in the skipAuth list: a bearer token is required even though the
+    # payload is just the refresh token.
+    no_auth = await client.post(
+        "/auth/sign-out", json={"refreshToken": signed_up["refreshToken"]}
+    )
+    assert no_auth.status_code == 401
+
+
+async def test_sign_out_then_refresh_401(client, signed_up):
+    rt = signed_up["refreshToken"]
+
+    out = await client.post(
+        "/auth/sign-out", json={"refreshToken": rt}, headers=_auth(signed_up)
+    )
+    assert out.status_code == 204
+
+    resp = await client.post("/auth/refresh", json={"refreshToken": rt})
+    assert resp.status_code == 401
+
+    # idempotent
+    again = await client.post(
+        "/auth/sign-out", json={"refreshToken": rt}, headers=_auth(signed_up)
+    )
+    assert again.status_code == 204
+
+
+async def test_password_reset_always_2xx_and_enumeration_safe(client, signed_up, notifier):
+    known = await client.post("/auth/password-reset", json={"email": "user@example.com"})
+    assert known.status_code == 202
+    assert notifier.password_resets[-1]["email"] == "user@example.com"
+
+    before = len(notifier.password_resets)
+    unknown = await client.post("/auth/password-reset", json={"email": "ghost@example.com"})
+    assert unknown.status_code == 202
+    assert unknown.json() == known.json()  # identical body either way
+    assert len(notifier.password_resets) == before  # nothing queued for the unknown address
+
+
+async def test_reset_password_then_sign_in_with_new_password(client, signed_up, notifier):
+    await client.post("/auth/password-reset", json={"email": "user@example.com"})
+    token = notifier.last_reset_token
+
+    resp = await client.post(
+        "/auth/reset-password", json={"token": token, "newPassword": "newpassword1"}
+    )
+    assert resp.status_code == 200
+
+    old = await client.post("/auth/sign-in", json=_CREDS)
+    assert old.status_code == 401
+
+    new = await client.post(
+        "/auth/sign-in", json={"email": "user@example.com", "password": "newpassword1"}
+    )
+    assert new.status_code == 200
+
+
+# --- extras: not part of the front-end contract -----------------------------
+
+
+async def test_verify_email_then_idempotent(client, signed_up):
+    token = signed_up["verificationToken"]
+    first = await client.get("/auth/verify-email", params={"token": token})
+    assert first.status_code == 200
+    second = await client.get("/auth/verify-email", params={"token": token})
+    assert second.status_code == 200
+
+
+async def test_verify_email_bad_token_is_401(client):
+    resp = await client.get("/auth/verify-email", params={"token": "not-a-jwt"})
+    assert resp.status_code == 401
+
+
+async def test_resend_verification_always_202(client, signed_up, notifier):
+    before = len(notifier.sent)
+    resp = await client.post(
+        "/auth/resend-verification", json={"email": "user@example.com"}
+    )
+    assert resp.status_code == 202
+    assert len(notifier.sent) == before + 1
+
+    unknown = await client.post(
+        "/auth/resend-verification", json={"email": "ghost@example.com"}
+    )
+    assert unknown.status_code == 202
+    assert len(notifier.sent) == before + 1

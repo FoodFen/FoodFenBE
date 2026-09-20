@@ -21,7 +21,7 @@ class Subscription:
     """
 
     id: UUID
-    user_id: UUID
+    user_id: int
     plan_type: PlanType
     status: SubscriptionStatus
     start_date: date
@@ -47,7 +47,7 @@ class Subscription:
     @classmethod
     def create(
         cls,
-        user_id: UUID,
+        user_id: int,
         plan_type: PlanType,
         start_date: date,
         end_date: date,
