@@ -82,7 +82,11 @@ SocialIdentityVerifierDep = Annotated[
 
 @lru_cache
 def _ai_chat_provider() -> GeminiChatProvider:
-    return GeminiChatProvider(api_key=settings.gemini_api_key, model=settings.gemini_model)
+    return GeminiChatProvider(
+        api_key=settings.gemini_api_key,
+        model=settings.gemini_model,
+        system_prompt=settings.gemini_system_prompt,
+    )
 
 
 def get_ai_chat_provider() -> AiChatProviderProtocol:
