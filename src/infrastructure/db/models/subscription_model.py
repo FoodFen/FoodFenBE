@@ -25,7 +25,8 @@ class SubscriptionORM(UUIDPrimaryKey, UserOwned, Base):
         enum_column(SubscriptionStatus, "subscription_status"), nullable=False
     )
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
-    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # None: an auto-renewing plan with no fixed end.
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     # NUMERIC, not float: money must round-trip exactly.
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 

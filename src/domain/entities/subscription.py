@@ -25,7 +25,8 @@ class Subscription:
     plan_type: PlanType
     status: SubscriptionStatus
     start_date: date
-    end_date: date
+    # None means an auto-renewing plan with no fixed end.
+    end_date: date | None
     price: Decimal
 
     def __post_init__(self) -> None:
@@ -34,7 +35,8 @@ class Subscription:
             # a float here would bake in the very rounding error we are avoiding.
             self.price = Decimal(str(self.price))
         require_non_negative(self.price, "price")
-        require_not_before(self.end_date, self.start_date, "end_date", "start_date")
+        if self.end_date is not None:
+            require_not_before(self.end_date, self.start_date, "end_date", "start_date")
 
     @property
     def is_active_on(self) -> bool:
@@ -42,7 +44,9 @@ class Subscription:
 
     def covers(self, day: date) -> bool:
         """Whether this subscription grants Premium access on ``day``."""
-        return self.is_active_on and self.start_date <= day <= self.end_date
+        if not self.is_active_on or day < self.start_date:
+            return False
+        return self.end_date is None or day <= self.end_date
 
     @classmethod
     def create(
@@ -50,7 +54,7 @@ class Subscription:
         user_id: int,
         plan_type: PlanType,
         start_date: date,
-        end_date: date,
+        end_date: date | None,
         price: Decimal | int | str,
         status: SubscriptionStatus = SubscriptionStatus.ACTIVE,
     ) -> Subscription:
