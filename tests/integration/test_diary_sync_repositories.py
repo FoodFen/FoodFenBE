@@ -89,6 +89,23 @@ async def test_daily_goal_repository_lists_only_the_users_goals(session):
     assert result[0].target_kcal == 2000
 
 
+async def test_daily_goal_repository_create_is_idempotent_on_client_id(session):
+    user_a, _ = await _make_two_users(session)
+    repo = SQLAlchemyDailyGoalRepository(session)
+
+    first = await repo.create(
+        DailyGoal.create(user_a.id, 2000, 200.0, 150.0, 60.0, 2500, date(2026, 1, 1), client_id="dup")
+    )
+    await session.commit()
+    second = await repo.create(
+        DailyGoal.create(user_a.id, 1800, 180.0, 120.0, 50.0, 2000, date(2026, 1, 1), client_id="dup")
+    )
+    await session.commit()
+
+    assert second.id == first.id
+    assert second.target_kcal == 2000  # unchanged: the retry was ignored
+
+
 async def test_food_entry_repository_list_by_date_range_is_inclusive_and_scoped(session):
     user_a, user_b = await _make_two_users(session)
     repo = SQLAlchemyFoodEntryRepository(session)

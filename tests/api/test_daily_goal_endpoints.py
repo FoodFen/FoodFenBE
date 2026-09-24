@@ -56,3 +56,33 @@ async def test_returns_the_seeded_goal_with_camel_case_shape(client, signed_up):
     assert goal["userId"] == user_id
     assert goal["targetKcal"] == 2000
     assert goal["effectiveDate"] == "2026-01-01"
+
+
+_CREATE_BODY = {
+    "targetKcal": 2000,
+    "targetCarbsG": 200.0,
+    "targetProteinG": 150.0,
+    "targetFatG": 60.0,
+    "targetWaterMl": 2500,
+    "effectiveDate": "2026-01-01",
+    "clientId": "goal_1",
+}
+
+
+async def test_post_creates_a_goal(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    resp = await client.post("/daily-goals", json=_CREATE_BODY, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["targetKcal"] == 2000
+
+
+async def test_post_with_repeated_client_id_returns_the_same_goal(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    first = (await client.post("/daily-goals", json=_CREATE_BODY, headers=headers)).json()
+    second = (await client.post("/daily-goals", json=_CREATE_BODY, headers=headers)).json()
+    assert first["id"] == second["id"]
+
+
+async def test_create_requires_auth(client):
+    resp = await client.post("/daily-goals", json=_CREATE_BODY)
+    assert resp.status_code == 401

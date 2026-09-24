@@ -8,4 +8,6 @@ from src.domain.entities.daily_goal import DailyGoal
 
 
 class DailyGoalRepositoryProtocol(Protocol):
+    async def create(self, goal: DailyGoal) -> DailyGoal: ...
+
     async def list_by_user(self, user_id: int) -> list[DailyGoal]: ...

@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
+from pydantic import Field
+
 from src.adapters.schemas.base import CamelModel
 from src.application.dtos.daily_goal import DailyGoalOutputDTO
 
@@ -31,3 +33,13 @@ class DailyGoalResponse(CamelModel):
             target_water_ml=dto.target_water_ml,
             effective_date=dto.effective_date,
         )
+
+
+class CreateDailyGoalRequest(CamelModel):
+    target_kcal: int
+    target_carbs_g: float
+    target_protein_g: float
+    target_fat_g: float
+    target_water_ml: int
+    effective_date: date
+    client_id: str = Field(min_length=1)

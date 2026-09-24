@@ -15,6 +15,7 @@ from src.application.use_cases.analyze_food_text import AnalyzeFoodTextUseCase
 from src.application.use_cases.cancel_payment import CancelPaymentUseCase
 from src.application.use_cases.create_activity_log import CreateActivityLogUseCase
 from src.application.use_cases.create_checkout import CreateCheckoutUseCase
+from src.application.use_cases.create_daily_goal import CreateDailyGoalUseCase
 from src.application.use_cases.create_food_entry import CreateFoodEntryUseCase
 from src.application.use_cases.delete_food_entry import DeleteFoodEntryUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
@@ -294,6 +295,17 @@ UpdateFoodEntryUseCaseDep = Annotated[
 ]
 DeleteFoodEntryUseCaseDep = Annotated[
     DeleteFoodEntryUseCase, Depends(get_delete_food_entry_use_case)
+]
+
+
+def get_create_daily_goal_use_case(
+    daily_goals: DailyGoalRepositoryDep,
+) -> CreateDailyGoalUseCase:
+    return CreateDailyGoalUseCase(daily_goals=daily_goals)
+
+
+CreateDailyGoalUseCaseDep = Annotated[
+    CreateDailyGoalUseCase, Depends(get_create_daily_goal_use_case)
 ]
 
 

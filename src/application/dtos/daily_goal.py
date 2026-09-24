@@ -32,3 +32,15 @@ class DailyGoalOutputDTO:
             target_water_ml=goal.target_water_ml,
             effective_date=goal.effective_date,
         )
+
+
+@dataclass(frozen=True)
+class CreateDailyGoalInputDTO:
+    user_id: int
+    target_kcal: int
+    target_carbs_g: float
+    target_protein_g: float
+    target_fat_g: float
+    target_water_ml: int
+    effective_date: date
+    client_id: str
