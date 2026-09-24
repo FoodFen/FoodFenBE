@@ -172,21 +172,32 @@ async def get_current_user(
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 
-async def get_current_premium_user(
+async def get_premium_status(
     user: CurrentUserDep,
     subscriptions: SubscriptionRepositoryDep,
     users: UserRepositoryDep,
-) -> User:
+) -> bool:
+    """Whether ``user`` is entitled to Premium right now — reconciling a lapsed
+    subscription first. There is no cron (manual-renewal model), so this is the
+    only place expiry is enforced. Used both by the hard gate below and by
+    features that only soft-degrade (e.g. dropping a Premium-only field)
+    instead of denying the whole request.
+    """
     subscription = await subscriptions.get_by_user_id(user.id)
     if user.is_premium and subscription is not None and not subscription.covers(date.today()):
-        # Lapsed since the last check-in — there is no cron, so this is the
-        # only place expiry is enforced (manual-renewal model).
         subscription.status = SubscriptionStatus.EXPIRED
         await subscriptions.save(subscription)
         user.subscription_tier = SubscriptionTier.FREE
-        user = await users.update(user)
+        await users.update(user)
+        return False
+    return user.is_premium
 
-    if not user.is_premium:
+
+PremiumStatusDep = Annotated[bool, Depends(get_premium_status)]
+
+
+async def get_current_premium_user(user: CurrentUserDep, is_premium: PremiumStatusDep) -> User:
+    if not is_premium:
         raise PremiumRequiredException("an active Premium subscription is required")
     return user
 
