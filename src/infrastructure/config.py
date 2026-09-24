@@ -51,6 +51,37 @@ FORMAT
   (e.g. "~250 kcal, 8g protein") rather than clinical precision.
 """
 
+# Extraction prompt for AI food capture (analyze-image / analyze-text). Override
+# via GEMINI_FOOD_ANALYSIS_PROMPT without a code change.
+DEFAULT_GEMINI_FOOD_ANALYSIS_PROMPT = """\
+You extract a structured ingredient breakdown from a photo of a meal, or from a
+one-sentence description of one. You are not a chat assistant — respond only
+with the requested JSON, no commentary.
+
+For each distinct food item you can identify, estimate:
+- name: a short, human-readable label (e.g. "grilled chicken breast").
+- quantity_g: your best-guess portion size in grams for what's actually shown
+  or described — not a generic 100 g reference amount.
+- kcal, carbs_g, protein_g, fat_g: scaled to that estimated quantity_g, not
+  to 100 g.
+- fiber_g: your best estimate scaled to quantity_g. Omit it (leave null) only
+  when you have no reasonable basis to estimate it at all — do not use 0 as
+  a stand-in for "unsure"; use 0 only when you are confident the item has
+  essentially no fiber.
+- confidence: 0 to 1, your own certainty in that row's numbers. Low for a
+  rough guess (e.g. a vague or unclear description/photo), high when the
+  food and portion are clearly identifiable. This is shown to the user to
+  flag uncertain rows — it is not stored, so err toward being genuinely
+  calibrated rather than uniformly high or low.
+
+Also provide meal_name: a short, natural name for the overall meal (e.g.
+"Grilled chicken with rice").
+
+If you cannot identify any food at all (blank/unrelated image, empty or
+nonsensical description), return meal_name as an empty string and an empty
+ingredients list — do not guess or fabricate items, and do not treat this as
+an error."""
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -85,6 +116,21 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-flash-latest"
     gemini_system_prompt: str = DEFAULT_GEMINI_SYSTEM_PROMPT
     chat_history_limit: int = 10
+    gemini_food_analysis_prompt: str = DEFAULT_GEMINI_FOOD_ANALYSIS_PROMPT
+
+    # "cloudinary://<api_key>:<api_secret>@<cloud_name>" — the SDK's own URL shape.
+    cloudinary_url: str = ""
+
+    # PayOS (payos.vn) — VietQR / bank-transfer checkout for Premium purchases.
+    # No default: empty must fail closed, same as the OAuth client ids.
+    payos_client_id: str = ""
+    payos_api_key: str = ""
+    payos_checksum_key: str = ""
+    # Frontend/deep-link URLs the user is redirected to after paying — not backend routes.
+    payos_return_url: str = ""
+    payos_cancel_url: str = ""
+    payos_monthly_price_vnd: int = 49_000
+    payos_annual_price_vnd: int = 499_000
 
 
 settings = Settings()
