@@ -44,6 +44,7 @@ def _input_dto(fiber_g=None, ingredient_fiber_g=None, meal_type=MealType.LUNCH) 
         protein_g=45.0,
         fat_g=15.0,
         meal_type=meal_type,
+        client_id="entry_1",
         image_url=None,
         fiber_g=fiber_g,
         ingredients=[
@@ -100,6 +101,7 @@ async def test_submitted_logged_on_is_stored_exactly_not_derived_from_logged_at(
         protein_g=5.0,
         fat_g=5.0,
         meal_type=MealType.SNACK,
+        client_id="entry_1",
         logged_on=explicit_day,
     )
     result = await use_case.execute(input_dto)

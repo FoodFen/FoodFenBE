@@ -30,6 +30,7 @@ class CreateFoodEntryRequest(CamelModel):
     protein_g: float
     fat_g: float
     meal_type: MealType
+    client_id: str = Field(min_length=1)
     image_url: str | None = None
     fiber_g: float | None = None
     ingredients: list[CreateIngredientRequest] = Field(default_factory=list)

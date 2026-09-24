@@ -15,6 +15,7 @@ _BODY = {
     "fatG": 15.0,
     "fiberG": 8.0,
     "mealType": "lunch",
+    "clientId": "entry_1",
     "ingredients": [
         {
             "name": "chicken breast",
@@ -105,6 +106,24 @@ async def test_list_returns_entries_in_the_requested_range(client, signed_up):
     assert body[0]["mealType"] == "lunch"
     assert body[0]["userId"] == signed_up["user"]["id"]
     assert body[0]["ingredients"][0]["foodEntryId"] == created["id"]
+
+
+async def test_posting_the_same_client_id_twice_returns_the_same_entry(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    first = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+    second = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+
+    assert first["id"] == second["id"]
+
+
+async def test_create_requires_client_id(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    body = {k: v for k, v in _BODY.items() if k != "clientId"}
+
+    resp = await client.post("/food-entries", json=body, headers=headers)
+
+    assert resp.status_code == 422
 
 
 async def test_list_excludes_entries_outside_the_range(client, signed_up):

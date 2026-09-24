@@ -32,6 +32,7 @@ class FoodEntry:
     protein_g: float
     fat_g: float
     meal_type: MealType
+    client_id: str
     image_url: str | None = None
     fiber_g: float | None = None
     ai_feedback: AiFeedback | None = None
@@ -50,6 +51,7 @@ class FoodEntry:
             require_non_negative(value, label)
         if self.fiber_g is not None:
             require_non_negative(self.fiber_g, "fiber_g")
+        self.client_id = require_non_empty(self.client_id, "client_id")
 
     @classmethod
     def create(
@@ -62,6 +64,8 @@ class FoodEntry:
         protein_g: float,
         fat_g: float,
         meal_type: MealType,
+        *,
+        client_id: str,
         image_url: str | None = None,
         fiber_g: float | None = None,
         ingredients: list[Ingredient] | None = None,
@@ -78,6 +82,7 @@ class FoodEntry:
             protein_g=protein_g,
             fat_g=fat_g,
             meal_type=meal_type,
+            client_id=client_id,
             image_url=image_url,
             fiber_g=fiber_g,
             logged_at=logged_at,

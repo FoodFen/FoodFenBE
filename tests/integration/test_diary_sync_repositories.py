@@ -72,10 +72,10 @@ async def test_daily_goal_repository_lists_only_the_users_goals(session):
     from src.infrastructure.db.models.daily_goal_model import DailyGoalORM as _DailyGoalORM
 
     session.add(_DailyGoalORM.from_domain(
-        DailyGoal.create(user_a.id, 2000, 200.0, 150.0, 60.0, 2500, date(2026, 1, 1))
+        DailyGoal.create(user_a.id, 2000, 200.0, 150.0, 60.0, 2500, date(2026, 1, 1), client_id="goal_1")
     ))
     session.add(_DailyGoalORM.from_domain(
-        DailyGoal.create(user_b.id, 1800, 180.0, 120.0, 50.0, 2000, date(2026, 1, 1))
+        DailyGoal.create(user_b.id, 1800, 180.0, 120.0, 50.0, 2000, date(2026, 1, 1), client_id="goal_1")
     ))
     await session.flush()
     await session.commit()
@@ -90,7 +90,7 @@ async def test_food_entry_repository_list_by_date_range_is_inclusive_and_scoped(
     user_a, user_b = await _make_two_users(session)
     repo = SQLAlchemyFoodEntryRepository(session)
 
-    def _entry(user_id: int, logged_on: date) -> FoodEntry:
+    def _entry(user_id: int, logged_on: date, client_id: str) -> FoodEntry:
         return FoodEntry.create(
             user_id=user_id,
             name="Meal",
@@ -100,13 +100,14 @@ async def test_food_entry_repository_list_by_date_range_is_inclusive_and_scoped(
             protein_g=30.0,
             fat_g=10.0,
             meal_type=MealType.LUNCH,
+            client_id=client_id,
             logged_on=logged_on,
         )
 
-    await repo.create(_entry(user_a.id, date(2026, 1, 1)))  # lower boundary
-    await repo.create(_entry(user_a.id, date(2026, 1, 31)))  # upper boundary
-    await repo.create(_entry(user_a.id, date(2026, 2, 1)))  # outside range
-    await repo.create(_entry(user_b.id, date(2026, 1, 15)))  # different user
+    await repo.create(_entry(user_a.id, date(2026, 1, 1), "entry_1"))  # lower boundary
+    await repo.create(_entry(user_a.id, date(2026, 1, 31), "entry_2"))  # upper boundary
+    await repo.create(_entry(user_a.id, date(2026, 2, 1), "entry_3"))  # outside range
+    await repo.create(_entry(user_b.id, date(2026, 1, 15), "entry_1"))  # different user
     await session.commit()
 
     result = await repo.list_by_date_range(user_a.id, date(2026, 1, 1), date(2026, 1, 31))
@@ -134,10 +135,18 @@ async def test_activity_log_repository_list_by_date_range_is_inclusive_and_scope
     user_a, user_b = await _make_two_users(session)
     repo = SQLAlchemyActivityLogRepository(session)
 
-    session.add(_orm(ActivityLog.create(user_a.id, "running", 300, logged_on=date(2026, 1, 1))))
-    session.add(_orm(ActivityLog.create(user_a.id, "running", 300, logged_on=date(2026, 1, 31))))
-    session.add(_orm(ActivityLog.create(user_a.id, "running", 300, logged_on=date(2026, 2, 1))))
-    session.add(_orm(ActivityLog.create(user_b.id, "running", 300, logged_on=date(2026, 1, 15))))
+    session.add(_orm(ActivityLog.create(
+        user_a.id, "running", 300, client_id="activity_1", logged_on=date(2026, 1, 1)
+    )))
+    session.add(_orm(ActivityLog.create(
+        user_a.id, "running", 300, client_id="activity_2", logged_on=date(2026, 1, 31)
+    )))
+    session.add(_orm(ActivityLog.create(
+        user_a.id, "running", 300, client_id="activity_3", logged_on=date(2026, 2, 1)
+    )))
+    session.add(_orm(ActivityLog.create(
+        user_b.id, "running", 300, client_id="activity_1", logged_on=date(2026, 1, 15)
+    )))
     await session.flush()
     await session.commit()
 
@@ -152,10 +161,10 @@ async def test_water_log_repository_list_by_date_range_is_inclusive_and_scoped(s
     user_a, user_b = await _make_two_users(session)
     repo = SQLAlchemyWaterLogRepository(session)
 
-    session.add(_orm(WaterLog.create(user_a.id, 350, logged_on=date(2026, 1, 1))))
-    session.add(_orm(WaterLog.create(user_a.id, 350, logged_on=date(2026, 1, 31))))
-    session.add(_orm(WaterLog.create(user_a.id, 350, logged_on=date(2026, 2, 1))))
-    session.add(_orm(WaterLog.create(user_b.id, 350, logged_on=date(2026, 1, 15))))
+    session.add(_orm(WaterLog.create(user_a.id, 350, client_id="water_1", logged_on=date(2026, 1, 1))))
+    session.add(_orm(WaterLog.create(user_a.id, 350, client_id="water_2", logged_on=date(2026, 1, 31))))
+    session.add(_orm(WaterLog.create(user_a.id, 350, client_id="water_3", logged_on=date(2026, 2, 1))))
+    session.add(_orm(WaterLog.create(user_b.id, 350, client_id="water_1", logged_on=date(2026, 1, 15))))
     await session.flush()
     await session.commit()
 
@@ -170,10 +179,10 @@ async def test_weight_log_repository_list_by_date_range_is_inclusive_and_scoped(
     user_a, user_b = await _make_two_users(session)
     repo = SQLAlchemyWeightLogRepository(session)
 
-    session.add(_orm(WeightLog.create(user_a.id, 60.4, date(2026, 1, 1))))
-    session.add(_orm(WeightLog.create(user_a.id, 60.4, date(2026, 1, 31))))
-    session.add(_orm(WeightLog.create(user_a.id, 60.4, date(2026, 2, 1))))
-    session.add(_orm(WeightLog.create(user_b.id, 60.4, date(2026, 1, 15))))
+    session.add(_orm(WeightLog.create(user_a.id, 60.4, date(2026, 1, 1), client_id="weight_1")))
+    session.add(_orm(WeightLog.create(user_a.id, 60.4, date(2026, 1, 31), client_id="weight_2")))
+    session.add(_orm(WeightLog.create(user_a.id, 60.4, date(2026, 2, 1), client_id="weight_3")))
+    session.add(_orm(WeightLog.create(user_b.id, 60.4, date(2026, 1, 15), client_id="weight_1")))
     await session.flush()
     await session.commit()
 

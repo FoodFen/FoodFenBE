@@ -63,3 +63,11 @@ class PremiumRequiredException(DomainException):
 
 class FoodEntryNotFoundException(EntityNotFoundException):
     """A requested food entry does not exist."""
+
+
+class ActivityLogNotFoundException(EntityNotFoundException):
+    """A requested activity log does not exist."""
+
+
+class WaterLogNotFoundException(EntityNotFoundException):
+    """A requested water log does not exist."""

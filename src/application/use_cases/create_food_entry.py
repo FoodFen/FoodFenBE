@@ -30,6 +30,7 @@ class CreateFoodEntryUseCase:
             protein_g=input_dto.protein_g,
             fat_g=input_dto.fat_g,
             meal_type=input_dto.meal_type,
+            client_id=input_dto.client_id,
             image_url=input_dto.image_url,
             fiber_g=input_dto.fiber_g,
             logged_on=input_dto.logged_on,

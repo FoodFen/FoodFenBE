@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.food_entry import FoodEntry
 from src.infrastructure.db.models.food_entry_model import FoodEntryORM
+from src.infrastructure.db.repositories.idempotency import create_idempotent
 
 
 class SQLAlchemyFoodEntryRepository:
@@ -17,15 +18,14 @@ class SQLAlchemyFoodEntryRepository:
         self._session = session
 
     async def create(self, entry: FoodEntry) -> FoodEntry:
-        row = FoodEntryORM.from_domain(entry)
-        self._session.add(row)
-        await self._session.flush()
-        await self._session.refresh(row)
+        row = await create_idempotent(self._session, FoodEntryORM.from_domain(entry), FoodEntryORM)
         return row.to_domain()
 
     async def get_by_id(self, entry_id: UUID) -> FoodEntry | None:
         row = await self._session.get(FoodEntryORM, entry_id)
-        return row.to_domain() if row is not None else None
+        if row is None or row.deleted_at is not None:
+            return None
+        return row.to_domain()
 
     async def list_by_date_range(
         self, user_id: int, from_date: date, to_date: date
@@ -36,6 +36,7 @@ class SQLAlchemyFoodEntryRepository:
                     FoodEntryORM.user_id == user_id,
                     FoodEntryORM.logged_on >= from_date,
                     FoodEntryORM.logged_on <= to_date,
+                    FoodEntryORM.deleted_at.is_(None),
                 )
             )
         ).scalars().all()

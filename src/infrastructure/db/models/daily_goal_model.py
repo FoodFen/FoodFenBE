@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Date, Float, Integer, UniqueConstraint
+from sqlalchemy import Date, Float, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.domain.entities.daily_goal import DailyGoal
@@ -17,6 +17,7 @@ class DailyGoalORM(UUIDPrimaryKey, UserOwned, Base):
     # One set of targets per user per day; the history is the sequence of rows.
     __table_args__ = (
         UniqueConstraint("user_id", "effective_date", name="uq_daily_goals_user_date"),
+        UniqueConstraint("user_id", "client_id", name="uq_daily_goals_client_id"),
     )
 
     target_kcal: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -25,6 +26,7 @@ class DailyGoalORM(UUIDPrimaryKey, UserOwned, Base):
     target_fat_g: Mapped[float] = mapped_column(Float, nullable=False)
     target_water_ml: Mapped[int] = mapped_column(Integer, nullable=False)
     effective_date: Mapped[date] = mapped_column(Date, nullable=False)
+    client_id: Mapped[str] = mapped_column(String(64), nullable=False)
 
     def to_domain(self) -> DailyGoal:
         return DailyGoal(
@@ -36,6 +38,7 @@ class DailyGoalORM(UUIDPrimaryKey, UserOwned, Base):
             target_fat_g=self.target_fat_g,
             target_water_ml=self.target_water_ml,
             effective_date=self.effective_date,
+            client_id=self.client_id,
         )
 
     @staticmethod
@@ -49,4 +52,5 @@ class DailyGoalORM(UUIDPrimaryKey, UserOwned, Base):
             target_fat_g=goal.target_fat_g,
             target_water_ml=goal.target_water_ml,
             effective_date=goal.effective_date,
+            client_id=goal.client_id,
         )

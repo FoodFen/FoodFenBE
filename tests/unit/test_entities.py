@@ -77,6 +77,7 @@ def _food_entry() -> FoodEntry:
         protein_g=30.0,
         fat_g=22.5,
         meal_type=MealType.LUNCH,
+        client_id="entry_1",
         image_url="https://cdn.example/meal.jpg",
         fiber_g=6.0,
     )
@@ -93,12 +94,17 @@ ROUND_TRIPS = [
     (_full_user(), UserORM),
     (_food_entry(), FoodEntryORM),
     (
-        DailyGoal.create(USER_ID, 2000, 200.0, 150.0, 60.0, 2500, TODAY),
+        DailyGoal.create(USER_ID, 2000, 200.0, 150.0, 60.0, 2500, TODAY, client_id="goal_1"),
         DailyGoalORM,
     ),
-    (ActivityLog.create(USER_ID, "running", 320, ActivitySource.APPLE_HEALTH), ActivityLogORM),
-    (WeightLog.create(USER_ID, 60.4, TODAY), WeightLogORM),
-    (WaterLog.create(USER_ID, 350), WaterLogORM),
+    (
+        ActivityLog.create(
+            USER_ID, "running", 320, client_id="activity_1", source=ActivitySource.APPLE_HEALTH
+        ),
+        ActivityLogORM,
+    ),
+    (WeightLog.create(USER_ID, 60.4, TODAY, client_id="weight_1"), WeightLogORM),
+    (WaterLog.create(USER_ID, 350, client_id="water_1"), WaterLogORM),
     (Streak(id=uuid4(), user_id=USER_ID, current_streak=4, longest_streak=9), StreakORM),
     (Quest.create(USER_ID, QuestType.DRINK_WATER, 8, 25, TODAY), QuestORM),
     (CoinTransaction.create(USER_ID, -50, CoinReason.PURCHASE), CoinTransactionORM),
@@ -150,6 +156,7 @@ def test_food_entry_rejects_blank_name():
             name="   ",
             input_method=InputMethod.MANUAL,
             meal_type=MealType.LUNCH,
+            client_id="entry_1",
             total_kcal=100,
             carbs_g=10.0,
             protein_g=5.0,
@@ -164,7 +171,7 @@ def test_quest_rejects_completion_ratio_out_of_range():
 
 def test_water_log_rejects_zero_amount():
     with pytest.raises(InvalidAttributeException):
-        WaterLog.create(USER_ID, 0)
+        WaterLog.create(USER_ID, 0, client_id="water_1")
 
 
 def test_streak_longest_cannot_trail_current():
@@ -229,3 +236,18 @@ def test_user_blank_name_collapses_to_none():
 def test_user_rejects_negative_weekly_rate():
     with pytest.raises(InvalidUserAttributeException):
         User(email="a@b.co", name="A", weekly_rate_kg=-0.5)
+
+
+def test_food_entry_rejects_blank_client_id():
+    with pytest.raises(InvalidAttributeException):
+        FoodEntry.create(
+            user_id=USER_ID,
+            name="Snack",
+            input_method=InputMethod.MANUAL,
+            total_kcal=100,
+            carbs_g=10.0,
+            protein_g=5.0,
+            fat_g=2.0,
+            meal_type=MealType.SNACK,
+            client_id="   ",
+        )

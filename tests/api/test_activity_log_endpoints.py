@@ -39,7 +39,9 @@ async def test_returns_the_seeded_log_with_camel_case_shape(client, signed_up):
     async with maker() as session:
         session.add(
             ActivityLogORM.from_domain(
-                ActivityLog.create(user_id, "running", 320, logged_on=date(2026, 1, 15))
+                ActivityLog.create(
+                    user_id, "running", 320, client_id="activity_1", logged_on=date(2026, 1, 15)
+                )
             )
         )
         await session.commit()

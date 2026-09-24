@@ -16,6 +16,7 @@ class ActivityLog:
     user_id: int
     activity_type: str
     calories_burned: int
+    client_id: str
     source: ActivitySource = ActivitySource.MANUAL
     logged_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     logged_on: date = field(default_factory=lambda: datetime.now(UTC).date())
@@ -23,6 +24,7 @@ class ActivityLog:
     def __post_init__(self) -> None:
         self.activity_type = require_non_empty(self.activity_type, "activity_type")
         require_non_negative(self.calories_burned, "calories_burned")
+        self.client_id = require_non_empty(self.client_id, "client_id")
 
     @classmethod
     def create(
@@ -30,6 +32,8 @@ class ActivityLog:
         user_id: int,
         activity_type: str,
         calories_burned: int,
+        *,
+        client_id: str,
         source: ActivitySource = ActivitySource.MANUAL,
         logged_on: date | None = None,
     ) -> ActivityLog:
@@ -39,6 +43,7 @@ class ActivityLog:
             user_id=user_id,
             activity_type=activity_type,
             calories_burned=calories_burned,
+            client_id=client_id,
             source=source,
             logged_at=logged_at,
             logged_on=logged_on or logged_at.date(),

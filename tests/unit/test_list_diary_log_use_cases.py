@@ -55,7 +55,7 @@ async def test_activity_logs_empty_when_none_in_range():
 
 
 async def test_activity_logs_returns_dtos():
-    log = ActivityLog.create(1, "running", 320, logged_on=date(2026, 1, 15))
+    log = ActivityLog.create(1, "running", 320, client_id="activity_1", logged_on=date(2026, 1, 15))
     use_case = ListActivityLogsUseCase(activity_logs=FakeActivityLogRepo([log]))
     result = await use_case.execute(1, date(2026, 1, 1), date(2026, 1, 31))
     assert len(result) == 1
@@ -70,7 +70,7 @@ async def test_water_logs_empty_when_none_in_range():
 
 
 async def test_water_logs_returns_dtos():
-    log = WaterLog.create(1, 350, logged_on=date(2026, 1, 15))
+    log = WaterLog.create(1, 350, client_id="water_1", logged_on=date(2026, 1, 15))
     use_case = ListWaterLogsUseCase(water_logs=FakeWaterLogRepo([log]))
     result = await use_case.execute(1, date(2026, 1, 1), date(2026, 1, 31))
     assert len(result) == 1
@@ -84,7 +84,7 @@ async def test_weight_logs_empty_when_none_in_range():
 
 
 async def test_weight_logs_returns_dtos():
-    log = WeightLog.create(1, 60.4, date(2026, 1, 15))
+    log = WeightLog.create(1, 60.4, date(2026, 1, 15), client_id="weight_1")
     use_case = ListWeightLogsUseCase(weight_logs=FakeWeightLogRepo([log]))
     result = await use_case.execute(1, date(2026, 1, 1), date(2026, 1, 31))
     assert len(result) == 1

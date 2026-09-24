@@ -29,7 +29,11 @@ async def test_returns_the_seeded_log_with_camel_case_shape(client, signed_up):
     user_id = signed_up["user"]["id"]
     maker = async_sessionmaker(engine, expire_on_commit=False)
     async with maker() as session:
-        session.add(WeightLogORM.from_domain(WeightLog.create(user_id, 60.4, date(2026, 1, 15))))
+        session.add(
+            WeightLogORM.from_domain(
+                WeightLog.create(user_id, 60.4, date(2026, 1, 15), client_id="weight_1")
+            )
+        )
         await session.commit()
 
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}

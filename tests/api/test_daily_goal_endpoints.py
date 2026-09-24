@@ -29,7 +29,9 @@ async def test_returns_the_seeded_goal_with_camel_case_shape(client, signed_up):
     async with maker() as session:
         session.add(
             DailyGoalORM.from_domain(
-                DailyGoal.create(user_id, 2000, 200.0, 150.0, 60.0, 2500, date(2026, 1, 1))
+                DailyGoal.create(
+                    user_id, 2000, 200.0, 150.0, 60.0, 2500, date(2026, 1, 1), client_id="goal_1"
+                )
             )
         )
         await session.commit()

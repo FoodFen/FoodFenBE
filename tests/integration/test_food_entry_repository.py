@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 
 import pytest_asyncio
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from src.domain.entities.food_entry import FoodEntry
@@ -62,6 +63,7 @@ def _entry_with_ingredients(user_id: int) -> FoodEntry:
         protein_g=30.0,
         fat_g=22.5,
         meal_type=MealType.LUNCH,
+        client_id="entry_1",
         fiber_g=6.0,
     )
     entry.ingredients = [
@@ -99,3 +101,21 @@ async def test_get_by_id_missing_returns_none(session):
     from uuid import uuid4
 
     assert await repo.get_by_id(uuid4()) is None
+
+
+async def test_create_with_a_repeated_client_id_returns_the_existing_row_not_a_duplicate(session):
+    user = await _make_user(session)
+    repo = SQLAlchemyFoodEntryRepository(session)
+
+    first = await repo.create(_entry_with_ingredients(user.id))
+    await session.commit()
+
+    retry = _entry_with_ingredients(user.id)  # same client_id="entry_1", different id
+    second = await repo.create(retry)
+    await session.commit()
+
+    assert second.id == first.id
+    rows = (
+        await session.execute(select(func.count()).select_from(FoodEntryORM))
+    ).scalar_one()
+    assert rows == 1

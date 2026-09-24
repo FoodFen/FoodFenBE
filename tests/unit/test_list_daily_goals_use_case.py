@@ -22,8 +22,10 @@ async def test_returns_empty_list_when_user_has_no_goals():
 
 
 async def test_returns_dtos_for_the_users_goals():
-    goal = DailyGoal.create(1, 2000, 200.0, 150.0, 60.0, 2500, date(2026, 1, 1))
-    other_users_goal = DailyGoal.create(2, 1800, 180.0, 120.0, 50.0, 2000, date(2026, 1, 1))
+    goal = DailyGoal.create(1, 2000, 200.0, 150.0, 60.0, 2500, date(2026, 1, 1), client_id="goal_1")
+    other_users_goal = DailyGoal.create(
+        2, 1800, 180.0, 120.0, 50.0, 2000, date(2026, 1, 1), client_id="goal_2"
+    )
     use_case = ListDailyGoalsUseCase(daily_goals=FakeDailyGoalRepo([goal, other_users_goal]))
 
     result = await use_case.execute(1)

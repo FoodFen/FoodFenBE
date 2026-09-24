@@ -35,6 +35,7 @@ async def create_food_entry(
         protein_g=body.protein_g,
         fat_g=body.fat_g,
         meal_type=body.meal_type,
+        client_id=body.client_id,
         image_url=body.image_url,
         fiber_g=body.fiber_g,
         logged_on=body.logged_on,

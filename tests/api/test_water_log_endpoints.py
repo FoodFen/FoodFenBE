@@ -30,7 +30,9 @@ async def test_returns_the_seeded_log_with_camel_case_shape(client, signed_up):
     maker = async_sessionmaker(engine, expire_on_commit=False)
     async with maker() as session:
         session.add(
-            WaterLogORM.from_domain(WaterLog.create(user_id, 350, logged_on=date(2026, 1, 15)))
+            WaterLogORM.from_domain(
+                WaterLog.create(user_id, 350, client_id="water_1", logged_on=date(2026, 1, 15))
+            )
         )
         await session.commit()
 

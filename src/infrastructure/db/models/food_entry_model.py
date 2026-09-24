@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -67,6 +67,7 @@ class FoodEntryORM(UUIDPrimaryKey, UserOwned, Base):
     __table_args__ = (
         Index("ix_food_entries_user_logged_at", "user_id", "logged_at"),
         Index("ix_food_entries_user_logged_on", "user_id", "logged_on"),
+        UniqueConstraint("user_id", "client_id", name="uq_food_entries_client_id"),
     )
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -74,6 +75,7 @@ class FoodEntryORM(UUIDPrimaryKey, UserOwned, Base):
         enum_column(InputMethod, "input_method"), nullable=False
     )
     meal_type: Mapped[MealType] = mapped_column(enum_column(MealType, "meal_type"), nullable=False)
+    client_id: Mapped[str] = mapped_column(String(64), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     total_kcal: Mapped[int] = mapped_column(Integer, nullable=False)
     carbs_g: Mapped[float] = mapped_column(Float, nullable=False)
@@ -86,6 +88,7 @@ class FoodEntryORM(UUIDPrimaryKey, UserOwned, Base):
     )
     logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     logged_on: Mapped[date] = mapped_column(Date, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # selectin (not the lazy default) so to_domain() can read .ingredients without
     # tripping MissingGreenlet on the async engine.
@@ -101,6 +104,7 @@ class FoodEntryORM(UUIDPrimaryKey, UserOwned, Base):
             name=self.name,
             input_method=self.input_method,
             meal_type=self.meal_type,
+            client_id=self.client_id,
             total_kcal=self.total_kcal,
             carbs_g=self.carbs_g,
             protein_g=self.protein_g,
@@ -121,6 +125,7 @@ class FoodEntryORM(UUIDPrimaryKey, UserOwned, Base):
             name=entry.name,
             input_method=entry.input_method,
             meal_type=entry.meal_type,
+            client_id=entry.client_id,
             image_url=entry.image_url,
             total_kcal=entry.total_kcal,
             carbs_g=entry.carbs_g,

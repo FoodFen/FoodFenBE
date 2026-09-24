@@ -32,6 +32,7 @@ class CreateFoodEntryInputDTO:
     protein_g: float
     fat_g: float
     meal_type: MealType
+    client_id: str
     image_url: str | None = None
     fiber_g: float | None = None
     ingredients: list[CreateIngredientInputDTO] | None = None
