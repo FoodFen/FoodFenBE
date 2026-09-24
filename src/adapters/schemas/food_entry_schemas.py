@@ -33,6 +33,7 @@ class CreateFoodEntryRequest(CamelModel):
     image_url: str | None = None
     fiber_g: float | None = None
     ingredients: list[CreateIngredientRequest] = Field(default_factory=list)
+    logged_on: date | None = None
 
 
 class IngredientResponse(CamelModel):

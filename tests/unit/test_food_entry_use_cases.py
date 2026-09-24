@@ -85,6 +85,27 @@ async def test_create_result_carries_user_id_meal_type_and_ingredient_food_entry
     assert result.ingredients[0].food_entry_id == result.id
 
 
+async def test_submitted_logged_on_is_stored_exactly_not_derived_from_logged_at():
+    """logged_on is the user's local calendar day — the server must never
+    derive it from logged_at (a UTC instant), or a user near UTC midnight
+    (e.g. Vietnam, UTC+7) permanently gets the wrong day stored."""
+    use_case = CreateFoodEntryUseCase(food_entries=FakeFoodEntryRepo())
+    explicit_day = date(2026, 1, 1)
+    input_dto = CreateFoodEntryInputDTO(
+        user_id=1,
+        name="Late-night snack",
+        input_method=InputMethod.MANUAL,
+        total_kcal=200,
+        carbs_g=20.0,
+        protein_g=5.0,
+        fat_g=5.0,
+        meal_type=MealType.SNACK,
+        logged_on=explicit_day,
+    )
+    result = await use_case.execute(input_dto)
+    assert result.logged_on == explicit_day
+
+
 async def test_get_returns_entry_for_its_owner():
     repo = FakeFoodEntryRepo()
     create_use_case = CreateFoodEntryUseCase(food_entries=repo)

@@ -32,6 +32,7 @@ class CreateFoodEntryUseCase:
             meal_type=input_dto.meal_type,
             image_url=input_dto.image_url,
             fiber_g=input_dto.fiber_g,
+            logged_on=input_dto.logged_on,
         )
         entry.ingredients = [
             Ingredient.create(

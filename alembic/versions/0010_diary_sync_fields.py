@@ -40,6 +40,6 @@ def downgrade() -> None:
     op.drop_column("activity_logs", "logged_on")
 
     op.drop_index("ix_food_entries_user_logged_on", table_name="food_entries")
-    op.drop_constraint("ck_food_entries_meal_type", "food_entries", type_="check")
+    op.drop_constraint("meal_type", "food_entries", type_="check")
     op.drop_column("food_entries", "logged_on")
     op.drop_column("food_entries", "meal_type")

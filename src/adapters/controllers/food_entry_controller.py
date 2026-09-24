@@ -37,6 +37,7 @@ async def create_food_entry(
         meal_type=body.meal_type,
         image_url=body.image_url,
         fiber_g=body.fiber_g,
+        logged_on=body.logged_on,
         ingredients=[
             CreateIngredientInputDTO(
                 name=i.name,

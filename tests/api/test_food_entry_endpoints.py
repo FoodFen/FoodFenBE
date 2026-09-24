@@ -71,6 +71,24 @@ async def test_get_rejects_another_users_entry(client, signed_up):
     assert resp.status_code == 404
 
 
+async def test_submitted_logged_on_round_trips_through_create_and_list(client, signed_up):
+    """logged_on must be exactly what the client sends, never re-derived from
+    the server's UTC clock — otherwise a user near UTC midnight silently gets
+    the wrong day stored (see docs/superpowers/plans/2026-09-25-diary-sync-pull.md
+    final review, Important #2)."""
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    body = {**_BODY, "loggedOn": "2020-06-15"}
+
+    created = (await client.post("/food-entries", json=body, headers=headers)).json()
+    assert created["loggedOn"] == "2020-06-15"
+
+    resp = await client.get(
+        "/food-entries", params={"from": "2020-06-15", "to": "2020-06-15"}, headers=headers
+    )
+    assert resp.status_code == 200
+    assert [e["id"] for e in resp.json()] == [created["id"]]
+
+
 async def test_list_returns_entries_in_the_requested_range(client, signed_up):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
     created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()

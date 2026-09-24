@@ -35,6 +35,7 @@ class CreateFoodEntryInputDTO:
     image_url: str | None = None
     fiber_g: float | None = None
     ingredients: list[CreateIngredientInputDTO] | None = None
+    logged_on: date | None = None
 
 
 @dataclass(frozen=True)

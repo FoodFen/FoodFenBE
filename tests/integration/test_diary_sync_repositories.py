@@ -130,43 +130,55 @@ def _orm(entity):
     raise TypeError(type(entity))
 
 
-async def test_activity_log_repository_list_by_date_range(session):
+async def test_activity_log_repository_list_by_date_range_is_inclusive_and_scoped(session):
     user_a, user_b = await _make_two_users(session)
     repo = SQLAlchemyActivityLogRepository(session)
 
-    session.add(_orm(ActivityLog.create(user_a.id, "running", 300, logged_on=date(2026, 1, 15))))
+    session.add(_orm(ActivityLog.create(user_a.id, "running", 300, logged_on=date(2026, 1, 1))))
+    session.add(_orm(ActivityLog.create(user_a.id, "running", 300, logged_on=date(2026, 1, 31))))
+    session.add(_orm(ActivityLog.create(user_a.id, "running", 300, logged_on=date(2026, 2, 1))))
     session.add(_orm(ActivityLog.create(user_b.id, "running", 300, logged_on=date(2026, 1, 15))))
     await session.flush()
     await session.commit()
 
     result = await repo.list_by_date_range(user_a.id, date(2026, 1, 1), date(2026, 1, 31))
-    assert len(result) == 1
-    assert result[0].user_id == user_a.id
+
+    assert len(result) == 2
+    assert {log.logged_on for log in result} == {date(2026, 1, 1), date(2026, 1, 31)}
+    assert all(log.user_id == user_a.id for log in result)
 
 
-async def test_water_log_repository_list_by_date_range(session):
+async def test_water_log_repository_list_by_date_range_is_inclusive_and_scoped(session):
     user_a, user_b = await _make_two_users(session)
     repo = SQLAlchemyWaterLogRepository(session)
 
-    session.add(_orm(WaterLog.create(user_a.id, 350, logged_on=date(2026, 1, 15))))
+    session.add(_orm(WaterLog.create(user_a.id, 350, logged_on=date(2026, 1, 1))))
+    session.add(_orm(WaterLog.create(user_a.id, 350, logged_on=date(2026, 1, 31))))
+    session.add(_orm(WaterLog.create(user_a.id, 350, logged_on=date(2026, 2, 1))))
     session.add(_orm(WaterLog.create(user_b.id, 350, logged_on=date(2026, 1, 15))))
     await session.flush()
     await session.commit()
 
     result = await repo.list_by_date_range(user_a.id, date(2026, 1, 1), date(2026, 1, 31))
-    assert len(result) == 1
-    assert result[0].user_id == user_a.id
+
+    assert len(result) == 2
+    assert {log.logged_on for log in result} == {date(2026, 1, 1), date(2026, 1, 31)}
+    assert all(log.user_id == user_a.id for log in result)
 
 
-async def test_weight_log_repository_list_by_date_range(session):
+async def test_weight_log_repository_list_by_date_range_is_inclusive_and_scoped(session):
     user_a, user_b = await _make_two_users(session)
     repo = SQLAlchemyWeightLogRepository(session)
 
-    session.add(_orm(WeightLog.create(user_a.id, 60.4, date(2026, 1, 15))))
+    session.add(_orm(WeightLog.create(user_a.id, 60.4, date(2026, 1, 1))))
+    session.add(_orm(WeightLog.create(user_a.id, 60.4, date(2026, 1, 31))))
+    session.add(_orm(WeightLog.create(user_a.id, 60.4, date(2026, 2, 1))))
     session.add(_orm(WeightLog.create(user_b.id, 60.4, date(2026, 1, 15))))
     await session.flush()
     await session.commit()
 
     result = await repo.list_by_date_range(user_a.id, date(2026, 1, 1), date(2026, 1, 31))
-    assert len(result) == 1
-    assert result[0].user_id == user_a.id
+
+    assert len(result) == 2
+    assert {log.recorded_at for log in result} == {date(2026, 1, 1), date(2026, 1, 31)}
+    assert all(log.user_id == user_a.id for log in result)
