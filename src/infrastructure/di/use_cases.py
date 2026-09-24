@@ -14,6 +14,8 @@ from src.application.use_cases.analyze_food_image import AnalyzeFoodImageUseCase
 from src.application.use_cases.analyze_food_text import AnalyzeFoodTextUseCase
 from src.application.use_cases.cancel_payment import CancelPaymentUseCase
 from src.application.use_cases.create_checkout import CreateCheckoutUseCase
+from src.application.use_cases.create_food_entry import CreateFoodEntryUseCase
+from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
 from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCase
 from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
 from src.application.use_cases.get_user import GetUserUseCase
@@ -32,6 +34,7 @@ from src.application.use_cases.verify_email import VerifyEmailUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
     ChatMessageRepositoryDep,
+    FoodEntryRepositoryDep,
     PaymentRepositoryDep,
     RefreshTokenRepositoryDep,
     SocialIdentityRepositoryDep,
@@ -243,3 +246,19 @@ CancelPaymentUseCaseDep = Annotated[CancelPaymentUseCase, Depends(get_cancel_pay
 GetMySubscriptionUseCaseDep = Annotated[
     GetMySubscriptionUseCase, Depends(get_get_my_subscription_use_case)
 ]
+
+
+def get_create_food_entry_use_case(
+    food_entries: FoodEntryRepositoryDep,
+) -> CreateFoodEntryUseCase:
+    return CreateFoodEntryUseCase(food_entries=food_entries)
+
+
+def get_get_food_entry_use_case(food_entries: FoodEntryRepositoryDep) -> GetFoodEntryUseCase:
+    return GetFoodEntryUseCase(food_entries=food_entries)
+
+
+CreateFoodEntryUseCaseDep = Annotated[
+    CreateFoodEntryUseCase, Depends(get_create_food_entry_use_case)
+]
+GetFoodEntryUseCaseDep = Annotated[GetFoodEntryUseCase, Depends(get_get_food_entry_use_case)]
