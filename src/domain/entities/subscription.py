@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import calendar
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -67,3 +68,43 @@ class Subscription:
             end_date=end_date,
             price=Decimal(str(price)),
         )
+
+    @classmethod
+    def renew(
+        cls,
+        existing: Subscription | None,
+        user_id: int,
+        plan_type: PlanType,
+        price: Decimal | int | str,
+        today: date,
+    ) -> Subscription:
+        """Extend or start a subscription. An early renewal (before ``existing``
+        expires) stacks the new period after the current one instead of
+        wasting the days already paid for."""
+        if existing is not None and existing.end_date is not None and existing.end_date >= today:
+            start = existing.end_date + timedelta(days=1)
+        else:
+            start = today
+        end = _add_period(start, plan_type)
+        return cls(
+            id=existing.id if existing is not None else uuid4(),
+            user_id=user_id,
+            plan_type=plan_type,
+            status=SubscriptionStatus.ACTIVE,
+            start_date=start,
+            end_date=end,
+            price=Decimal(str(price)),
+        )
+
+
+def _add_period(start: date, plan_type: PlanType) -> date:
+    if plan_type is PlanType.ANNUAL:
+        try:
+            return start.replace(year=start.year + 1)
+        except ValueError:
+            # Feb 29 in a source year, but the target year isn't a leap year.
+            return start.replace(year=start.year + 1, day=28)
+    month = start.month % 12 + 1
+    year = start.year + (start.month // 12)
+    last_day = calendar.monthrange(year, month)[1]
+    return start.replace(year=year, month=month, day=min(start.day, last_day))
