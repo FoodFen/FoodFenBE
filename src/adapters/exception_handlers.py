@@ -17,6 +17,8 @@ from src.domain.exceptions import (
     DomainException,
     EntityNotFoundException,
     InvalidAttributeException,
+    InvalidWebhookSignatureException,
+    PremiumRequiredException,
     UserAlreadyExistsException,
 )
 
@@ -25,9 +27,11 @@ from src.domain.exceptions import (
 # UserAlreadyExistsException is handled separately below (it needs a field-keyed
 # `errors` body, not just a message) so it is deliberately not listed here.
 EXCEPTION_STATUS: list[tuple[type[DomainException], int]] = [
-    (InvalidAttributeException, 400),  # + InvalidUserAttributeException, WeakPasswordException
+    (InvalidWebhookSignatureException, 401),  # a more specific AuthenticationException
+    (InvalidAttributeException, 400),  # + InvalidUserAttributeException, WeakPasswordException, InvalidPaymentStateException
     (AuthenticationException, 401),  # + InvalidCredentialsException, InvalidTokenException
-    (EntityNotFoundException, 404),  # + UserNotFoundException
+    (PremiumRequiredException, 402),
+    (EntityNotFoundException, 404),  # + UserNotFoundException, PaymentNotFoundException
     (DomainException, 400),  # catch-all
 ]
 
