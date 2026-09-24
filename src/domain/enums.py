@@ -103,6 +103,13 @@ class PaymentStatus(StrEnum):
     FAILED = "failed"
 
 
+class MealType(StrEnum):
+    BREAKFAST = "breakfast"
+    LUNCH = "lunch"
+    DINNER = "dinner"
+    SNACK = "snack"
+
+
 class QuestType(StrEnum):
     """Matches the quest catalog in FoodFenFE/src/db/schema.ts."""
 

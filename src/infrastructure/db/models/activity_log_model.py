@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Index, Integer, String
+from sqlalchemy import Date, DateTime, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.domain.entities.activity_log import ActivityLog
@@ -16,7 +16,10 @@ from src.infrastructure.db.types import enum_column
 
 class ActivityLogORM(UUIDPrimaryKey, UserOwned, Base):
     __tablename__ = "activity_logs"
-    __table_args__ = (Index("ix_activity_logs_user_logged_at", "user_id", "logged_at"),)
+    __table_args__ = (
+        Index("ix_activity_logs_user_logged_at", "user_id", "logged_at"),
+        Index("ix_activity_logs_user_logged_on", "user_id", "logged_on"),
+    )
 
     activity_type: Mapped[str] = mapped_column(String(120), nullable=False)
     calories_burned: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -26,6 +29,7 @@ class ActivityLogORM(UUIDPrimaryKey, UserOwned, Base):
         server_default=ActivitySource.MANUAL.value,
     )
     logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    logged_on: Mapped[date] = mapped_column(Date, nullable=False)
 
     def to_domain(self) -> ActivityLog:
         return ActivityLog(
@@ -35,6 +39,7 @@ class ActivityLogORM(UUIDPrimaryKey, UserOwned, Base):
             calories_burned=self.calories_burned,
             source=self.source,
             logged_at=self.logged_at,
+            logged_on=self.logged_on,
         )
 
     @staticmethod
@@ -46,4 +51,5 @@ class ActivityLogORM(UUIDPrimaryKey, UserOwned, Base):
             calories_burned=log.calories_burned,
             source=log.source,
             logged_at=log.logged_at,
+            logged_on=log.logged_on,
         )

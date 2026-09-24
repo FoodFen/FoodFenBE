@@ -30,6 +30,7 @@ from src.domain.enums import (
     CoinReason,
     Gender,
     InputMethod,
+    MealType,
     PlanType,
     QuestType,
     SubscriptionStatus,
@@ -75,6 +76,7 @@ def _food_entry() -> FoodEntry:
         carbs_g=45.0,
         protein_g=30.0,
         fat_g=22.5,
+        meal_type=MealType.LUNCH,
         image_url="https://cdn.example/meal.jpg",
         fiber_g=6.0,
     )
@@ -147,6 +149,7 @@ def test_food_entry_rejects_blank_name():
             user_id=USER_ID,
             name="   ",
             input_method=InputMethod.MANUAL,
+            meal_type=MealType.LUNCH,
             total_kcal=100,
             carbs_g=10.0,
             protein_g=5.0,
