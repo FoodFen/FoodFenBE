@@ -1,14 +1,17 @@
-"""CreateFoodEntryUseCase / GetFoodEntryUseCase unit tests. No I/O."""
+"""CreateFoodEntryUseCase / GetFoodEntryUseCase / ListFoodEntriesUseCase unit tests. No I/O."""
 
 from __future__ import annotations
+
+from datetime import date
 
 import pytest
 
 from src.application.dtos.food_entry import CreateFoodEntryInputDTO, CreateIngredientInputDTO
 from src.application.use_cases.create_food_entry import CreateFoodEntryUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
+from src.application.use_cases.list_food_entries import ListFoodEntriesUseCase
 from src.domain.entities.food_entry import FoodEntry
-from src.domain.enums import InputMethod
+from src.domain.enums import InputMethod, MealType
 from src.domain.exceptions import FoodEntryNotFoundException
 
 
@@ -23,8 +26,15 @@ class FakeFoodEntryRepo:
     async def get_by_id(self, entry_id):
         return self._by_id.get(entry_id)
 
+    async def list_by_date_range(self, user_id, from_date, to_date):
+        return [
+            e
+            for e in self._by_id.values()
+            if e.user_id == user_id and from_date <= e.logged_on <= to_date
+        ]
 
-def _input_dto(fiber_g=None, ingredient_fiber_g=None) -> CreateFoodEntryInputDTO:
+
+def _input_dto(fiber_g=None, ingredient_fiber_g=None, meal_type=MealType.LUNCH) -> CreateFoodEntryInputDTO:
     return CreateFoodEntryInputDTO(
         user_id=1,
         name="Grilled chicken with rice",
@@ -33,6 +43,7 @@ def _input_dto(fiber_g=None, ingredient_fiber_g=None) -> CreateFoodEntryInputDTO
         carbs_g=70.0,
         protein_g=45.0,
         fat_g=15.0,
+        meal_type=meal_type,
         image_url=None,
         fiber_g=fiber_g,
         ingredients=[
@@ -66,6 +77,14 @@ async def test_fiber_g_stays_none_when_not_submitted():
     assert result.ingredients[0].fiber_g is None
 
 
+async def test_create_result_carries_user_id_meal_type_and_ingredient_food_entry_id():
+    use_case = CreateFoodEntryUseCase(food_entries=FakeFoodEntryRepo())
+    result = await use_case.execute(_input_dto(meal_type=MealType.BREAKFAST))
+    assert result.user_id == 1
+    assert result.meal_type is MealType.BREAKFAST
+    assert result.ingredients[0].food_entry_id == result.id
+
+
 async def test_get_returns_entry_for_its_owner():
     repo = FakeFoodEntryRepo()
     create_use_case = CreateFoodEntryUseCase(food_entries=repo)
@@ -83,3 +102,22 @@ async def test_get_raises_not_found_for_another_users_entry():
     get_use_case = GetFoodEntryUseCase(food_entries=repo)
     with pytest.raises(FoodEntryNotFoundException):
         await get_use_case.execute(user_id=999, entry_id=created.id)
+
+
+async def test_list_returns_empty_when_nothing_in_range():
+    repo = FakeFoodEntryRepo()
+    use_case = ListFoodEntriesUseCase(food_entries=repo)
+    result = await use_case.execute(user_id=1, from_date=date(2026, 1, 1), to_date=date(2026, 1, 31))
+    assert result == []
+
+
+async def test_list_returns_entries_created_via_the_create_use_case():
+    repo = FakeFoodEntryRepo()
+    created = await CreateFoodEntryUseCase(food_entries=repo).execute(_input_dto())
+
+    use_case = ListFoodEntriesUseCase(food_entries=repo)
+    result = await use_case.execute(
+        user_id=1, from_date=created.logged_on, to_date=created.logged_on
+    )
+
+    assert [r.id for r in result] == [created.id]
