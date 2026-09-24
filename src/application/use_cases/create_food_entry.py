@@ -33,6 +33,7 @@ class CreateFoodEntryUseCase:
             client_id=input_dto.client_id,
             image_url=input_dto.image_url,
             fiber_g=input_dto.fiber_g,
+            logged_at=input_dto.logged_at,
             logged_on=input_dto.logged_on,
         )
         entry.ingredients = [

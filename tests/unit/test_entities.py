@@ -174,6 +174,35 @@ def test_water_log_rejects_zero_amount():
         WaterLog.create(USER_ID, 0, client_id="water_1")
 
 
+def test_water_log_create_accepts_an_explicit_logged_at():
+    explicit = datetime(2026, 1, 15, 8, 0, tzinfo=UTC)
+    log = WaterLog.create(USER_ID, 350, client_id="water_1", logged_at=explicit)
+    assert log.logged_at == explicit
+
+
+def test_activity_log_create_accepts_an_explicit_logged_at():
+    explicit = datetime(2026, 1, 15, 8, 0, tzinfo=UTC)
+    log = ActivityLog.create(USER_ID, "running", 300, client_id="activity_1", logged_at=explicit)
+    assert log.logged_at == explicit
+
+
+def test_food_entry_create_accepts_an_explicit_logged_at():
+    explicit = datetime(2026, 1, 15, 8, 0, tzinfo=UTC)
+    entry = FoodEntry.create(
+        user_id=USER_ID,
+        name="Snack",
+        input_method=InputMethod.MANUAL,
+        total_kcal=100,
+        carbs_g=10.0,
+        protein_g=5.0,
+        fat_g=2.0,
+        meal_type=MealType.SNACK,
+        client_id="entry_1",
+        logged_at=explicit,
+    )
+    assert entry.logged_at == explicit
+
+
 def test_streak_longest_cannot_trail_current():
     with pytest.raises(InvalidAttributeException):
         Streak(id=uuid4(), user_id=USER_ID, current_streak=10, longest_streak=3)

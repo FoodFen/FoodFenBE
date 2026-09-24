@@ -33,4 +33,5 @@ class CreateWaterLogInputDTO:
     user_id: int
     amount_ml: int
     client_id: str
+    logged_at: datetime | None = None
     logged_on: date | None = None

@@ -99,3 +99,52 @@ async def test_changing_email_to_one_already_taken_raises():
         await use_case.execute(
             UpdateUserProfileInputDTO(user_id=1, updates={"email": "taken@example.com"})
         )
+
+
+async def test_changing_email_to_a_taken_one_with_different_case_still_raises():
+    """Every other path (login, reset, social) normalizes email with
+    .strip().lower() before comparing — this endpoint must too, or a
+    mixed-case duplicate reaches the DB's unique constraint as a raw 500
+    instead of the clean 400 UserAlreadyExistsException gives."""
+    repo = FakeUserRepo([_user(user_id=1), _user(user_id=2, name="Taken")])
+    repo._by_id[2].email = "taken@example.com"
+    use_case = UpdateUserProfileUseCase(users=repo)
+
+    with pytest.raises(UserAlreadyExistsException):
+        await use_case.execute(
+            UpdateUserProfileInputDTO(user_id=1, updates={"email": "Taken@Example.com"})
+        )
+
+
+async def test_null_unit_system_raises_instead_of_hitting_the_db_not_null_constraint():
+    repo = FakeUserRepo([_user()])
+    use_case = UpdateUserProfileUseCase(users=repo)
+
+    with pytest.raises(InvalidUserAttributeException):
+        await use_case.execute(UpdateUserProfileInputDTO(user_id=1, updates={"unit_system": None}))
+
+
+async def test_null_calorie_calc_mode_raises_instead_of_hitting_the_db_not_null_constraint():
+    repo = FakeUserRepo([_user()])
+    use_case = UpdateUserProfileUseCase(users=repo)
+
+    with pytest.raises(InvalidUserAttributeException):
+        await use_case.execute(
+            UpdateUserProfileInputDTO(user_id=1, updates={"calorie_calc_mode": None})
+        )
+
+
+async def test_changing_email_clears_verified_status():
+    from datetime import UTC, datetime
+
+    user = _user()
+    user.verify_email(datetime(2026, 1, 1, tzinfo=UTC))
+    repo = FakeUserRepo([user])
+    use_case = UpdateUserProfileUseCase(users=repo)
+
+    result = await use_case.execute(
+        UpdateUserProfileInputDTO(user_id=1, updates={"email": "new@example.com"})
+    )
+
+    assert result.id == 1
+    assert repo._by_id[1].email_verified_at is None

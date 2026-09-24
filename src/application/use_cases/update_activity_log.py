@@ -29,7 +29,7 @@ class UpdateActivityLogUseCase:
             calories_burned=input_dto.calories_burned,
             client_id=existing.client_id,
             source=input_dto.source,
-            logged_at=existing.logged_at,
+            logged_at=input_dto.logged_at or existing.logged_at,
             logged_on=input_dto.logged_on or existing.logged_on,
         )
         updated = await self.activity_logs.update(log)

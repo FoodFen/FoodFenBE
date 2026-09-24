@@ -40,6 +40,7 @@ class CreateActivityLogInputDTO:
     calories_burned: int
     client_id: str
     source: ActivitySource = ActivitySource.MANUAL
+    logged_at: datetime | None = None
     logged_on: date | None = None
 
 
@@ -48,4 +49,5 @@ class UpdateActivityLogInputDTO:
     activity_type: str
     calories_burned: int
     source: ActivitySource = ActivitySource.MANUAL
+    logged_at: datetime | None = None
     logged_on: date | None = None

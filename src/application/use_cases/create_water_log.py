@@ -18,6 +18,7 @@ class CreateWaterLogUseCase:
             user_id=input_dto.user_id,
             amount_ml=input_dto.amount_ml,
             client_id=input_dto.client_id,
+            logged_at=input_dto.logged_at,
             logged_on=input_dto.logged_on,
         )
         created = await self.water_logs.create(log)

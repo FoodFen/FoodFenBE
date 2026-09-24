@@ -71,3 +71,8 @@ class ActivityLogNotFoundException(EntityNotFoundException):
 
 class WaterLogNotFoundException(EntityNotFoundException):
     """A requested water log does not exist."""
+
+
+class DailyGoalConflictException(InvalidAttributeException):
+    """A daily goal already exists for the given ``effective_date`` (one per
+    user per day) and the create wasn't a ``client_id`` retry of that same row."""

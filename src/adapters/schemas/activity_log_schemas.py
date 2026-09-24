@@ -39,6 +39,7 @@ class CreateActivityLogRequest(CamelModel):
     calories_burned: int
     client_id: str = Field(min_length=1)
     source: ActivitySource = ActivitySource.MANUAL
+    logged_at: datetime | None = None
     logged_on: date | None = None
 
 
@@ -46,4 +47,5 @@ class UpdateActivityLogRequest(CamelModel):
     activity_type: str = Field(min_length=1)
     calories_burned: int
     source: ActivitySource = ActivitySource.MANUAL
+    logged_at: datetime | None = None
     logged_on: date | None = None

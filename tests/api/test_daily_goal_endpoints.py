@@ -86,3 +86,15 @@ async def test_post_with_repeated_client_id_returns_the_same_goal(client, signed
 async def test_create_requires_auth(client):
     resp = await client.post("/daily-goals", json=_CREATE_BODY)
     assert resp.status_code == 401
+
+
+async def test_post_a_second_goal_same_day_with_a_different_client_id_returns_400_not_500(
+    client, signed_up
+):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    await client.post("/daily-goals", json=_CREATE_BODY, headers=headers)
+
+    resp = await client.post(
+        "/daily-goals", json={**_CREATE_BODY, "clientId": "goal_2"}, headers=headers
+    )
+    assert resp.status_code == 400

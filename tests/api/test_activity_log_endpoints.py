@@ -93,6 +93,35 @@ async def test_post_with_repeated_client_id_returns_the_same_log(client, signed_
     assert first["id"] == second["id"]
 
 
+async def test_post_stores_the_submitted_logged_at_not_the_servers_clock(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    body = {**_CREATE_BODY, "clientId": "activity_2", "loggedAt": "2026-01-15T08:00:00Z"}
+
+    resp = await client.post("/activity-logs", json=body, headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json()["loggedAt"].startswith("2026-01-15T08:00:00")
+
+
+async def test_patch_stores_the_submitted_logged_at(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/activity-logs", json=_CREATE_BODY, headers=headers)).json()
+
+    resp = await client.patch(
+        f"/activity-logs/{created['id']}",
+        json={
+            "activityType": "swimming",
+            "caloriesBurned": 450,
+            "loggedAt": "2026-01-15T08:00:00Z",
+            "loggedOn": "2026-01-15",
+        },
+        headers=headers,
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["loggedAt"].startswith("2026-01-15T08:00:00")
+
+
 async def test_patch_replaces_the_log(client, signed_up):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
     created = (await client.post("/activity-logs", json=_CREATE_BODY, headers=headers)).json()

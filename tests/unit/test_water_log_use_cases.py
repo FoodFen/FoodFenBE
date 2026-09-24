@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -58,6 +58,18 @@ async def test_create_with_repeated_client_id_returns_the_same_log():
     first = await use_case.execute(_dto())
     second = await use_case.execute(_dto())
     assert second.id == first.id
+
+
+async def test_create_stores_an_explicit_logged_at_instead_of_the_servers_clock():
+    """An offline-created drink pushed later must keep its real event time
+    — deriving it from the server's clock at push time would silently
+    move every offline entry to whenever the sync happened to run."""
+    explicit = datetime(2026, 1, 15, 8, 0, tzinfo=UTC)
+    use_case = CreateWaterLogUseCase(water_logs=FakeWaterLogRepo())
+    result = await use_case.execute(
+        CreateWaterLogInputDTO(user_id=1, amount_ml=350, client_id="water_1", logged_at=explicit)
+    )
+    assert result.logged_at == explicit
 
 
 async def test_delete_removes_the_owners_log():

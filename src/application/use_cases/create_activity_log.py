@@ -20,6 +20,7 @@ class CreateActivityLogUseCase:
             calories_burned=input_dto.calories_burned,
             client_id=input_dto.client_id,
             source=input_dto.source,
+            logged_at=input_dto.logged_at,
             logged_on=input_dto.logged_on,
         )
         created = await self.activity_logs.create(log)

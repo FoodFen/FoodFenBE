@@ -49,3 +49,33 @@ async def test_patch_email_collision_returns_400_with_field_error(client, signed
 
     assert resp.status_code == 400
     assert "email" in resp.json()["errors"]
+
+
+async def test_patch_email_collision_with_different_case_still_returns_400(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    await client.post(
+        "/auth/sign-up",
+        json={"email": "taken@example.com", "password": "s3cret-pass", "displayName": "Taken"},
+    )
+
+    resp = await client.patch(
+        "/users/me", json={"email": "Taken@Example.com"}, headers=headers
+    )
+
+    assert resp.status_code == 400
+
+
+async def test_patch_null_unit_system_returns_400_not_500(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.patch("/users/me", json={"unitSystem": None}, headers=headers)
+
+    assert resp.status_code == 400
+
+
+async def test_patch_null_calorie_calc_mode_returns_400_not_500(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.patch("/users/me", json={"calorieCalcMode": None}, headers=headers)
+
+    assert resp.status_code == 400

@@ -35,9 +35,10 @@ class ActivityLog:
         *,
         client_id: str,
         source: ActivitySource = ActivitySource.MANUAL,
+        logged_at: datetime | None = None,
         logged_on: date | None = None,
     ) -> ActivityLog:
-        logged_at = datetime.now(UTC)
+        logged_at = logged_at or datetime.now(UTC)
         return cls(
             id=uuid4(),
             user_id=user_id,

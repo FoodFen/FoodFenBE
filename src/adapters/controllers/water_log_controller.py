@@ -25,7 +25,11 @@ async def create_water_log(
     body: CreateWaterLogRequest, user: CurrentUserDep, use_case: CreateWaterLogUseCaseDep
 ) -> WaterLogResponse:
     input_dto = CreateWaterLogInputDTO(
-        user_id=user.id, amount_ml=body.amount_ml, client_id=body.client_id, logged_on=body.logged_on
+        user_id=user.id,
+        amount_ml=body.amount_ml,
+        client_id=body.client_id,
+        logged_at=body.logged_at,
+        logged_on=body.logged_on,
     )
     result = await use_case.execute(input_dto)
     return WaterLogResponse.from_dto(result)

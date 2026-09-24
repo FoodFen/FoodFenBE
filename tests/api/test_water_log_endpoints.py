@@ -68,6 +68,16 @@ async def test_post_with_repeated_client_id_returns_the_same_log(client, signed_
     assert first["id"] == second["id"]
 
 
+async def test_post_stores_the_submitted_logged_at_not_the_servers_clock(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    body = {**_CREATE_BODY, "clientId": "water_2", "loggedAt": "2026-01-15T08:00:00Z"}
+
+    resp = await client.post("/water-logs", json=body, headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json()["loggedAt"].startswith("2026-01-15T08:00:00")
+
+
 async def test_delete_soft_deletes_and_it_disappears_from_list(client, signed_up):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
     created = (await client.post("/water-logs", json=_CREATE_BODY, headers=headers)).json()

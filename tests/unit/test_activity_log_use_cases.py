@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -63,6 +63,37 @@ async def test_create_with_repeated_client_id_returns_the_same_log():
     first = await use_case.execute(_create_dto())
     second = await use_case.execute(_create_dto())
     assert second.id == first.id
+
+
+async def test_create_stores_an_explicit_logged_at_instead_of_the_servers_clock():
+    explicit = datetime(2026, 1, 15, 8, 0, tzinfo=UTC)
+    use_case = CreateActivityLogUseCase(activity_logs=FakeActivityLogRepo())
+    result = await use_case.execute(
+        CreateActivityLogInputDTO(
+            user_id=1,
+            activity_type="running",
+            calories_burned=300,
+            client_id="activity_1",
+            logged_at=explicit,
+        )
+    )
+    assert result.logged_at == explicit
+
+
+async def test_update_stores_an_explicit_logged_at():
+    repo = FakeActivityLogRepo()
+    created = await CreateActivityLogUseCase(activity_logs=repo).execute(_create_dto())
+    explicit = datetime(2026, 1, 15, 8, 0, tzinfo=UTC)
+
+    use_case = UpdateActivityLogUseCase(activity_logs=repo)
+    result = await use_case.execute(
+        user_id=1,
+        log_id=created.id,
+        input_dto=UpdateActivityLogInputDTO(
+            activity_type="swimming", calories_burned=450, logged_at=explicit
+        ),
+    )
+    assert result.logged_at == explicit
 
 
 async def test_update_replaces_fields_for_the_owner():

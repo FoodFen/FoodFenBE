@@ -24,9 +24,15 @@ class WaterLog:
 
     @classmethod
     def create(
-        cls, user_id: int, amount_ml: int, *, client_id: str, logged_on: date | None = None
+        cls,
+        user_id: int,
+        amount_ml: int,
+        *,
+        client_id: str,
+        logged_at: datetime | None = None,
+        logged_on: date | None = None,
     ) -> WaterLog:
-        logged_at = datetime.now(UTC)
+        logged_at = logged_at or datetime.now(UTC)
         return cls(
             id=uuid4(),
             user_id=user_id,

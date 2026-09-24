@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -186,6 +186,49 @@ async def test_update_replaces_fields_for_the_owner():
 
     assert result.name == "Updated meal"
     assert result.meal_type is MealType.DINNER
+
+
+async def test_create_stores_an_explicit_logged_at_instead_of_the_servers_clock():
+    explicit = datetime(2026, 1, 15, 8, 0, tzinfo=UTC)
+    use_case = CreateFoodEntryUseCase(food_entries=FakeFoodEntryRepo())
+    input_dto = CreateFoodEntryInputDTO(
+        user_id=1,
+        name="Snack",
+        input_method=InputMethod.MANUAL,
+        total_kcal=100,
+        carbs_g=10.0,
+        protein_g=5.0,
+        fat_g=2.0,
+        meal_type=MealType.SNACK,
+        client_id="entry_1",
+        logged_at=explicit,
+    )
+    result = await use_case.execute(input_dto)
+    assert result.logged_at == explicit
+
+
+async def test_update_stores_an_explicit_logged_at():
+    repo = FakeFoodEntryRepoWithUpdateDelete()
+    created = await CreateFoodEntryUseCase(food_entries=repo).execute(_input_dto())
+    explicit = datetime(2026, 1, 15, 8, 0, tzinfo=UTC)
+
+    use_case = UpdateFoodEntryUseCase(food_entries=repo)
+    result = await use_case.execute(
+        user_id=1,
+        entry_id=created.id,
+        input_dto=UpdateFoodEntryInputDTO(
+            name="Updated meal",
+            input_method=InputMethod.MANUAL,
+            total_kcal=700,
+            carbs_g=60.0,
+            protein_g=50.0,
+            fat_g=20.0,
+            meal_type=MealType.DINNER,
+            logged_at=explicit,
+        ),
+    )
+
+    assert result.logged_at == explicit
 
 
 async def test_update_raises_not_found_for_another_users_entry():

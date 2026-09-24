@@ -24,12 +24,17 @@ async def create_idempotent(session: AsyncSession, row: _Row, model: type[_Row])
     If the conflict wasn't actually a ``client_id`` repeat (e.g. a different
     unique constraint on the same table fired), the re-query finds nothing
     and the original error is re-raised rather than masked.
+
+    The failed insert is isolated in its own SAVEPOINT (``begin_nested``)
+    rather than a full ``session.rollback()`` — this is a shared helper
+    called mid-request, and a plain rollback would discard every other
+    pending write in the same request-scoped session, not just this one.
     """
-    session.add(row)
     try:
-        await session.flush()
+        async with session.begin_nested():
+            session.add(row)
+            await session.flush()
     except IntegrityError:
-        await session.rollback()
         existing = await session.execute(
             select(model).where(model.user_id == row.user_id, model.client_id == row.client_id)
         )

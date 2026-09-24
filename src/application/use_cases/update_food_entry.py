@@ -42,7 +42,7 @@ class UpdateFoodEntryUseCase:
             image_url=input_dto.image_url,
             fiber_g=input_dto.fiber_g,
             ai_feedback=existing.ai_feedback,
-            logged_at=existing.logged_at,
+            logged_at=input_dto.logged_at or existing.logged_at,
             logged_on=input_dto.logged_on or existing.logged_on,
             ingredients=[
                 Ingredient.create(

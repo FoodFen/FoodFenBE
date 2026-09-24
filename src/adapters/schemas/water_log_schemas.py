@@ -32,4 +32,5 @@ class WaterLogResponse(CamelModel):
 class CreateWaterLogRequest(CamelModel):
     amount_ml: int
     client_id: str = Field(min_length=1)
+    logged_at: datetime | None = None
     logged_on: date | None = None

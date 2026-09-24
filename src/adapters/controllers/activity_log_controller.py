@@ -34,6 +34,7 @@ async def create_activity_log(
         calories_burned=body.calories_burned,
         client_id=body.client_id,
         source=body.source,
+        logged_at=body.logged_at,
         logged_on=body.logged_on,
     )
     result = await use_case.execute(input_dto)
@@ -62,6 +63,7 @@ async def update_activity_log(
         activity_type=body.activity_type,
         calories_burned=body.calories_burned,
         source=body.source,
+        logged_at=body.logged_at,
         logged_on=body.logged_on,
     )
     result = await use_case.execute(user_id=user.id, log_id=log_id, input_dto=input_dto)

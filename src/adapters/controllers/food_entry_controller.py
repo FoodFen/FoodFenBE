@@ -48,6 +48,7 @@ async def create_food_entry(
         client_id=body.client_id,
         image_url=body.image_url,
         fiber_g=body.fiber_g,
+        logged_at=body.logged_at,
         logged_on=body.logged_on,
         ingredients=[
             CreateIngredientInputDTO(
@@ -102,6 +103,7 @@ async def update_food_entry(
         meal_type=body.meal_type,
         image_url=body.image_url,
         fiber_g=body.fiber_g,
+        logged_at=body.logged_at,
         logged_on=body.logged_on,
         ingredients=[
             CreateIngredientInputDTO(

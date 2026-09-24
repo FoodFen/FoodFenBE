@@ -117,6 +117,30 @@ async def test_posting_the_same_client_id_twice_returns_the_same_entry(client, s
     assert first["id"] == second["id"]
 
 
+async def test_post_stores_the_submitted_logged_at_not_the_servers_clock(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    body = {**_BODY, "clientId": "entry_2", "loggedAt": "2026-01-15T08:00:00Z"}
+
+    resp = await client.post("/food-entries", json=body, headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json()["loggedAt"].startswith("2026-01-15T08:00:00")
+
+
+async def test_patch_stores_the_submitted_logged_at(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+
+    resp = await client.patch(
+        f"/food-entries/{created['id']}",
+        json={**_BODY, "loggedAt": "2026-01-15T08:00:00Z"},
+        headers=headers,
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["loggedAt"].startswith("2026-01-15T08:00:00")
+
+
 async def test_create_requires_client_id(client, signed_up):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
     body = {k: v for k, v in _BODY.items() if k != "clientId"}
