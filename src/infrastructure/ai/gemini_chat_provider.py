@@ -44,7 +44,13 @@ class GeminiChatProvider:
         stream = await self._client.aio.models.generate_content_stream(
             model=self._model,
             contents=contents,
-            config=types.GenerateContentConfig(system_instruction=self._system_prompt),
+            config=types.GenerateContentConfig(
+                system_instruction=self._system_prompt,
+                # No tools are configured here — automatic function calling has
+                # nothing to do, and its default-on state just logs an unrelated
+                # warning ("use AFC in AsyncChat instead") on every call.
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            ),
         )
         async for chunk in stream:
             if chunk.text:
