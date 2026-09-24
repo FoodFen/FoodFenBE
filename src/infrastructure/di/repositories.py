@@ -11,17 +11,23 @@ from typing import Annotated
 from fastapi import Depends
 
 from src.application.ports.chat_message_repository import ChatMessageRepositoryProtocol
+from src.application.ports.payment_repository import PaymentRepositoryProtocol
 from src.application.ports.refresh_token_repository import RefreshTokenRepositoryProtocol
 from src.application.ports.social_identity_repository import SocialIdentityRepositoryProtocol
+from src.application.ports.subscription_repository import SubscriptionRepositoryProtocol
 from src.application.ports.user_repository import UserRepositoryProtocol
 from src.infrastructure.db.repositories.chat_message_repository import (
     SQLAlchemyChatMessageRepository,
 )
+from src.infrastructure.db.repositories.payment_repository import SQLAlchemyPaymentRepository
 from src.infrastructure.db.repositories.refresh_token_repository import (
     SQLAlchemyRefreshTokenRepository,
 )
 from src.infrastructure.db.repositories.social_identity_repository import (
     SQLAlchemySocialIdentityRepository,
+)
+from src.infrastructure.db.repositories.subscription_repository import (
+    SQLAlchemySubscriptionRepository,
 )
 from src.infrastructure.db.repositories.user_repository import SQLAlchemyUserRepository
 from src.infrastructure.di.database import SessionDep
@@ -58,4 +64,20 @@ def get_chat_message_repository(session: SessionDep) -> ChatMessageRepositoryPro
 
 ChatMessageRepositoryDep = Annotated[
     ChatMessageRepositoryProtocol, Depends(get_chat_message_repository)
+]
+
+
+def get_payment_repository(session: SessionDep) -> PaymentRepositoryProtocol:
+    return SQLAlchemyPaymentRepository(session)
+
+
+PaymentRepositoryDep = Annotated[PaymentRepositoryProtocol, Depends(get_payment_repository)]
+
+
+def get_subscription_repository(session: SessionDep) -> SubscriptionRepositoryProtocol:
+    return SQLAlchemySubscriptionRepository(session)
+
+
+SubscriptionRepositoryDep = Annotated[
+    SubscriptionRepositoryProtocol, Depends(get_subscription_repository)
 ]

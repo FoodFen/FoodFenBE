@@ -10,7 +10,14 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from src.application.use_cases.analyze_food_image import AnalyzeFoodImageUseCase
+from src.application.use_cases.analyze_food_text import AnalyzeFoodTextUseCase
+from src.application.use_cases.cancel_payment import CancelPaymentUseCase
+from src.application.use_cases.create_checkout import CreateCheckoutUseCase
+from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCase
+from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
 from src.application.use_cases.get_user import GetUserUseCase
+from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
 from src.application.use_cases.list_chat_messages import ListChatMessagesUseCase
 from src.application.use_cases.login import LoginUseCase
 from src.application.use_cases.logout import LogoutUseCase
@@ -25,13 +32,18 @@ from src.application.use_cases.verify_email import VerifyEmailUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
     ChatMessageRepositoryDep,
+    PaymentRepositoryDep,
     RefreshTokenRepositoryDep,
     SocialIdentityRepositoryDep,
+    SubscriptionRepositoryDep,
     UserRepositoryDep,
 )
 from src.infrastructure.di.security import (
     AiChatProviderDep,
+    FoodVisionProviderDep,
+    ImageStorageDep,
     PasswordHasherDep,
+    PaymentProviderDep,
     SocialIdentityVerifierDep,
     TokenServiceDep,
 )
@@ -136,6 +148,16 @@ def get_send_chat_message_use_case(
     )
 
 
+def get_analyze_food_image_use_case(
+    vision: FoodVisionProviderDep, images: ImageStorageDep
+) -> AnalyzeFoodImageUseCase:
+    return AnalyzeFoodImageUseCase(vision=vision, images=images)
+
+
+def get_analyze_food_text_use_case(vision: FoodVisionProviderDep) -> AnalyzeFoodTextUseCase:
+    return AnalyzeFoodTextUseCase(vision=vision)
+
+
 RegisterUseCaseDep = Annotated[RegisterUserUseCase, Depends(get_register_use_case)]
 LoginUseCaseDep = Annotated[LoginUseCase, Depends(get_login_use_case)]
 RefreshUseCaseDep = Annotated[RefreshTokenUseCase, Depends(get_refresh_use_case)]
@@ -154,4 +176,70 @@ ListChatMessagesUseCaseDep = Annotated[
 ]
 SendChatMessageUseCaseDep = Annotated[
     SendChatMessageUseCase, Depends(get_send_chat_message_use_case)
+]
+AnalyzeFoodImageUseCaseDep = Annotated[
+    AnalyzeFoodImageUseCase, Depends(get_analyze_food_image_use_case)
+]
+AnalyzeFoodTextUseCaseDep = Annotated[
+    AnalyzeFoodTextUseCase, Depends(get_analyze_food_text_use_case)
+]
+
+
+def get_create_checkout_use_case(
+    payments: PaymentRepositoryDep, provider: PaymentProviderDep
+) -> CreateCheckoutUseCase:
+    return CreateCheckoutUseCase(
+        payments=payments,
+        provider=provider,
+        monthly_price_vnd=settings.payos_monthly_price_vnd,
+        annual_price_vnd=settings.payos_annual_price_vnd,
+        return_url=settings.payos_return_url,
+        cancel_url=settings.payos_cancel_url,
+    )
+
+
+def get_handle_payment_webhook_use_case(
+    payments: PaymentRepositoryDep,
+    provider: PaymentProviderDep,
+    subscriptions: SubscriptionRepositoryDep,
+    users: UserRepositoryDep,
+) -> HandlePaymentWebhookUseCase:
+    return HandlePaymentWebhookUseCase(
+        payments=payments, provider=provider, subscriptions=subscriptions, users=users
+    )
+
+
+def get_get_payment_status_use_case(
+    payments: PaymentRepositoryDep,
+    provider: PaymentProviderDep,
+    subscriptions: SubscriptionRepositoryDep,
+    users: UserRepositoryDep,
+) -> GetPaymentStatusUseCase:
+    return GetPaymentStatusUseCase(
+        payments=payments, provider=provider, subscriptions=subscriptions, users=users
+    )
+
+
+def get_cancel_payment_use_case(
+    payments: PaymentRepositoryDep, provider: PaymentProviderDep
+) -> CancelPaymentUseCase:
+    return CancelPaymentUseCase(payments=payments, provider=provider)
+
+
+def get_get_my_subscription_use_case(
+    subscriptions: SubscriptionRepositoryDep,
+) -> GetMySubscriptionUseCase:
+    return GetMySubscriptionUseCase(subscriptions=subscriptions)
+
+
+CreateCheckoutUseCaseDep = Annotated[CreateCheckoutUseCase, Depends(get_create_checkout_use_case)]
+HandlePaymentWebhookUseCaseDep = Annotated[
+    HandlePaymentWebhookUseCase, Depends(get_handle_payment_webhook_use_case)
+]
+GetPaymentStatusUseCaseDep = Annotated[
+    GetPaymentStatusUseCase, Depends(get_get_payment_status_use_case)
+]
+CancelPaymentUseCaseDep = Annotated[CancelPaymentUseCase, Depends(get_cancel_payment_use_case)]
+GetMySubscriptionUseCaseDep = Annotated[
+    GetMySubscriptionUseCase, Depends(get_get_my_subscription_use_case)
 ]
