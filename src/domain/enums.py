@@ -95,6 +95,14 @@ class SubscriptionStatus(StrEnum):
     TRIAL = "trial"
 
 
+class PaymentStatus(StrEnum):
+    PENDING = "pending"
+    PAID = "paid"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+    FAILED = "failed"
+
+
 class QuestType(StrEnum):
     """Matches the quest catalog in FoodFenFE/src/db/schema.ts."""
 
