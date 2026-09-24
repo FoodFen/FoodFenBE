@@ -19,8 +19,16 @@ _GEMINI_ROLE = {ChatRole.USER: "user", ChatRole.ASSISTANT: "model"}
 
 
 class GeminiChatProvider:
-    def __init__(self, *, api_key: str, model: str, client: genai.Client | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        system_prompt: str,
+        client: genai.Client | None = None,
+    ) -> None:
         self._model = model
+        self._system_prompt = system_prompt
         # Overridable so tests can inject a fake client instead of a real API call.
         self._client = client or genai.Client(api_key=api_key)
 
@@ -34,7 +42,15 @@ class GeminiChatProvider:
         contents.append(types.Content(role="user", parts=[types.Part(text=user_message)]))
 
         stream = await self._client.aio.models.generate_content_stream(
-            model=self._model, contents=contents
+            model=self._model,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=self._system_prompt,
+                # No tools are configured here — automatic function calling has
+                # nothing to do, and its default-on state just logs an unrelated
+                # warning ("use AFC in AsyncChat instead") on every call.
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            ),
         )
         async for chunk in stream:
             if chunk.text:

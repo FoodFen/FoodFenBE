@@ -15,6 +15,8 @@ dependencies = [
     "bcrypt>=4.2",
     "python-multipart>=0.0.12",  # required by OAuth2PasswordRequestForm (Swagger login)
     "google-genai>=1.0",
+    "cloudinary>=1.41",
+    "payos>=1.1.0",
 ]
 
 [dependency-groups]

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from src.adapters.schemas.base import CamelModel
 from src.adapters.schemas.user_schemas import UserResponse
@@ -52,6 +52,15 @@ class SocialSignInRequest(CamelModel):
 
 class MessageResponse(CamelModel):
     message: str
+
+
+class SwaggerTokenResponse(BaseModel):
+    """OAuth2-spec-shaped (snake_case), unlike everything else here: Swagger's
+    Authorize dialog reads `access_token` literally off this response to fill
+    its bearer header — a camelCase body leaves it as "Bearer undefined"."""
+
+    access_token: str
+    token_type: str = "bearer"
 
 
 class AuthSessionResponse(CamelModel):

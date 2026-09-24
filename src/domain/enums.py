@@ -90,19 +90,41 @@ class PlanType(StrEnum):
 
 class SubscriptionStatus(StrEnum):
     ACTIVE = "active"
+    CANCELED = "canceled"
+    EXPIRED = "expired"
+    TRIAL = "trial"
+
+
+class PaymentStatus(StrEnum):
+    PENDING = "pending"
+    PAID = "paid"
     CANCELLED = "cancelled"
     EXPIRED = "expired"
+    FAILED = "failed"
 
 
 class QuestType(StrEnum):
-    LOG_FOOD = "log_food"
-    LOG_WATER = "log_water"
+    """Matches the quest catalog in FoodFenFE/src/db/schema.ts."""
+
+    LOG_BREAKFAST = "log_breakfast"
+    LOG_ALL_MEALS = "log_all_meals"
+    HIT_CALORIE_GOAL = "hit_calorie_goal"
+    HIT_PROTEIN_GOAL = "hit_protein_goal"
+    DRINK_WATER = "drink_water"
     LOG_WEIGHT = "log_weight"
-    LOG_ACTIVITY = "log_activity"
+    STAY_ACTIVE_WEEK = "stay_active_week"
+
+
+class QuestCadence(StrEnum):
+    """`daily` quests are issued fresh each day; `weekly` once per calendar week."""
+
+    DAILY = "daily"
+    WEEKLY = "weekly"
 
 
 class CoinReason(StrEnum):
-    QUEST_REWARD = "quest_reward"
+    QUEST_COMPLETED = "quest_completed"
     STREAK_BONUS = "streak_bonus"
     PURCHASE = "purchase"
+    SPEND = "spend"
     ADJUSTMENT = "adjustment"

@@ -8,6 +8,7 @@ from src.infrastructure.db.models.chat_message_model import ChatMessageORM
 from src.infrastructure.db.models.coin_transaction_model import CoinTransactionORM
 from src.infrastructure.db.models.daily_goal_model import DailyGoalORM
 from src.infrastructure.db.models.food_entry_model import FoodEntryORM, IngredientORM
+from src.infrastructure.db.models.payment_model import PaymentORM
 from src.infrastructure.db.models.quest_model import QuestORM
 from src.infrastructure.db.models.refresh_token_model import RefreshTokenORM
 from src.infrastructure.db.models.social_identity_model import SocialIdentityORM
@@ -24,6 +25,7 @@ __all__ = [
     "DailyGoalORM",
     "FoodEntryORM",
     "IngredientORM",
+    "PaymentORM",
     "QuestORM",
     "RefreshTokenORM",
     "SocialIdentityORM",

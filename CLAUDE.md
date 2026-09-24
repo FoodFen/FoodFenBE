@@ -1,7 +1,31 @@
-# FoodFenBE — rules for AI sessions
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 Clean Architecture. Python 3.11+, FastAPI, async SQLAlchemy 2.0, PostgreSQL, Pydantic v2, `uv`.
 Dependency direction: `domain <- application <- adapters | infrastructure`. Never sideways, never inward-out.
+
+## AI session tooling
+
+> These assume `semble`, `ponytail`, and `superpowers` are available in your session (they're part
+> of this repo owner's standard Claude Code setup). If a tool/skill named here isn't available to
+> you, fall back to the plain equivalent (`Grep`/`Glob`, careful-by-hand review) rather than skipping
+> the step it does.
+
+- **Always** search with `mcp__semble__search` (CLI: `semble search "<query>" .`) to find where
+  something is implemented, before reaching for `Grep`/`Glob`. Use `mcp__semble__find_related` to
+  find similar code elsewhere in the repo. Reserve `Grep` for enumerating every literal occurrence
+  of a known string (e.g. every caller of a renamed function) — not for first-pass discovery.
+- **Always** apply `ponytail` discipline when writing or changing code here: climb the ladder (skip
+  if speculative → reuse what's already in this repo → stdlib → native platform feature →
+  already-installed dependency → one-liner → minimum code) before adding anything. No interfaces
+  with one implementation, no config for a value that never changes, no scaffolding "for later" —
+  this repo's Clean Architecture layers are already the intended structure, not a license to add
+  more layers on top of them.
+- **Always** invoke the matching `superpowers` skill before starting non-trivial work:
+  `brainstorming` before shaping a new feature or slice, `systematic-debugging` before proposing a
+  bug fix, `test-driven-development` before implementation code, `verification-before-completion`
+  before claiming something works or committing, `requesting-code-review` before opening a PR.
 
 ## Never
 
@@ -124,6 +148,33 @@ async def create_user(
 - `JWT_SECRET` has an insecure dev default; `main.lifespan` warns if it's still in use. Set a real one
   (`openssl rand -hex 32`) via env for anything shared.
 
+## AI chat
+
+- **Endpoints** (`src/adapters/controllers/chat_controller.py`, all `CurrentUserDep`-protected):
+  `GET /chat/messages?before=&limit=` returns a page of history; `POST /chat/messages` streams the
+  assistant's reply as SSE (`text/event-stream`), not JSON.
+- **SSE contract**: `event: token` per delta (`{"delta": str}`), then either `event: done`
+  (`{"message": ChatMessageResponse}`) or `event: error` (`{"message": str}`). A failure *before*
+  streaming starts (auth, validation) is a normal 401/422; only a failure *after* the stream opens
+  becomes an `event: error` frame, since headers are already committed at that point.
+- **Persistence order** (`use_cases/send_chat_message.py`): the user's message is saved *before* the
+  provider is called, so it's already in history if generation then fails. The assistant's reply is
+  only persisted once fully generated — a failed or empty generation is discarded, not saved
+  partially, and yields `event: error` instead.
+- **Pagination cursor**: opaque `"{created_at.isoformat()}|{id}"`, encoded/decoded only by
+  `src/application/chat_cursor.py` (stdlib-only, shared by the use case and the repository so they
+  can't drift out of sync). The `id` tiebreaks same-timestamp rows at a page boundary.
+- **Provider port**: `AiChatProviderProtocol` (`application/ports/ai_chat_provider.py`), implemented
+  by `GeminiChatProvider` (`infrastructure/ai/gemini_chat_provider.py`) using `google-genai`.
+  Gemini's role vocabulary (`user`/`model`) is translated from the domain `ChatRole` enum
+  (`user`/`assistant`) only inside that class.
+- **System prompt is config, not code**: `settings.gemini_system_prompt` (default in
+  `DEFAULT_GEMINI_SYSTEM_PROMPT`, `infrastructure/config.py`), overridable via
+  `GEMINI_SYSTEM_PROMPT` without touching `gemini_chat_provider.py`. `settings.chat_history_limit`
+  caps how many prior messages are sent to the model per turn.
+- Tests never call the real Gemini API — `tests/api/conftest.py::FakeAiChatProvider` overrides
+  `get_ai_chat_provider` with a scripted reply.
+
 ## Commands
 
     make dev            # uvicorn --reload
@@ -131,6 +182,13 @@ async def create_user(
     make lint-imports   # import-linter contracts
     make migrate        # alembic upgrade head
     make docker-up      # local postgres:16
+
+`unit` tests use an in-memory repo (no DB). `integration` and `api` tests hit a real Postgres,
+dropping and recreating the schema per test — they need `make docker-up` first and run against a
+separate `foodfen_test` database (`make test` sets `DATABASE_URL`/`TEST_DATABASE_URL` for you). To
+run a single test file or node id against that DB directly:
+
+    DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/foodfen_test uv run pytest tests/unit/test_user_use_cases.py::test_name
 
 ## Adding a slice
 

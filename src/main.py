@@ -12,6 +12,9 @@ from sqlalchemy import text
 
 from src.adapters.controllers.auth_controller import router as auth_router
 from src.adapters.controllers.chat_controller import router as chat_router
+from src.adapters.controllers.food_analysis_controller import router as food_analysis_router
+from src.adapters.controllers.payment_controller import router as payment_router
+from src.adapters.controllers.subscription_controller import router as subscription_router
 from src.adapters.controllers.user_controller import router as user_router
 from src.adapters.exception_handlers import register_exception_handlers
 from src.infrastructure.config import DEV_JWT_SECRET, settings
@@ -38,6 +41,9 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(user_router)
     app.include_router(chat_router)
+    app.include_router(food_analysis_router)
+    app.include_router(payment_router)
+    app.include_router(subscription_router)
     register_exception_handlers(app)
     return app
 

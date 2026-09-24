@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Boolean, Date, Integer, UniqueConstraint, text
+from sqlalchemy import Boolean, Date, Float, Integer, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.domain.entities.quest import Quest
-from src.domain.enums import QuestType
+from src.domain.enums import QuestCadence, QuestType
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.mixins import UserOwned, UUIDPrimaryKey
 from src.infrastructure.db.types import enum_column
@@ -32,6 +32,14 @@ class QuestORM(UUIDPrimaryKey, UserOwned, Base):
         Boolean, nullable=False, server_default=text("false")
     )
     quest_date: Mapped[date] = mapped_column(Date, nullable=False)
+    cadence: Mapped[QuestCadence] = mapped_column(
+        enum_column(QuestCadence, "cadence"),
+        nullable=False,
+        server_default=QuestCadence.DAILY.value,
+    )
+    completion_ratio: Mapped[float] = mapped_column(
+        Float, nullable=False, server_default=text("1")
+    )
 
     def to_domain(self) -> Quest:
         return Quest(
@@ -43,6 +51,8 @@ class QuestORM(UUIDPrimaryKey, UserOwned, Base):
             progress=self.progress,
             completed=self.completed,
             quest_date=self.quest_date,
+            cadence=self.cadence,
+            completion_ratio=self.completion_ratio,
         )
 
     @staticmethod
@@ -56,4 +66,6 @@ class QuestORM(UUIDPrimaryKey, UserOwned, Base):
             progress=quest.progress,
             completed=quest.completed,
             quest_date=quest.quest_date,
+            cadence=quest.cadence,
+            completion_ratio=quest.completion_ratio,
         )

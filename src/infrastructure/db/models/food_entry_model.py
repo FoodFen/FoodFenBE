@@ -32,6 +32,8 @@ class IngredientORM(UUIDPrimaryKey, Base):
     carbs_g: Mapped[float] = mapped_column(Float, nullable=False)
     protein_g: Mapped[float] = mapped_column(Float, nullable=False)
     fat_g: Mapped[float] = mapped_column(Float, nullable=False)
+    # Premium-only, mirroring FoodEntryORM.fiber_g. NULL means "not tracked".
+    fiber_g: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     def to_domain(self) -> Ingredient:
         return Ingredient(
@@ -43,6 +45,7 @@ class IngredientORM(UUIDPrimaryKey, Base):
             carbs_g=self.carbs_g,
             protein_g=self.protein_g,
             fat_g=self.fat_g,
+            fiber_g=self.fiber_g,
         )
 
     @staticmethod
@@ -56,6 +59,7 @@ class IngredientORM(UUIDPrimaryKey, Base):
             carbs_g=ingredient.carbs_g,
             protein_g=ingredient.protein_g,
             fat_g=ingredient.fat_g,
+            fiber_g=ingredient.fiber_g,
         )
 
 
@@ -63,6 +67,7 @@ class FoodEntryORM(UUIDPrimaryKey, UserOwned, Base):
     __tablename__ = "food_entries"
     __table_args__ = (Index("ix_food_entries_user_logged_at", "user_id", "logged_at"),)
 
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     input_method: Mapped[InputMethod] = mapped_column(
         enum_column(InputMethod, "input_method"), nullable=False
     )
@@ -89,6 +94,7 @@ class FoodEntryORM(UUIDPrimaryKey, UserOwned, Base):
         return FoodEntry(
             id=self.id,
             user_id=self.user_id,
+            name=self.name,
             input_method=self.input_method,
             total_kcal=self.total_kcal,
             carbs_g=self.carbs_g,
@@ -106,6 +112,7 @@ class FoodEntryORM(UUIDPrimaryKey, UserOwned, Base):
         return FoodEntryORM(
             id=entry.id,
             user_id=entry.user_id,
+            name=entry.name,
             input_method=entry.input_method,
             image_url=entry.image_url,
             total_kcal=entry.total_kcal,

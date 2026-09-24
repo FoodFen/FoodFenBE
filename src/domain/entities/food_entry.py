@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 
 from src.domain.entities.ingredient import Ingredient
 from src.domain.enums import AiFeedback, InputMethod
-from src.domain.validation import require_non_negative
+from src.domain.validation import require_non_empty, require_non_negative
 
 
 @dataclass
@@ -22,6 +22,7 @@ class FoodEntry:
 
     id: UUID
     user_id: int
+    name: str
     input_method: InputMethod
     total_kcal: int
     carbs_g: float
@@ -34,6 +35,7 @@ class FoodEntry:
     ingredients: list[Ingredient] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        self.name = require_non_empty(self.name, "name")
         for value, label in (
             (self.total_kcal, "total_kcal"),
             (self.carbs_g, "carbs_g"),
@@ -48,6 +50,7 @@ class FoodEntry:
     def create(
         cls,
         user_id: int,
+        name: str,
         input_method: InputMethod,
         total_kcal: int,
         carbs_g: float,
@@ -60,6 +63,7 @@ class FoodEntry:
         return cls(
             id=uuid4(),
             user_id=user_id,
+            name=name,
             input_method=input_method,
             total_kcal=total_kcal,
             carbs_g=carbs_g,

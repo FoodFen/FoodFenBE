@@ -69,6 +69,7 @@ def _full_user() -> User:
 def _food_entry() -> FoodEntry:
     entry = FoodEntry.create(
         user_id=USER_ID,
+        name="Post-workout lunch",
         input_method=InputMethod.IMAGE,
         total_kcal=520,
         carbs_g=45.0,
@@ -78,7 +79,7 @@ def _food_entry() -> FoodEntry:
         fiber_g=6.0,
     )
     entry.ingredients = [
-        Ingredient.create(entry.id, "chicken breast", 150.0, 250, 0.0, 46.0, 5.4),
+        Ingredient.create(entry.id, "chicken breast", 150.0, 250, 0.0, 46.0, 5.4, fiber_g=0.0),
         Ingredient.create(entry.id, "brown rice", 120.0, 140, 30.0, 3.0, 1.1),
     ]
     return entry
@@ -97,7 +98,7 @@ ROUND_TRIPS = [
     (WeightLog.create(USER_ID, 60.4, TODAY), WeightLogORM),
     (WaterLog.create(USER_ID, 350), WaterLogORM),
     (Streak(id=uuid4(), user_id=USER_ID, current_streak=4, longest_streak=9), StreakORM),
-    (Quest.create(USER_ID, QuestType.LOG_WATER, 8, 25, TODAY), QuestORM),
+    (Quest.create(USER_ID, QuestType.DRINK_WATER, 8, 25, TODAY), QuestORM),
     (CoinTransaction.create(USER_ID, -50, CoinReason.PURCHASE), CoinTransactionORM),
     (
         Subscription.create(
@@ -140,6 +141,24 @@ def test_ingredient_rejects_negative_macros():
         Ingredient.create(uuid4(), "salt", 1.0, 0, -1.0, 0.0, 0.0)
 
 
+def test_food_entry_rejects_blank_name():
+    with pytest.raises(InvalidAttributeException):
+        FoodEntry.create(
+            user_id=USER_ID,
+            name="   ",
+            input_method=InputMethod.MANUAL,
+            total_kcal=100,
+            carbs_g=10.0,
+            protein_g=5.0,
+            fat_g=2.0,
+        )
+
+
+def test_quest_rejects_completion_ratio_out_of_range():
+    with pytest.raises(InvalidAttributeException):
+        Quest.create(USER_ID, QuestType.DRINK_WATER, 8, 25, completion_ratio=1.5)
+
+
 def test_water_log_rejects_zero_amount():
     with pytest.raises(InvalidAttributeException):
         WaterLog.create(USER_ID, 0)
@@ -177,12 +196,18 @@ def test_subscription_covers_only_inside_active_window():
     assert sub.covers(TODAY)
     assert not sub.covers(TODAY - timedelta(days=1))
 
-    sub.status = SubscriptionStatus.CANCELLED
+    sub.status = SubscriptionStatus.CANCELED
     assert not sub.covers(TODAY)
 
 
+def test_subscription_with_no_end_date_covers_indefinitely():
+    sub = Subscription.create(USER_ID, PlanType.MONTHLY, TODAY, None, Decimal("9.99"))
+    assert sub.covers(TODAY + timedelta(days=365))
+    assert not sub.covers(TODAY - timedelta(days=1))
+
+
 def test_quest_is_achieved_at_target():
-    quest = Quest.create(USER_ID, QuestType.LOG_FOOD, target=3, reward_coins=10)
+    quest = Quest.create(USER_ID, QuestType.LOG_BREAKFAST, target=3, reward_coins=10)
     assert not quest.is_achieved
     quest.progress = 3
     assert quest.is_achieved

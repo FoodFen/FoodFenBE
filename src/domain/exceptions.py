@@ -25,6 +25,10 @@ class InvalidUserAttributeException(InvalidAttributeException):
     """A user attribute violates a domain invariant."""
 
 
+class UnreadableImageException(InvalidAttributeException):
+    """An uploaded image is not a supported/decodable format."""
+
+
 class WeakPasswordException(InvalidUserAttributeException):
     """A proposed password does not meet the strength policy."""
 
@@ -39,3 +43,19 @@ class InvalidCredentialsException(AuthenticationException):
 
 class InvalidTokenException(AuthenticationException):
     """A token is missing, malformed, expired, or revoked."""
+
+
+class PaymentNotFoundException(EntityNotFoundException):
+    """A requested payment does not exist."""
+
+
+class InvalidPaymentStateException(InvalidAttributeException):
+    """An operation is not valid for a payment's current status."""
+
+
+class InvalidWebhookSignatureException(AuthenticationException):
+    """A webhook payload's signature does not match the expected checksum."""
+
+
+class PremiumRequiredException(DomainException):
+    """The user does not have an active Premium subscription. Maps to HTTP 402."""

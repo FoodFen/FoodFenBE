@@ -18,6 +18,8 @@ class Ingredient:
     carbs_g: float
     protein_g: float
     fat_g: float
+    # Premium-only, mirroring FoodEntry.fiber_g: None means "not tracked", not zero.
+    fiber_g: float | None = None
 
     def __post_init__(self) -> None:
         self.name = require_non_empty(self.name, "name")
@@ -29,6 +31,8 @@ class Ingredient:
             (self.fat_g, "fat_g"),
         ):
             require_non_negative(value, label)
+        if self.fiber_g is not None:
+            require_non_negative(self.fiber_g, "fiber_g")
 
     @classmethod
     def create(
@@ -40,6 +44,7 @@ class Ingredient:
         carbs_g: float,
         protein_g: float,
         fat_g: float,
+        fiber_g: float | None = None,
     ) -> Ingredient:
         return cls(
             id=uuid4(),
@@ -50,4 +55,5 @@ class Ingredient:
             carbs_g=carbs_g,
             protein_g=protein_g,
             fat_g=fat_g,
+            fiber_g=fiber_g,
         )
