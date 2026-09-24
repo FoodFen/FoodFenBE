@@ -88,6 +88,23 @@ async def test_me_requires_and_accepts_token(client, signed_up):
     assert resp.json()["id"] == signed_up["user"]["id"]
 
 
+async def test_swagger_token_endpoint_uses_oauth2_snake_case_shape(client, signed_up):
+    """Regression: this response must NOT go through CamelModel — Swagger's
+    Authorize dialog reads `access_token` (snake_case, OAuth2 spec) literally
+    off the JSON body, and a camelCase `accessToken` leaves it as "undefined"."""
+    resp = await client.post(
+        "/auth/token",
+        data={"username": "user@example.com", "password": "s3cret-pass"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["access_token"]
+    assert "accessToken" not in body
+
+    me = await client.get("/auth/me", headers={"Authorization": f"Bearer {body['access_token']}"})
+    assert me.status_code == 200
+
+
 async def test_me_rejects_refresh_token_as_access(client, signed_up):
     resp = await client.get(
         "/auth/me", headers={"Authorization": f"Bearer {signed_up['refreshToken']}"}

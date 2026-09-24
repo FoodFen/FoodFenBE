@@ -29,6 +29,7 @@ from src.adapters.schemas.auth_schemas import (
     SignOutRequest,
     SignUpRequest,
     SocialSignInRequest,
+    SwaggerTokenResponse,
 )
 from src.adapters.schemas.user_schemas import UserResponse
 from src.application.dtos.auth import (
@@ -173,15 +174,15 @@ async def reset_password(
     return MessageResponse(message="Password updated. You can now sign in.")
 
 
-@router.post("/token", response_model=AuthSessionResponse, include_in_schema=False)
+@router.post("/token", response_model=SwaggerTokenResponse, include_in_schema=False)
 async def sign_in_for_swagger(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
     use_case: LoginUseCaseDep,
-) -> AuthSessionResponse:
+) -> SwaggerTokenResponse:
     """Same sign-in, OAuth2-form-shaped. Exists only as the target of Swagger's
     "Authorize" dialog (`tokenUrl="auth/token"` in `di/security.py`) — real
     clients use the JSON `/auth/sign-in` above. Hidden from the schema so it
     doesn't show up as a second, redundant login endpoint.
     """
     session = await use_case.execute(LoginInputDTO(email=form.username, password=form.password))
-    return AuthSessionResponse.from_dto(session)
+    return SwaggerTokenResponse(access_token=session.access_token)
