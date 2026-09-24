@@ -21,7 +21,7 @@ from src.domain.entities.user import User
 from src.domain.entities.water_log import WaterLog
 from src.domain.entities.weight_log import WeightLog
 from src.domain.enums import ActivitySource, InputMethod, MealType
-from src.domain.exceptions import ActivityLogNotFoundException
+from src.domain.exceptions import ActivityLogNotFoundException, WaterLogNotFoundException
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.models.activity_log_model import ActivityLogORM  # noqa: F401
 from src.infrastructure.db.models.daily_goal_model import DailyGoalORM  # noqa: F401
@@ -290,3 +290,50 @@ async def test_weight_log_repository_create_is_idempotent_on_client_id(session):
 
     assert second.id == first.id
     assert second.weight == 60.4  # unchanged: the retry was ignored
+
+
+async def test_water_log_repository_create_is_idempotent_on_client_id(session):
+    user_a, _ = await _make_two_users(session)
+    repo = SQLAlchemyWaterLogRepository(session)
+
+    first = await repo.create(
+        WaterLog.create(user_a.id, 350, client_id="dup", logged_on=date(2026, 1, 1))
+    )
+    await session.commit()
+    second = await repo.create(
+        WaterLog.create(user_a.id, 999, client_id="dup", logged_on=date(2026, 1, 2))
+    )
+    await session.commit()
+
+    assert second.id == first.id
+    assert second.amount_ml == 350  # unchanged: the retry was ignored
+
+
+async def test_water_log_repository_delete_soft_deletes_and_list_stops_returning_it(session):
+    user_a, _ = await _make_two_users(session)
+    repo = SQLAlchemyWaterLogRepository(session)
+    created = await repo.create(
+        WaterLog.create(user_a.id, 350, client_id="w1", logged_on=date(2026, 1, 1))
+    )
+    await session.commit()
+
+    await repo.delete(created.id)
+    await session.commit()
+
+    assert await repo.get_by_id(created.id) is None
+    result = await repo.list_by_date_range(user_a.id, date(2026, 1, 1), date(2026, 1, 1))
+    assert result == []
+
+
+async def test_water_log_repository_delete_twice_raises_not_found(session):
+    user_a, _ = await _make_two_users(session)
+    repo = SQLAlchemyWaterLogRepository(session)
+    created = await repo.create(
+        WaterLog.create(user_a.id, 350, client_id="w1", logged_on=date(2026, 1, 1))
+    )
+    await session.commit()
+    await repo.delete(created.id)
+    await session.commit()
+
+    with pytest.raises(WaterLogNotFoundException):
+        await repo.delete(created.id)

@@ -26,3 +26,11 @@ class WaterLogOutputDTO:
             logged_at=log.logged_at,
             logged_on=log.logged_on,
         )
+
+
+@dataclass(frozen=True)
+class CreateWaterLogInputDTO:
+    user_id: int
+    amount_ml: int
+    client_id: str
+    logged_on: date | None = None

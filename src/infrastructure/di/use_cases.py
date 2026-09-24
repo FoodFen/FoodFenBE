@@ -18,6 +18,7 @@ from src.application.use_cases.create_checkout import CreateCheckoutUseCase
 from src.application.use_cases.create_daily_goal import CreateDailyGoalUseCase
 from src.application.use_cases.create_food_entry import CreateFoodEntryUseCase
 from src.application.use_cases.delete_food_entry import DeleteFoodEntryUseCase
+from src.application.use_cases.delete_water_log import DeleteWaterLogUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
 from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCase
 from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
@@ -37,6 +38,7 @@ from src.application.use_cases.request_password_reset import RequestPasswordRese
 from src.application.use_cases.resend_verification import ResendVerificationUseCase
 from src.application.use_cases.reset_password import ResetPasswordUseCase
 from src.application.use_cases.send_chat_message import SendChatMessageUseCase
+from src.application.use_cases.create_water_log import CreateWaterLogUseCase
 from src.application.use_cases.create_weight_log import CreateWeightLogUseCase
 from src.application.use_cases.social_sign_in import SocialSignInUseCase
 from src.application.use_cases.update_activity_log import UpdateActivityLogUseCase
@@ -326,6 +328,22 @@ def get_list_activity_logs_use_case(
 
 def get_list_water_logs_use_case(water_logs: WaterLogRepositoryDep) -> ListWaterLogsUseCase:
     return ListWaterLogsUseCase(water_logs=water_logs)
+
+
+def get_create_water_log_use_case(water_logs: WaterLogRepositoryDep) -> CreateWaterLogUseCase:
+    return CreateWaterLogUseCase(water_logs=water_logs)
+
+
+def get_delete_water_log_use_case(water_logs: WaterLogRepositoryDep) -> DeleteWaterLogUseCase:
+    return DeleteWaterLogUseCase(water_logs=water_logs)
+
+
+CreateWaterLogUseCaseDep = Annotated[
+    CreateWaterLogUseCase, Depends(get_create_water_log_use_case)
+]
+DeleteWaterLogUseCaseDep = Annotated[
+    DeleteWaterLogUseCase, Depends(get_delete_water_log_use_case)
+]
 
 
 def get_list_weight_logs_use_case(weight_logs: WeightLogRepositoryDep) -> ListWeightLogsUseCase:
