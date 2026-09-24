@@ -59,3 +59,7 @@ class InvalidWebhookSignatureException(AuthenticationException):
 
 class PremiumRequiredException(DomainException):
     """The user does not have an active Premium subscription. Maps to HTTP 402."""
+
+
+class FoodEntryNotFoundException(EntityNotFoundException):
+    """A requested food entry does not exist."""
