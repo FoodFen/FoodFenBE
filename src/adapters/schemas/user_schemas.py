@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from pydantic import ConfigDict
+from pydantic.alias_generators import to_camel
+
 from src.adapters.schemas.base import CamelModel
 from src.application.dtos.user import UserOutputDTO
 from src.domain.enums import (
@@ -61,3 +64,26 @@ class UserResponse(CamelModel):
             weekly_rate_kg=dto.weekly_rate_kg,
             created_at=dto.created_at,
         )
+
+
+class UpdateUserProfileRequest(CamelModel):
+    """Partial patch — every field optional; omitted fields are left
+    unchanged. ``extra="forbid"`` (overriding ``CamelModel``'s default)
+    rejects ``id``/``createdAt``/``subscriptionTier`` in the body outright,
+    rather than silently ignoring an attempt to self-grant Premium."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
+
+    email: str | None = None
+    display_name: str | None = None
+    gender: Gender | None = None
+    birth_year: int | None = None
+    unit_system: UnitSystem | None = None
+    height: float | None = None
+    weight_current: float | None = None
+    weight_goal: float | None = None
+    activity_level: ActivityLevel | None = None
+    diet_type: DietType | None = None
+    calorie_calc_mode: CalorieCalcMode | None = None
+    calorie_left_mode: CalorieLeftMode | None = None
+    weekly_rate_kg: float | None = None
