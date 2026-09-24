@@ -277,3 +277,16 @@ async def test_activity_log_repository_get_by_id_round_trips(session):
     assert fetched.activity_type == "running"
 
     assert await repo.get_by_id(uuid4()) is None
+
+
+async def test_weight_log_repository_create_is_idempotent_on_client_id(session):
+    user_a, _ = await _make_two_users(session)
+    repo = SQLAlchemyWeightLogRepository(session)
+
+    first = await repo.create(WeightLog.create(user_a.id, 60.4, date(2026, 1, 1), client_id="dup"))
+    await session.commit()
+    second = await repo.create(WeightLog.create(user_a.id, 99.9, date(2026, 1, 2), client_id="dup"))
+    await session.commit()
+
+    assert second.id == first.id
+    assert second.weight == 60.4  # unchanged: the retry was ignored

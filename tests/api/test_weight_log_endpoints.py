@@ -49,3 +49,20 @@ async def test_returns_the_seeded_log_with_camel_case_shape(client, signed_up):
     assert log["userId"] == user_id
     assert log["weight"] == 60.4
     assert log["recordedAt"] == "2026-01-15"
+
+
+_CREATE_BODY = {"weight": 60.4, "clientId": "weight_1", "recordedAt": "2026-01-15"}
+
+
+async def test_post_creates_a_log(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    resp = await client.post("/weight-logs", json=_CREATE_BODY, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["weight"] == 60.4
+
+
+async def test_post_with_repeated_client_id_returns_the_same_log(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    first = (await client.post("/weight-logs", json=_CREATE_BODY, headers=headers)).json()
+    second = (await client.post("/weight-logs", json=_CREATE_BODY, headers=headers)).json()
+    assert first["id"] == second["id"]

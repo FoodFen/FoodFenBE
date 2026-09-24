@@ -37,6 +37,7 @@ from src.application.use_cases.request_password_reset import RequestPasswordRese
 from src.application.use_cases.resend_verification import ResendVerificationUseCase
 from src.application.use_cases.reset_password import ResetPasswordUseCase
 from src.application.use_cases.send_chat_message import SendChatMessageUseCase
+from src.application.use_cases.create_weight_log import CreateWeightLogUseCase
 from src.application.use_cases.social_sign_in import SocialSignInUseCase
 from src.application.use_cases.update_activity_log import UpdateActivityLogUseCase
 from src.application.use_cases.update_food_entry import UpdateFoodEntryUseCase
@@ -329,6 +330,17 @@ def get_list_water_logs_use_case(water_logs: WaterLogRepositoryDep) -> ListWater
 
 def get_list_weight_logs_use_case(weight_logs: WeightLogRepositoryDep) -> ListWeightLogsUseCase:
     return ListWeightLogsUseCase(weight_logs=weight_logs)
+
+
+def get_create_weight_log_use_case(
+    weight_logs: WeightLogRepositoryDep,
+) -> CreateWeightLogUseCase:
+    return CreateWeightLogUseCase(weight_logs=weight_logs)
+
+
+CreateWeightLogUseCaseDep = Annotated[
+    CreateWeightLogUseCase, Depends(get_create_weight_log_use_case)
+]
 
 
 def get_create_activity_log_use_case(

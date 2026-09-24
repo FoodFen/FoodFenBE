@@ -7,10 +7,26 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from src.adapters.schemas.weight_log_schemas import WeightLogResponse
-from src.infrastructure.di import CurrentUserDep, ListWeightLogsUseCaseDep
+from src.adapters.schemas.weight_log_schemas import CreateWeightLogRequest, WeightLogResponse
+from src.application.dtos.weight_log import CreateWeightLogInputDTO
+from src.infrastructure.di import (
+    CreateWeightLogUseCaseDep,
+    CurrentUserDep,
+    ListWeightLogsUseCaseDep,
+)
 
 router = APIRouter(prefix="/weight-logs", tags=["weight-logs"])
+
+
+@router.post("", response_model=WeightLogResponse)
+async def create_weight_log(
+    body: CreateWeightLogRequest, user: CurrentUserDep, use_case: CreateWeightLogUseCaseDep
+) -> WeightLogResponse:
+    input_dto = CreateWeightLogInputDTO(
+        user_id=user.id, weight=body.weight, client_id=body.client_id, recorded_at=body.recorded_at
+    )
+    result = await use_case.execute(input_dto)
+    return WeightLogResponse.from_dto(result)
 
 
 @router.get("", response_model=list[WeightLogResponse])

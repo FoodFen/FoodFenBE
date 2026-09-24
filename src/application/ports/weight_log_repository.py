@@ -9,6 +9,8 @@ from src.domain.entities.weight_log import WeightLog
 
 
 class WeightLogRepositoryProtocol(Protocol):
+    async def create(self, log: WeightLog) -> WeightLog: ...
+
     async def list_by_date_range(
         self, user_id: int, from_date: date, to_date: date
     ) -> list[WeightLog]:

@@ -24,3 +24,11 @@ class WeightLogOutputDTO:
             weight=log.weight,
             recorded_at=log.recorded_at,
         )
+
+
+@dataclass(frozen=True)
+class CreateWeightLogInputDTO:
+    user_id: int
+    weight: float
+    client_id: str
+    recorded_at: date | None = None
