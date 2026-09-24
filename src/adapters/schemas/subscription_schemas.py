@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 from src.adapters.schemas.base import CamelModel
 from src.application.dtos.subscription import SubscriptionOutputDTO
@@ -14,6 +15,7 @@ class SubscriptionResponse(CamelModel):
     status: SubscriptionStatus
     start_date: date
     end_date: date | None
+    price: Decimal
 
     @classmethod
     def from_dto(cls, dto: SubscriptionOutputDTO) -> SubscriptionResponse:
@@ -22,6 +24,7 @@ class SubscriptionResponse(CamelModel):
             status=dto.status,
             start_date=dto.start_date,
             end_date=dto.end_date,
+            price=dto.price,
         )
 
 

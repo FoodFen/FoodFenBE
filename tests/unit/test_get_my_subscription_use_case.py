@@ -38,3 +38,4 @@ async def test_returns_dto_when_subscription_exists():
     result = await use_case.execute(1)
     assert result is not None
     assert result.plan_type is PlanType.MONTHLY
+    assert result.price == Decimal("49000")

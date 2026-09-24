@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 
 from src.domain.entities.subscription import Subscription
 from src.domain.enums import PlanType, SubscriptionStatus
@@ -15,6 +16,7 @@ class SubscriptionOutputDTO:
     status: SubscriptionStatus
     start_date: date
     end_date: date | None
+    price: Decimal
 
     @classmethod
     def from_entity(cls, subscription: Subscription) -> SubscriptionOutputDTO:
@@ -23,4 +25,5 @@ class SubscriptionOutputDTO:
             status=subscription.status,
             start_date=subscription.start_date,
             end_date=subscription.end_date,
+            price=subscription.price,
         )

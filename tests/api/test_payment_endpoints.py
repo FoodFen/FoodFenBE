@@ -65,6 +65,7 @@ async def test_subscription_me_before_and_after_payment(client, signed_up, payme
     after = await client.get("/subscriptions/me", headers=headers)
     assert after.json()["hasActiveSubscription"] is True
     assert after.json()["subscription"]["planType"] == "monthly"
+    assert Decimal(str(after.json()["subscription"]["price"])) == Decimal("49000")
 
 
 async def test_cancel_rejects_an_already_paid_payment(client, signed_up, payment_provider):
