@@ -10,13 +10,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import text
 
+from src.adapters.controllers.activity_log_controller import router as activity_log_router
 from src.adapters.controllers.auth_controller import router as auth_router
 from src.adapters.controllers.chat_controller import router as chat_router
+from src.adapters.controllers.daily_goal_controller import router as daily_goal_router
 from src.adapters.controllers.food_analysis_controller import router as food_analysis_router
 from src.adapters.controllers.food_entry_controller import router as food_entry_router
 from src.adapters.controllers.payment_controller import router as payment_router
 from src.adapters.controllers.subscription_controller import router as subscription_router
 from src.adapters.controllers.user_controller import router as user_router
+from src.adapters.controllers.water_log_controller import router as water_log_router
+from src.adapters.controllers.weight_log_controller import router as weight_log_router
 from src.adapters.exception_handlers import register_exception_handlers
 from src.infrastructure.config import DEV_JWT_SECRET, settings
 from src.infrastructure.db.session import engine
@@ -46,6 +50,10 @@ def create_app() -> FastAPI:
     app.include_router(food_entry_router)
     app.include_router(payment_router)
     app.include_router(subscription_router)
+    app.include_router(daily_goal_router)
+    app.include_router(activity_log_router)
+    app.include_router(water_log_router)
+    app.include_router(weight_log_router)
     register_exception_handlers(app)
     return app
 

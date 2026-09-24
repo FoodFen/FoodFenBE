@@ -14,6 +14,7 @@ _BODY = {
     "proteinG": 45.0,
     "fatG": 15.0,
     "fiberG": 8.0,
+    "mealType": "lunch",
     "ingredients": [
         {
             "name": "chicken breast",
@@ -68,3 +69,33 @@ async def test_get_rejects_another_users_entry(client, signed_up):
 
     resp = await client.get(f"/food-entries/{created['id']}", headers=other_headers)
     assert resp.status_code == 404
+
+
+async def test_list_returns_entries_in_the_requested_range(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+    today = created["loggedOn"]
+
+    resp = await client.get(
+        "/food-entries", params={"from": today, "to": today}, headers=headers
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["id"] == created["id"]
+    assert body[0]["mealType"] == "lunch"
+    assert body[0]["userId"] == signed_up["user"]["id"]
+    assert body[0]["ingredients"][0]["foodEntryId"] == created["id"]
+
+
+async def test_list_excludes_entries_outside_the_range(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+
+    resp = await client.get(
+        "/food-entries", params={"from": "2020-01-01", "to": "2020-01-02"}, headers=headers
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == []

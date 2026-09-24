@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import date
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from src.adapters.schemas.food_entry_schemas import CreateFoodEntryRequest, FoodEntryResponse
 from src.application.dtos.food_entry import CreateFoodEntryInputDTO, CreateIngredientInputDTO
-from src.infrastructure.di import CreateFoodEntryUseCaseDep, CurrentUserDep, GetFoodEntryUseCaseDep
+from src.infrastructure.di import (
+    CreateFoodEntryUseCaseDep,
+    CurrentUserDep,
+    GetFoodEntryUseCaseDep,
+    ListFoodEntriesUseCaseDep,
+)
 
 router = APIRouter(prefix="/food-entries", tags=["food-entries"])
 
@@ -27,6 +34,7 @@ async def create_food_entry(
         carbs_g=body.carbs_g,
         protein_g=body.protein_g,
         fat_g=body.fat_g,
+        meal_type=body.meal_type,
         image_url=body.image_url,
         fiber_g=body.fiber_g,
         ingredients=[
@@ -44,6 +52,17 @@ async def create_food_entry(
     )
     result = await use_case.execute(input_dto)
     return FoodEntryResponse.from_dto(result)
+
+
+@router.get("", response_model=list[FoodEntryResponse])
+async def list_food_entries(
+    user: CurrentUserDep,
+    use_case: ListFoodEntriesUseCaseDep,
+    from_: Annotated[date, Query(alias="from")],
+    to: Annotated[date, Query()],
+) -> list[FoodEntryResponse]:
+    result = await use_case.execute(user.id, from_, to)
+    return [FoodEntryResponse.from_dto(dto) for dto in result]
 
 
 @router.get("/{entry_id}", response_model=FoodEntryResponse)

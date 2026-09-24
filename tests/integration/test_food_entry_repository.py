@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from src.domain.entities.food_entry import FoodEntry
 from src.domain.entities.ingredient import Ingredient
 from src.domain.entities.user import User
-from src.domain.enums import InputMethod
+from src.domain.enums import InputMethod, MealType
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.models.food_entry_model import (  # noqa: F401 — registers the tables
     FoodEntryORM,
@@ -61,6 +61,7 @@ def _entry_with_ingredients(user_id: int) -> FoodEntry:
         carbs_g=45.0,
         protein_g=30.0,
         fat_g=22.5,
+        meal_type=MealType.LUNCH,
         fiber_g=6.0,
     )
     entry.ingredients = [
