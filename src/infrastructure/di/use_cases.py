@@ -20,7 +20,12 @@ from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCa
 from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
 from src.application.use_cases.get_user import GetUserUseCase
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
+from src.application.use_cases.list_activity_logs import ListActivityLogsUseCase
 from src.application.use_cases.list_chat_messages import ListChatMessagesUseCase
+from src.application.use_cases.list_daily_goals import ListDailyGoalsUseCase
+from src.application.use_cases.list_food_entries import ListFoodEntriesUseCase
+from src.application.use_cases.list_water_logs import ListWaterLogsUseCase
+from src.application.use_cases.list_weight_logs import ListWeightLogsUseCase
 from src.application.use_cases.login import LoginUseCase
 from src.application.use_cases.logout import LogoutUseCase
 from src.application.use_cases.refresh_token import RefreshTokenUseCase
@@ -33,13 +38,17 @@ from src.application.use_cases.social_sign_in import SocialSignInUseCase
 from src.application.use_cases.verify_email import VerifyEmailUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
+    ActivityLogRepositoryDep,
     ChatMessageRepositoryDep,
+    DailyGoalRepositoryDep,
     FoodEntryRepositoryDep,
     PaymentRepositoryDep,
     RefreshTokenRepositoryDep,
     SocialIdentityRepositoryDep,
     SubscriptionRepositoryDep,
     UserRepositoryDep,
+    WaterLogRepositoryDep,
+    WeightLogRepositoryDep,
 )
 from src.infrastructure.di.security import (
     AiChatProviderDep,
@@ -262,3 +271,38 @@ CreateFoodEntryUseCaseDep = Annotated[
     CreateFoodEntryUseCase, Depends(get_create_food_entry_use_case)
 ]
 GetFoodEntryUseCaseDep = Annotated[GetFoodEntryUseCase, Depends(get_get_food_entry_use_case)]
+
+
+def get_list_daily_goals_use_case(daily_goals: DailyGoalRepositoryDep) -> ListDailyGoalsUseCase:
+    return ListDailyGoalsUseCase(daily_goals=daily_goals)
+
+
+def get_list_food_entries_use_case(food_entries: FoodEntryRepositoryDep) -> ListFoodEntriesUseCase:
+    return ListFoodEntriesUseCase(food_entries=food_entries)
+
+
+def get_list_activity_logs_use_case(
+    activity_logs: ActivityLogRepositoryDep,
+) -> ListActivityLogsUseCase:
+    return ListActivityLogsUseCase(activity_logs=activity_logs)
+
+
+def get_list_water_logs_use_case(water_logs: WaterLogRepositoryDep) -> ListWaterLogsUseCase:
+    return ListWaterLogsUseCase(water_logs=water_logs)
+
+
+def get_list_weight_logs_use_case(weight_logs: WeightLogRepositoryDep) -> ListWeightLogsUseCase:
+    return ListWeightLogsUseCase(weight_logs=weight_logs)
+
+
+ListDailyGoalsUseCaseDep = Annotated[ListDailyGoalsUseCase, Depends(get_list_daily_goals_use_case)]
+ListFoodEntriesUseCaseDep = Annotated[
+    ListFoodEntriesUseCase, Depends(get_list_food_entries_use_case)
+]
+ListActivityLogsUseCaseDep = Annotated[
+    ListActivityLogsUseCase, Depends(get_list_activity_logs_use_case)
+]
+ListWaterLogsUseCaseDep = Annotated[ListWaterLogsUseCase, Depends(get_list_water_logs_use_case)]
+ListWeightLogsUseCaseDep = Annotated[
+    ListWeightLogsUseCase, Depends(get_list_weight_logs_use_case)
+]

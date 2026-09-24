@@ -10,16 +10,24 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from src.application.ports.activity_log_repository import ActivityLogRepositoryProtocol
 from src.application.ports.chat_message_repository import ChatMessageRepositoryProtocol
+from src.application.ports.daily_goal_repository import DailyGoalRepositoryProtocol
 from src.application.ports.food_entry_repository import FoodEntryRepositoryProtocol
 from src.application.ports.payment_repository import PaymentRepositoryProtocol
 from src.application.ports.refresh_token_repository import RefreshTokenRepositoryProtocol
 from src.application.ports.social_identity_repository import SocialIdentityRepositoryProtocol
 from src.application.ports.subscription_repository import SubscriptionRepositoryProtocol
 from src.application.ports.user_repository import UserRepositoryProtocol
+from src.application.ports.water_log_repository import WaterLogRepositoryProtocol
+from src.application.ports.weight_log_repository import WeightLogRepositoryProtocol
+from src.infrastructure.db.repositories.activity_log_repository import (
+    SQLAlchemyActivityLogRepository,
+)
 from src.infrastructure.db.repositories.chat_message_repository import (
     SQLAlchemyChatMessageRepository,
 )
+from src.infrastructure.db.repositories.daily_goal_repository import SQLAlchemyDailyGoalRepository
 from src.infrastructure.db.repositories.food_entry_repository import SQLAlchemyFoodEntryRepository
 from src.infrastructure.db.repositories.payment_repository import SQLAlchemyPaymentRepository
 from src.infrastructure.db.repositories.refresh_token_repository import (
@@ -32,6 +40,8 @@ from src.infrastructure.db.repositories.subscription_repository import (
     SQLAlchemySubscriptionRepository,
 )
 from src.infrastructure.db.repositories.user_repository import SQLAlchemyUserRepository
+from src.infrastructure.db.repositories.water_log_repository import SQLAlchemyWaterLogRepository
+from src.infrastructure.db.repositories.weight_log_repository import SQLAlchemyWeightLogRepository
 from src.infrastructure.di.database import SessionDep
 
 
@@ -90,3 +100,33 @@ def get_food_entry_repository(session: SessionDep) -> FoodEntryRepositoryProtoco
 
 
 FoodEntryRepositoryDep = Annotated[FoodEntryRepositoryProtocol, Depends(get_food_entry_repository)]
+
+
+def get_daily_goal_repository(session: SessionDep) -> DailyGoalRepositoryProtocol:
+    return SQLAlchemyDailyGoalRepository(session)
+
+
+DailyGoalRepositoryDep = Annotated[DailyGoalRepositoryProtocol, Depends(get_daily_goal_repository)]
+
+
+def get_activity_log_repository(session: SessionDep) -> ActivityLogRepositoryProtocol:
+    return SQLAlchemyActivityLogRepository(session)
+
+
+ActivityLogRepositoryDep = Annotated[
+    ActivityLogRepositoryProtocol, Depends(get_activity_log_repository)
+]
+
+
+def get_water_log_repository(session: SessionDep) -> WaterLogRepositoryProtocol:
+    return SQLAlchemyWaterLogRepository(session)
+
+
+WaterLogRepositoryDep = Annotated[WaterLogRepositoryProtocol, Depends(get_water_log_repository)]
+
+
+def get_weight_log_repository(session: SessionDep) -> WeightLogRepositoryProtocol:
+    return SQLAlchemyWeightLogRepository(session)
+
+
+WeightLogRepositoryDep = Annotated[WeightLogRepositoryProtocol, Depends(get_weight_log_repository)]
