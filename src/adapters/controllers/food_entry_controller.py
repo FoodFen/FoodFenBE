@@ -8,13 +8,23 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query
 
-from src.adapters.schemas.food_entry_schemas import CreateFoodEntryRequest, FoodEntryResponse
-from src.application.dtos.food_entry import CreateFoodEntryInputDTO, CreateIngredientInputDTO
+from src.adapters.schemas.food_entry_schemas import (
+    CreateFoodEntryRequest,
+    FoodEntryResponse,
+    UpdateFoodEntryRequest,
+)
+from src.application.dtos.food_entry import (
+    CreateFoodEntryInputDTO,
+    CreateIngredientInputDTO,
+    UpdateFoodEntryInputDTO,
+)
 from src.infrastructure.di import (
     CreateFoodEntryUseCaseDep,
     CurrentUserDep,
+    DeleteFoodEntryUseCaseDep,
     GetFoodEntryUseCaseDep,
     ListFoodEntriesUseCaseDep,
+    UpdateFoodEntryUseCaseDep,
 )
 
 router = APIRouter(prefix="/food-entries", tags=["food-entries"])
@@ -73,3 +83,45 @@ async def get_food_entry(
 ) -> FoodEntryResponse:
     result = await use_case.execute(user_id=user.id, entry_id=entry_id)
     return FoodEntryResponse.from_dto(result)
+
+
+@router.patch("/{entry_id}", response_model=FoodEntryResponse)
+async def update_food_entry(
+    entry_id: UUID,
+    body: UpdateFoodEntryRequest,
+    user: CurrentUserDep,
+    use_case: UpdateFoodEntryUseCaseDep,
+) -> FoodEntryResponse:
+    input_dto = UpdateFoodEntryInputDTO(
+        name=body.name,
+        input_method=body.input_method,
+        total_kcal=body.total_kcal,
+        carbs_g=body.carbs_g,
+        protein_g=body.protein_g,
+        fat_g=body.fat_g,
+        meal_type=body.meal_type,
+        image_url=body.image_url,
+        fiber_g=body.fiber_g,
+        logged_on=body.logged_on,
+        ingredients=[
+            CreateIngredientInputDTO(
+                name=i.name,
+                quantity_g=i.quantity_g,
+                kcal=i.kcal,
+                carbs_g=i.carbs_g,
+                protein_g=i.protein_g,
+                fat_g=i.fat_g,
+                fiber_g=i.fiber_g,
+            )
+            for i in body.ingredients
+        ],
+    )
+    result = await use_case.execute(user_id=user.id, entry_id=entry_id, input_dto=input_dto)
+    return FoodEntryResponse.from_dto(result)
+
+
+@router.delete("/{entry_id}", status_code=204)
+async def delete_food_entry(
+    entry_id: UUID, user: CurrentUserDep, use_case: DeleteFoodEntryUseCaseDep
+) -> None:
+    await use_case.execute(user_id=user.id, entry_id=entry_id)

@@ -6,10 +6,16 @@ from datetime import date
 
 import pytest
 
-from src.application.dtos.food_entry import CreateFoodEntryInputDTO, CreateIngredientInputDTO
+from src.application.dtos.food_entry import (
+    CreateFoodEntryInputDTO,
+    CreateIngredientInputDTO,
+    UpdateFoodEntryInputDTO,
+)
 from src.application.use_cases.create_food_entry import CreateFoodEntryUseCase
+from src.application.use_cases.delete_food_entry import DeleteFoodEntryUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
 from src.application.use_cases.list_food_entries import ListFoodEntriesUseCase
+from src.application.use_cases.update_food_entry import UpdateFoodEntryUseCase
 from src.domain.entities.food_entry import FoodEntry
 from src.domain.enums import InputMethod, MealType
 from src.domain.exceptions import FoodEntryNotFoundException
@@ -144,3 +150,67 @@ async def test_list_returns_entries_created_via_the_create_use_case():
     )
 
     assert [r.id for r in result] == [created.id]
+
+
+class FakeFoodEntryRepoWithUpdateDelete(FakeFoodEntryRepo):
+    async def update(self, entry):
+        if entry.id not in self._by_id or self._by_id[entry.id] is None:
+            raise FoodEntryNotFoundException(f"no food entry {entry.id}")
+        self._by_id[entry.id] = entry
+        return entry
+
+    async def delete(self, entry_id):
+        if self._by_id.get(entry_id) is None:
+            raise FoodEntryNotFoundException(f"no food entry {entry_id}")
+        self._by_id[entry_id] = None
+
+
+def _update_dto(meal_type=MealType.DINNER) -> UpdateFoodEntryInputDTO:
+    return UpdateFoodEntryInputDTO(
+        name="Updated meal",
+        input_method=InputMethod.MANUAL,
+        total_kcal=700,
+        carbs_g=60.0,
+        protein_g=50.0,
+        fat_g=20.0,
+        meal_type=meal_type,
+    )
+
+
+async def test_update_replaces_fields_for_the_owner():
+    repo = FakeFoodEntryRepoWithUpdateDelete()
+    created = await CreateFoodEntryUseCase(food_entries=repo).execute(_input_dto())
+
+    use_case = UpdateFoodEntryUseCase(food_entries=repo)
+    result = await use_case.execute(user_id=1, entry_id=created.id, input_dto=_update_dto())
+
+    assert result.name == "Updated meal"
+    assert result.meal_type is MealType.DINNER
+
+
+async def test_update_raises_not_found_for_another_users_entry():
+    repo = FakeFoodEntryRepoWithUpdateDelete()
+    created = await CreateFoodEntryUseCase(food_entries=repo).execute(_input_dto())
+
+    use_case = UpdateFoodEntryUseCase(food_entries=repo)
+    with pytest.raises(FoodEntryNotFoundException):
+        await use_case.execute(user_id=999, entry_id=created.id, input_dto=_update_dto())
+
+
+async def test_delete_removes_the_owners_entry():
+    repo = FakeFoodEntryRepoWithUpdateDelete()
+    created = await CreateFoodEntryUseCase(food_entries=repo).execute(_input_dto())
+
+    use_case = DeleteFoodEntryUseCase(food_entries=repo)
+    await use_case.execute(user_id=1, entry_id=created.id)
+
+    assert await repo.get_by_id(created.id) is None
+
+
+async def test_delete_raises_not_found_for_another_users_entry():
+    repo = FakeFoodEntryRepoWithUpdateDelete()
+    created = await CreateFoodEntryUseCase(food_entries=repo).execute(_input_dto())
+
+    use_case = DeleteFoodEntryUseCase(food_entries=repo)
+    with pytest.raises(FoodEntryNotFoundException):
+        await use_case.execute(user_id=999, entry_id=created.id)

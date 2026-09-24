@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 
+import pytest
 import pytest_asyncio
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -16,6 +17,7 @@ from src.domain.entities.food_entry import FoodEntry
 from src.domain.entities.ingredient import Ingredient
 from src.domain.entities.user import User
 from src.domain.enums import InputMethod, MealType
+from src.domain.exceptions import FoodEntryNotFoundException
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.models.food_entry_model import (  # noqa: F401 — registers the tables
     FoodEntryORM,
@@ -119,3 +121,74 @@ async def test_create_with_a_repeated_client_id_returns_the_existing_row_not_a_d
         await session.execute(select(func.count()).select_from(FoodEntryORM))
     ).scalar_one()
     assert rows == 1
+
+
+async def test_update_replaces_scalar_fields_and_ingredients(session):
+    user = await _make_user(session)
+    repo = SQLAlchemyFoodEntryRepository(session)
+    created = await repo.create(_entry_with_ingredients(user.id))
+    await session.commit()
+
+    replacement = FoodEntry(
+        id=created.id,
+        user_id=user.id,
+        name="Different meal",
+        input_method=InputMethod.MANUAL,
+        total_kcal=800,
+        carbs_g=90.0,
+        protein_g=50.0,
+        fat_g=20.0,
+        meal_type=MealType.DINNER,
+        client_id=created.client_id,
+        ingredients=[Ingredient.create(created.id, "tofu", 100.0, 80, 5.0, 8.0, 4.0)],
+    )
+    updated = await repo.update(replacement)
+    await session.commit()
+
+    assert updated.name == "Different meal"
+    assert updated.meal_type == MealType.DINNER
+    assert [i.name for i in updated.ingredients] == ["tofu"]
+
+
+async def test_update_raises_not_found_for_a_missing_entry(session):
+    from uuid import uuid4
+
+    repo = SQLAlchemyFoodEntryRepository(session)
+    ghost = FoodEntry(
+        id=uuid4(),
+        user_id=1,
+        name="Ghost",
+        input_method=InputMethod.MANUAL,
+        total_kcal=1,
+        carbs_g=1.0,
+        protein_g=1.0,
+        fat_g=1.0,
+        meal_type=MealType.SNACK,
+        client_id="ghost",
+    )
+    with pytest.raises(FoodEntryNotFoundException):
+        await repo.update(ghost)
+
+
+async def test_delete_soft_deletes_and_get_by_id_stops_returning_it(session):
+    user = await _make_user(session)
+    repo = SQLAlchemyFoodEntryRepository(session)
+    created = await repo.create(_entry_with_ingredients(user.id))
+    await session.commit()
+
+    await repo.delete(created.id)
+    await session.commit()
+
+    assert await repo.get_by_id(created.id) is None
+
+
+async def test_delete_on_an_already_deleted_entry_raises_not_found(session):
+    user = await _make_user(session)
+    repo = SQLAlchemyFoodEntryRepository(session)
+    created = await repo.create(_entry_with_ingredients(user.id))
+    await session.commit()
+    await repo.delete(created.id)
+    await session.commit()
+
+    with pytest.raises(FoodEntryNotFoundException):
+        await repo.delete(created.id)

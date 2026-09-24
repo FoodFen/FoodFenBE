@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.food_entry import FoodEntry
+from src.domain.exceptions import FoodEntryNotFoundException
 from src.infrastructure.db.models.food_entry_model import FoodEntryORM
 from src.infrastructure.db.repositories.idempotency import create_idempotent
 
@@ -41,3 +42,23 @@ class SQLAlchemyFoodEntryRepository:
             )
         ).scalars().all()
         return [row.to_domain() for row in rows]
+
+    async def update(self, entry: FoodEntry) -> FoodEntry:
+        row = await self._session.get(FoodEntryORM, entry.id)
+        if row is None or row.deleted_at is not None:
+            raise FoodEntryNotFoundException(f"no food entry {entry.id}")
+        fresh = FoodEntryORM.from_domain(entry)
+        for column in FoodEntryORM.__table__.columns.keys():
+            if column not in ("id", "deleted_at"):
+                setattr(row, column, getattr(fresh, column))
+        row.ingredients = fresh.ingredients
+        await self._session.flush()
+        await self._session.refresh(row)
+        return row.to_domain()
+
+    async def delete(self, entry_id: UUID) -> None:
+        row = await self._session.get(FoodEntryORM, entry_id)
+        if row is None or row.deleted_at is not None:
+            raise FoodEntryNotFoundException(f"no food entry {entry_id}")
+        row.deleted_at = datetime.now(UTC)
+        await self._session.flush()

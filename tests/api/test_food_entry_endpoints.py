@@ -126,6 +126,81 @@ async def test_create_requires_client_id(client, signed_up):
     assert resp.status_code == 422
 
 
+async def test_patch_replaces_the_entry(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+
+    patch_body = {**_BODY, "name": "Changed", "mealType": "dinner"}
+    resp = await client.patch(f"/food-entries/{created['id']}", json=patch_body, headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Changed"
+    assert resp.json()["mealType"] == "dinner"
+
+
+async def test_patch_rejects_another_users_entry(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+    other = await client.post(
+        "/auth/sign-up",
+        json={"email": "patcher@example.com", "password": "s3cret-pass", "displayName": "Other"},
+    )
+    other_headers = {"Authorization": f"Bearer {other.json()['accessToken']}"}
+
+    resp = await client.patch(
+        f"/food-entries/{created['id']}", json=_BODY, headers=other_headers
+    )
+    assert resp.status_code == 404
+
+
+async def test_delete_soft_deletes_and_it_disappears_from_get_and_list(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+
+    resp = await client.delete(f"/food-entries/{created['id']}", headers=headers)
+    assert resp.status_code == 204
+
+    assert (await client.get(f"/food-entries/{created['id']}", headers=headers)).status_code == 404
+
+    list_resp = await client.get(
+        "/food-entries",
+        params={"from": created["loggedOn"], "to": created["loggedOn"]},
+        headers=headers,
+    )
+    assert list_resp.json() == []
+
+
+async def test_delete_twice_returns_404_the_second_time(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+    await client.delete(f"/food-entries/{created['id']}", headers=headers)
+
+    resp = await client.delete(f"/food-entries/{created['id']}", headers=headers)
+    assert resp.status_code == 404
+
+
+async def test_patch_after_delete_returns_404(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+    await client.delete(f"/food-entries/{created['id']}", headers=headers)
+
+    resp = await client.patch(f"/food-entries/{created['id']}", json=_BODY, headers=headers)
+    assert resp.status_code == 404
+
+
+async def test_delete_rejects_another_users_entry(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+    other = await client.post(
+        "/auth/sign-up",
+        json={"email": "deleter@example.com", "password": "s3cret-pass", "displayName": "Other"},
+    )
+    other_headers = {"Authorization": f"Bearer {other.json()['accessToken']}"}
+
+    resp = await client.delete(f"/food-entries/{created['id']}", headers=other_headers)
+    assert resp.status_code == 404
+
+
 async def test_list_excludes_entries_outside_the_range(client, signed_up):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
     created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()

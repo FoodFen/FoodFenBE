@@ -19,3 +19,14 @@ class FoodEntryRepositoryProtocol(Protocol):
     ) -> list[FoodEntry]:
         """Inclusive range, filtered on ``logged_on``."""
         ...
+
+    async def update(self, entry: FoodEntry) -> FoodEntry:
+        """Full replace, including ``ingredients``. Raise
+        ``FoodEntryNotFoundException`` if ``entry.id`` doesn't exist or is
+        soft-deleted."""
+        ...
+
+    async def delete(self, entry_id: UUID) -> None:
+        """Soft delete. Raise ``FoodEntryNotFoundException`` if it doesn't
+        exist or is already deleted."""
+        ...

@@ -15,6 +15,7 @@ from src.application.use_cases.analyze_food_text import AnalyzeFoodTextUseCase
 from src.application.use_cases.cancel_payment import CancelPaymentUseCase
 from src.application.use_cases.create_checkout import CreateCheckoutUseCase
 from src.application.use_cases.create_food_entry import CreateFoodEntryUseCase
+from src.application.use_cases.delete_food_entry import DeleteFoodEntryUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
 from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCase
 from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
@@ -35,6 +36,7 @@ from src.application.use_cases.resend_verification import ResendVerificationUseC
 from src.application.use_cases.reset_password import ResetPasswordUseCase
 from src.application.use_cases.send_chat_message import SendChatMessageUseCase
 from src.application.use_cases.social_sign_in import SocialSignInUseCase
+from src.application.use_cases.update_food_entry import UpdateFoodEntryUseCase
 from src.application.use_cases.verify_email import VerifyEmailUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
@@ -271,6 +273,26 @@ CreateFoodEntryUseCaseDep = Annotated[
     CreateFoodEntryUseCase, Depends(get_create_food_entry_use_case)
 ]
 GetFoodEntryUseCaseDep = Annotated[GetFoodEntryUseCase, Depends(get_get_food_entry_use_case)]
+
+
+def get_update_food_entry_use_case(
+    food_entries: FoodEntryRepositoryDep,
+) -> UpdateFoodEntryUseCase:
+    return UpdateFoodEntryUseCase(food_entries=food_entries)
+
+
+def get_delete_food_entry_use_case(
+    food_entries: FoodEntryRepositoryDep,
+) -> DeleteFoodEntryUseCase:
+    return DeleteFoodEntryUseCase(food_entries=food_entries)
+
+
+UpdateFoodEntryUseCaseDep = Annotated[
+    UpdateFoodEntryUseCase, Depends(get_update_food_entry_use_case)
+]
+DeleteFoodEntryUseCaseDep = Annotated[
+    DeleteFoodEntryUseCase, Depends(get_delete_food_entry_use_case)
+]
 
 
 def get_list_daily_goals_use_case(daily_goals: DailyGoalRepositoryDep) -> ListDailyGoalsUseCase:

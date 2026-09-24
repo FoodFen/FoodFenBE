@@ -103,3 +103,18 @@ class FoodEntryOutputDTO:
             logged_on=entry.logged_on,
             ingredients=[IngredientOutputDTO.from_entity(i) for i in entry.ingredients],
         )
+
+
+@dataclass(frozen=True)
+class UpdateFoodEntryInputDTO:
+    name: str
+    input_method: InputMethod
+    total_kcal: int
+    carbs_g: float
+    protein_g: float
+    fat_g: float
+    meal_type: MealType
+    image_url: str | None = None
+    fiber_g: float | None = None
+    ingredients: list[CreateIngredientInputDTO] | None = None
+    logged_on: date | None = None

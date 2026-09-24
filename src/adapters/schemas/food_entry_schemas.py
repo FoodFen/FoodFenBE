@@ -99,3 +99,17 @@ class FoodEntryResponse(CamelModel):
             logged_on=dto.logged_on,
             ingredients=[IngredientResponse.from_dto(i) for i in dto.ingredients],
         )
+
+
+class UpdateFoodEntryRequest(CamelModel):
+    name: str = Field(min_length=1)
+    input_method: InputMethod
+    total_kcal: int
+    carbs_g: float
+    protein_g: float
+    fat_g: float
+    meal_type: MealType
+    image_url: str | None = None
+    fiber_g: float | None = None
+    ingredients: list[CreateIngredientRequest] = Field(default_factory=list)
+    logged_on: date | None = None
