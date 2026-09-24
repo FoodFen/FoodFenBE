@@ -8,12 +8,7 @@ from fastapi import APIRouter
 
 from src.adapters.schemas.food_entry_schemas import CreateFoodEntryRequest, FoodEntryResponse
 from src.application.dtos.food_entry import CreateFoodEntryInputDTO, CreateIngredientInputDTO
-from src.infrastructure.di import (
-    CreateFoodEntryUseCaseDep,
-    CurrentUserDep,
-    GetFoodEntryUseCaseDep,
-    PremiumStatusDep,
-)
+from src.infrastructure.di import CreateFoodEntryUseCaseDep, CurrentUserDep, GetFoodEntryUseCaseDep
 
 router = APIRouter(prefix="/food-entries", tags=["food-entries"])
 
@@ -22,7 +17,6 @@ router = APIRouter(prefix="/food-entries", tags=["food-entries"])
 async def create_food_entry(
     body: CreateFoodEntryRequest,
     user: CurrentUserDep,
-    is_premium: PremiumStatusDep,
     use_case: CreateFoodEntryUseCaseDep,
 ) -> FoodEntryResponse:
     input_dto = CreateFoodEntryInputDTO(
@@ -48,7 +42,7 @@ async def create_food_entry(
             for i in body.ingredients
         ],
     )
-    result = await use_case.execute(input_dto, is_premium=is_premium)
+    result = await use_case.execute(input_dto)
     return FoodEntryResponse.from_dto(result)
 
 

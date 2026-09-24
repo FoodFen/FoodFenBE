@@ -49,23 +49,19 @@ def _input_dto(fiber_g=None, ingredient_fiber_g=None) -> CreateFoodEntryInputDTO
     )
 
 
-async def test_premium_user_keeps_fiber_g():
+async def test_fiber_g_is_always_stored_regardless_of_tier():
+    """Premium gates fiber_g *display* client-side only — the server never
+    drops it, or a free user who later upgrades permanently loses data they
+    already logged (mirrors ai-food-capture.md's "no Premium check" rule)."""
     use_case = CreateFoodEntryUseCase(food_entries=FakeFoodEntryRepo())
-    result = await use_case.execute(_input_dto(fiber_g=8.0, ingredient_fiber_g=2.0), is_premium=True)
+    result = await use_case.execute(_input_dto(fiber_g=8.0, ingredient_fiber_g=2.0))
     assert result.fiber_g == 8.0
     assert result.ingredients[0].fiber_g == 2.0
 
 
-async def test_free_user_gets_fiber_g_dropped():
+async def test_fiber_g_stays_none_when_not_submitted():
     use_case = CreateFoodEntryUseCase(food_entries=FakeFoodEntryRepo())
-    result = await use_case.execute(_input_dto(fiber_g=8.0, ingredient_fiber_g=2.0), is_premium=False)
-    assert result.fiber_g is None
-    assert result.ingredients[0].fiber_g is None
-
-
-async def test_free_user_with_no_fiber_g_submitted_is_unaffected():
-    use_case = CreateFoodEntryUseCase(food_entries=FakeFoodEntryRepo())
-    result = await use_case.execute(_input_dto(), is_premium=False)
+    result = await use_case.execute(_input_dto())
     assert result.fiber_g is None
     assert result.ingredients[0].fiber_g is None
 
@@ -73,7 +69,7 @@ async def test_free_user_with_no_fiber_g_submitted_is_unaffected():
 async def test_get_returns_entry_for_its_owner():
     repo = FakeFoodEntryRepo()
     create_use_case = CreateFoodEntryUseCase(food_entries=repo)
-    created = await create_use_case.execute(_input_dto(), is_premium=True)
+    created = await create_use_case.execute(_input_dto())
 
     get_use_case = GetFoodEntryUseCase(food_entries=repo)
     result = await get_use_case.execute(user_id=1, entry_id=created.id)
@@ -82,7 +78,7 @@ async def test_get_returns_entry_for_its_owner():
 
 async def test_get_raises_not_found_for_another_users_entry():
     repo = FakeFoodEntryRepo()
-    created = await CreateFoodEntryUseCase(food_entries=repo).execute(_input_dto(), is_premium=True)
+    created = await CreateFoodEntryUseCase(food_entries=repo).execute(_input_dto())
 
     get_use_case = GetFoodEntryUseCase(food_entries=repo)
     with pytest.raises(FoodEntryNotFoundException):

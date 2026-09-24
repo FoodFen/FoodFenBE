@@ -1,12 +1,10 @@
 """POST/GET /food-entries — end-to-end against the real app.
 
-Proves the fiber_g Premium gate end-to-end: a free user's submitted fiber_g
-is dropped, a Premium user's (paid via the fake PayOS provider) is kept.
+fiber_g is always stored regardless of tier — Premium only gates its
+*display* client-side (mirrors ai-food-capture.md's "no Premium check").
 """
 
 from __future__ import annotations
-
-from src.application.ports.payment_provider import WebhookPayload
 
 _BODY = {
     "name": "Grilled chicken with rice",
@@ -30,29 +28,8 @@ _BODY = {
 }
 
 
-async def _make_premium(client, headers, payment_provider) -> None:
-    checkout = (
-        await client.post("/payments/checkout", json={"planType": "monthly"}, headers=headers)
-    ).json()
-    payment_provider.next_webhook = WebhookPayload(order_code=checkout["orderCode"], succeeded=True)
-    await client.post("/payments/webhook", content=b"raw-webhook-body")
-
-
-async def test_free_user_gets_fiber_g_dropped(client, signed_up):
+async def test_fiber_g_is_stored_for_a_free_user(client, signed_up):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
-
-    resp = await client.post("/food-entries", json=_BODY, headers=headers)
-
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["fiberG"] is None
-    assert body["ingredients"][0]["fiberG"] is None
-    assert body["totalKcal"] == 650  # everything else is untouched
-
-
-async def test_premium_user_keeps_fiber_g(client, signed_up, payment_provider):
-    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
-    await _make_premium(client, headers, payment_provider)
 
     resp = await client.post("/food-entries", json=_BODY, headers=headers)
 
@@ -60,6 +37,7 @@ async def test_premium_user_keeps_fiber_g(client, signed_up, payment_provider):
     body = resp.json()
     assert body["fiberG"] == 8.0
     assert body["ingredients"][0]["fiberG"] == 2.0
+    assert body["totalKcal"] == 650
 
 
 async def test_create_requires_auth(client):
@@ -75,6 +53,7 @@ async def test_get_returns_the_owners_entry(client, signed_up):
 
     assert resp.status_code == 200
     assert resp.json()["name"] == "Grilled chicken with rice"
+    assert resp.json()["fiberG"] == 8.0
 
 
 async def test_get_rejects_another_users_entry(client, signed_up):
