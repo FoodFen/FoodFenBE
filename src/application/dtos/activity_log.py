@@ -31,3 +31,21 @@ class ActivityLogOutputDTO:
             logged_at=log.logged_at,
             logged_on=log.logged_on,
         )
+
+
+@dataclass(frozen=True)
+class CreateActivityLogInputDTO:
+    user_id: int
+    activity_type: str
+    calories_burned: int
+    client_id: str
+    source: ActivitySource = ActivitySource.MANUAL
+    logged_on: date | None = None
+
+
+@dataclass(frozen=True)
+class UpdateActivityLogInputDTO:
+    activity_type: str
+    calories_burned: int
+    source: ActivitySource = ActivitySource.MANUAL
+    logged_on: date | None = None

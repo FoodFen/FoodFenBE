@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import os
 from datetime import date
+from uuid import uuid4
 
+import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -18,7 +20,8 @@ from src.domain.entities.food_entry import FoodEntry
 from src.domain.entities.user import User
 from src.domain.entities.water_log import WaterLog
 from src.domain.entities.weight_log import WeightLog
-from src.domain.enums import InputMethod, MealType
+from src.domain.enums import ActivitySource, InputMethod, MealType
+from src.domain.exceptions import ActivityLogNotFoundException
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.models.activity_log_model import ActivityLogORM  # noqa: F401
 from src.infrastructure.db.models.daily_goal_model import DailyGoalORM  # noqa: F401
@@ -191,3 +194,69 @@ async def test_weight_log_repository_list_by_date_range_is_inclusive_and_scoped(
     assert len(result) == 2
     assert {log.recorded_at for log in result} == {date(2026, 1, 1), date(2026, 1, 31)}
     assert all(log.user_id == user_a.id for log in result)
+
+
+async def test_activity_log_repository_create_is_idempotent_on_client_id(session):
+    user_a, _ = await _make_two_users(session)
+    repo = SQLAlchemyActivityLogRepository(session)
+
+    first = await repo.create(
+        ActivityLog.create(user_a.id, "running", 300, client_id="dup", logged_on=date(2026, 1, 1))
+    )
+    await session.commit()
+    second = await repo.create(
+        ActivityLog.create(user_a.id, "cycling", 999, client_id="dup", logged_on=date(2026, 1, 2))
+    )
+    await session.commit()
+
+    assert second.id == first.id
+    assert second.activity_type == "running"  # unchanged: the retry was ignored, not applied
+
+
+async def test_activity_log_repository_update_replaces_fields(session):
+    user_a, _ = await _make_two_users(session)
+    repo = SQLAlchemyActivityLogRepository(session)
+    created = await repo.create(
+        ActivityLog.create(user_a.id, "running", 300, client_id="a1", logged_on=date(2026, 1, 1))
+    )
+    await session.commit()
+
+    replacement = ActivityLog(
+        id=created.id,
+        user_id=user_a.id,
+        activity_type="swimming",
+        calories_burned=450,
+        client_id=created.client_id,
+        source=ActivitySource.MANUAL,
+        logged_at=created.logged_at,
+        logged_on=created.logged_on,
+    )
+    updated = await repo.update(replacement)
+    await session.commit()
+
+    assert updated.activity_type == "swimming"
+    assert updated.calories_burned == 450
+
+
+async def test_activity_log_repository_update_raises_not_found_for_a_missing_log(session):
+    repo = SQLAlchemyActivityLogRepository(session)
+    ghost = ActivityLog(
+        id=uuid4(), user_id=1, activity_type="running", calories_burned=100, client_id="ghost"
+    )
+    with pytest.raises(ActivityLogNotFoundException):
+        await repo.update(ghost)
+
+
+async def test_activity_log_repository_get_by_id_round_trips(session):
+    user_a, _ = await _make_two_users(session)
+    repo = SQLAlchemyActivityLogRepository(session)
+    created = await repo.create(
+        ActivityLog.create(user_a.id, "running", 300, client_id="a1", logged_on=date(2026, 1, 1))
+    )
+    await session.commit()
+
+    fetched = await repo.get_by_id(created.id)
+    assert fetched is not None
+    assert fetched.activity_type == "running"
+
+    assert await repo.get_by_id(uuid4()) is None

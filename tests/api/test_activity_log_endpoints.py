@@ -69,3 +69,55 @@ async def test_returns_the_seeded_log_with_camel_case_shape(client, signed_up):
     assert log["caloriesBurned"] == 320
     assert log["source"] == "manual"
     assert log["loggedOn"] == "2026-01-15"
+
+
+_CREATE_BODY = {
+    "activityType": "running",
+    "caloriesBurned": 300,
+    "clientId": "activity_1",
+    "loggedOn": "2026-01-15",
+}
+
+
+async def test_post_creates_a_log(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    resp = await client.post("/activity-logs", json=_CREATE_BODY, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["activityType"] == "running"
+
+
+async def test_post_with_repeated_client_id_returns_the_same_log(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    first = (await client.post("/activity-logs", json=_CREATE_BODY, headers=headers)).json()
+    second = (await client.post("/activity-logs", json=_CREATE_BODY, headers=headers)).json()
+    assert first["id"] == second["id"]
+
+
+async def test_patch_replaces_the_log(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/activity-logs", json=_CREATE_BODY, headers=headers)).json()
+
+    resp = await client.patch(
+        f"/activity-logs/{created['id']}",
+        json={"activityType": "swimming", "caloriesBurned": 450, "loggedOn": "2026-01-15"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["activityType"] == "swimming"
+
+
+async def test_patch_rejects_another_users_log(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/activity-logs", json=_CREATE_BODY, headers=headers)).json()
+    other = await client.post(
+        "/auth/sign-up",
+        json={"email": "other2@example.com", "password": "s3cret-pass", "displayName": "Other"},
+    )
+    other_headers = {"Authorization": f"Bearer {other.json()['accessToken']}"}
+
+    resp = await client.patch(
+        f"/activity-logs/{created['id']}",
+        json={"activityType": "x", "caloriesBurned": 1, "loggedOn": "2026-01-15"},
+        headers=other_headers,
+    )
+    assert resp.status_code == 404

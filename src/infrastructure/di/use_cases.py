@@ -13,6 +13,7 @@ from fastapi import Depends
 from src.application.use_cases.analyze_food_image import AnalyzeFoodImageUseCase
 from src.application.use_cases.analyze_food_text import AnalyzeFoodTextUseCase
 from src.application.use_cases.cancel_payment import CancelPaymentUseCase
+from src.application.use_cases.create_activity_log import CreateActivityLogUseCase
 from src.application.use_cases.create_checkout import CreateCheckoutUseCase
 from src.application.use_cases.create_food_entry import CreateFoodEntryUseCase
 from src.application.use_cases.delete_food_entry import DeleteFoodEntryUseCase
@@ -36,6 +37,7 @@ from src.application.use_cases.resend_verification import ResendVerificationUseC
 from src.application.use_cases.reset_password import ResetPasswordUseCase
 from src.application.use_cases.send_chat_message import SendChatMessageUseCase
 from src.application.use_cases.social_sign_in import SocialSignInUseCase
+from src.application.use_cases.update_activity_log import UpdateActivityLogUseCase
 from src.application.use_cases.update_food_entry import UpdateFoodEntryUseCase
 from src.application.use_cases.verify_email import VerifyEmailUseCase
 from src.infrastructure.config import settings
@@ -315,6 +317,26 @@ def get_list_water_logs_use_case(water_logs: WaterLogRepositoryDep) -> ListWater
 
 def get_list_weight_logs_use_case(weight_logs: WeightLogRepositoryDep) -> ListWeightLogsUseCase:
     return ListWeightLogsUseCase(weight_logs=weight_logs)
+
+
+def get_create_activity_log_use_case(
+    activity_logs: ActivityLogRepositoryDep,
+) -> CreateActivityLogUseCase:
+    return CreateActivityLogUseCase(activity_logs=activity_logs)
+
+
+def get_update_activity_log_use_case(
+    activity_logs: ActivityLogRepositoryDep,
+) -> UpdateActivityLogUseCase:
+    return UpdateActivityLogUseCase(activity_logs=activity_logs)
+
+
+CreateActivityLogUseCaseDep = Annotated[
+    CreateActivityLogUseCase, Depends(get_create_activity_log_use_case)
+]
+UpdateActivityLogUseCaseDep = Annotated[
+    UpdateActivityLogUseCase, Depends(get_update_activity_log_use_case)
+]
 
 
 ListDailyGoalsUseCaseDep = Annotated[ListDailyGoalsUseCase, Depends(get_list_daily_goals_use_case)]
