@@ -22,6 +22,7 @@ async def test_checkout_returns_a_checkout_link(client, signed_up):
     body = resp.json()
     assert body["checkoutUrl"].startswith("https://pay.example/")
     assert body["status"] == "pending"
+    assert isinstance(body["amount"], (int, float))
     assert Decimal(str(body["amount"])) == Decimal("49000")
 
 
@@ -65,6 +66,7 @@ async def test_subscription_me_before_and_after_payment(client, signed_up, payme
     after = await client.get("/subscriptions/me", headers=headers)
     assert after.json()["hasActiveSubscription"] is True
     assert after.json()["subscription"]["planType"] == "monthly"
+    assert isinstance(after.json()["subscription"]["price"], (int, float))
     assert Decimal(str(after.json()["subscription"]["price"])) == Decimal("49000")
 
 

@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
 
-from src.adapters.schemas.base import CamelModel
+from src.adapters.schemas.base import CamelModel, MoneyField
 from src.application.dtos.payment import CheckoutOutputDTO, PaymentOutputDTO
 from src.domain.enums import PaymentStatus, PlanType
 
@@ -18,7 +17,7 @@ class CheckoutResponse(CamelModel):
     order_code: int
     checkout_url: str
     qr_code: str
-    amount: Decimal
+    amount: MoneyField
     plan_type: PlanType
     status: PaymentStatus
 
@@ -37,7 +36,7 @@ class CheckoutResponse(CamelModel):
 class PaymentResponse(CamelModel):
     order_code: int
     status: PaymentStatus
-    amount: Decimal
+    amount: MoneyField
     plan_type: PlanType
     paid_at: datetime | None
     created_at: datetime
