@@ -87,7 +87,7 @@ Premium"; the profile schema sets `extra="forbid"` to make that loud).
 | Resource | Endpoint | Behavior |
 |---|---|---|
 | User | `PATCH /users/me` | Partial update; full `User` response |
-| Daily goals | `POST /daily-goals` | Create-only (goals are append-only, never edited/deleted) |
+| Daily goals | `POST /daily-goals` | Upsert on `(user_id, effective_date)` — one row per day, replaced if the day already has a goal; a different day is always a new row (see Addendum below) |
 | Food entries | `POST /food-entries` (extend) | Add `clientId` idempotency to the existing endpoint |
 | Food entries | `PATCH /food-entries/{id}` | Full replace incl. ingredients; 404 if not found or not owned |
 | Food entries | `DELETE /food-entries/{id}` | Soft delete; 404 if not found/not owned |
@@ -156,3 +156,24 @@ behavior on `PATCH /users/me`, `subscriptionTier` rejection).
   one row per request.
 - Rate limiting on push endpoints.
 - `quests` / `coin-transactions` — separate spec.
+
+## Addendum: daily-goals is upsert, not append-only (post-implementation)
+
+This spec originally described `POST /daily-goals` as create-only,
+append-only, matching `DailyGoal`'s own docstring ("never edited or
+deleted once created"). The final whole-branch review found the FE
+client (`userRepository.ts::setGoal()`) replaces the row for today's
+`effectiveDate` in place when the user changes their target again in the
+same sitting, reusing the same local id (and so the same `clientId`) —
+producing either a silently-ignored retry (same `clientId`) or a 500 on
+the DB's `(user_id, effective_date)` unique constraint (a different
+`clientId`).
+
+Resolved with the FE session: `CLAUDE.md`'s actual invariant is narrower
+than "append-only forever" — changing today's target must never rewrite
+what a *past* day was measured against, not that today's row can never
+change. `POST /daily-goals` now upserts on `(user_id, effective_date)`:
+a create for a day that already has a goal replaces that row's values
+(preserving its server `id`); a create for a new day is always a new,
+untouched row. `docs/backend-contracts/sync.md` (FE repo) was corrected
+to describe this precisely.

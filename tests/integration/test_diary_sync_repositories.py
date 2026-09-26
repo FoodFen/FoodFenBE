@@ -21,11 +21,7 @@ from src.domain.entities.user import User
 from src.domain.entities.water_log import WaterLog
 from src.domain.entities.weight_log import WeightLog
 from src.domain.enums import ActivitySource, InputMethod, MealType
-from src.domain.exceptions import (
-    ActivityLogNotFoundException,
-    DailyGoalConflictException,
-    WaterLogNotFoundException,
-)
+from src.domain.exceptions import ActivityLogNotFoundException, WaterLogNotFoundException
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.models.activity_log_model import ActivityLogORM  # noqa: F401
 from src.infrastructure.db.models.daily_goal_model import DailyGoalORM  # noqa: F401
@@ -115,24 +111,37 @@ async def test_daily_goal_repository_lists_in_effective_date_order(session):
     assert [g.effective_date for g in result] == [date(2026, 1, 1), date(2026, 2, 1), date(2026, 3, 1)]
 
 
-async def test_daily_goal_repository_create_raises_a_clean_conflict_for_a_second_goal_same_day(session):
+async def test_daily_goal_repository_create_upserts_replacing_values_for_a_second_goal_same_day(
+    session,
+):
+    """One row per (user, effective_date) — changing today's target again in
+    the same sitting replaces that row's values rather than erroring or
+    silently no-opping (per the FE contract: CLAUDE.md's actual invariant is
+    that changing today's target never rewrites *last week's* row, not that
+    today's row can never change)."""
     user_a, _ = await _make_two_users(session)
     repo = SQLAlchemyDailyGoalRepository(session)
 
-    await repo.create(
+    first = await repo.create(
         DailyGoal.create(user_a.id, 2000, 200.0, 150.0, 60.0, 2500, date(2026, 1, 1), client_id="g1")
     )
     await session.commit()
 
-    with pytest.raises(DailyGoalConflictException):
-        await repo.create(
-            DailyGoal.create(
-                user_a.id, 1800, 180.0, 120.0, 50.0, 2000, date(2026, 1, 1), client_id="g2"
-            )
+    second = await repo.create(
+        DailyGoal.create(
+            user_a.id, 1800, 180.0, 120.0, 50.0, 2000, date(2026, 1, 1), client_id="g2"
         )
+    )
+    await session.commit()
+
+    assert second.id == first.id
+    assert second.target_kcal == 1800
+
+    result = await repo.list_by_user(user_a.id)
+    assert len(result) == 1
 
 
-async def test_daily_goal_repository_create_is_idempotent_on_client_id(session):
+async def test_daily_goal_repository_create_with_repeated_client_id_and_date_replaces_values(session):
     user_a, _ = await _make_two_users(session)
     repo = SQLAlchemyDailyGoalRepository(session)
 
@@ -146,7 +155,7 @@ async def test_daily_goal_repository_create_is_idempotent_on_client_id(session):
     await session.commit()
 
     assert second.id == first.id
-    assert second.target_kcal == 2000  # unchanged: the retry was ignored
+    assert second.target_kcal == 1800
 
 
 async def test_food_entry_repository_list_by_date_range_is_inclusive_and_scoped(session):

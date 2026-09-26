@@ -88,13 +88,22 @@ async def test_create_requires_auth(client):
     assert resp.status_code == 401
 
 
-async def test_post_a_second_goal_same_day_with_a_different_client_id_returns_400_not_500(
-    client, signed_up
-):
+async def test_post_a_second_goal_same_day_upserts_the_existing_row(client, signed_up):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
-    await client.post("/daily-goals", json=_CREATE_BODY, headers=headers)
+    first = (
+        await client.post("/daily-goals", json=_CREATE_BODY, headers=headers)
+    ).json()
 
     resp = await client.post(
-        "/daily-goals", json={**_CREATE_BODY, "clientId": "goal_2"}, headers=headers
+        "/daily-goals",
+        json={**_CREATE_BODY, "targetKcal": 1800, "clientId": "goal_2"},
+        headers=headers,
     )
-    assert resp.status_code == 400
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["id"] == first["id"]
+    assert body["targetKcal"] == 1800
+
+    list_resp = await client.get("/daily-goals", headers=headers)
+    assert len(list_resp.json()) == 1
