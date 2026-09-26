@@ -1,7 +1,8 @@
 """Integration tests: ``create_idempotent`` against a real PostgreSQL.
 
-Requires a reachable database. Override with TEST_DATABASE_URL; defaults to the
-``foodfen`` database from docker-compose. The schema is (re)created per test.
+Requires a reachable database. Override with TEST_DATABASE_URL (or DATABASE_URL);
+defaults to the dedicated ``foodfen_test`` database, never the dev ``foodfen`` one
+— the schema here is dropped and recreated per test.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from src.infrastructure.db.repositories.user_repository import SQLAlchemyUserRep
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5433/foodfen",
+    os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5433/foodfen_test"),
 )
 
 
