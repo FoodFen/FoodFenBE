@@ -78,6 +78,44 @@ async def test_post_stores_the_submitted_logged_at_not_the_servers_clock(client,
     assert resp.json()["loggedAt"].startswith("2026-01-15T08:00:00")
 
 
+async def test_patch_replaces_the_log(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/water-logs", json=_CREATE_BODY, headers=headers)).json()
+
+    resp = await client.patch(
+        f"/water-logs/{created['id']}", json={"amountMl": 100}, headers=headers
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["amountMl"] == 100
+
+
+async def test_patch_rejects_another_users_log(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/water-logs", json=_CREATE_BODY, headers=headers)).json()
+    other = await client.post(
+        "/auth/sign-up",
+        json={"email": "waterpatcher@example.com", "password": "s3cret-pass", "displayName": "Other"},
+    )
+    other_headers = {"Authorization": f"Bearer {other.json()['accessToken']}"}
+
+    resp = await client.patch(
+        f"/water-logs/{created['id']}", json={"amountMl": 100}, headers=other_headers
+    )
+    assert resp.status_code == 404
+
+
+async def test_patch_after_delete_returns_404(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/water-logs", json=_CREATE_BODY, headers=headers)).json()
+    await client.delete(f"/water-logs/{created['id']}", headers=headers)
+
+    resp = await client.patch(
+        f"/water-logs/{created['id']}", json={"amountMl": 100}, headers=headers
+    )
+    assert resp.status_code == 404
+
+
 async def test_delete_soft_deletes_and_it_disappears_from_list(client, signed_up):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
     created = (await client.post("/water-logs", json=_CREATE_BODY, headers=headers)).json()

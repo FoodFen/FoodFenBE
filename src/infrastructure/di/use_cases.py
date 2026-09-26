@@ -44,6 +44,7 @@ from src.application.use_cases.social_sign_in import SocialSignInUseCase
 from src.application.use_cases.update_activity_log import UpdateActivityLogUseCase
 from src.application.use_cases.update_food_entry import UpdateFoodEntryUseCase
 from src.application.use_cases.update_user_profile import UpdateUserProfileUseCase
+from src.application.use_cases.update_water_log import UpdateWaterLogUseCase
 from src.application.use_cases.verify_email import VerifyEmailUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
@@ -350,11 +351,18 @@ def get_delete_water_log_use_case(water_logs: WaterLogRepositoryDep) -> DeleteWa
     return DeleteWaterLogUseCase(water_logs=water_logs)
 
 
+def get_update_water_log_use_case(water_logs: WaterLogRepositoryDep) -> UpdateWaterLogUseCase:
+    return UpdateWaterLogUseCase(water_logs=water_logs)
+
+
 CreateWaterLogUseCaseDep = Annotated[
     CreateWaterLogUseCase, Depends(get_create_water_log_use_case)
 ]
 DeleteWaterLogUseCaseDep = Annotated[
     DeleteWaterLogUseCase, Depends(get_delete_water_log_use_case)
+]
+UpdateWaterLogUseCaseDep = Annotated[
+    UpdateWaterLogUseCase, Depends(get_update_water_log_use_case)
 ]
 
 

@@ -28,6 +28,18 @@ class SQLAlchemyWaterLogRepository:
             return None
         return row.to_domain()
 
+    async def update(self, log: WaterLog) -> WaterLog:
+        row = await self._session.get(WaterLogORM, log.id)
+        if row is None or row.deleted_at is not None:
+            raise WaterLogNotFoundException(f"no water log {log.id}")
+        fresh = WaterLogORM.from_domain(log)
+        for column in WaterLogORM.__table__.columns.keys():
+            if column not in ("id", "deleted_at"):
+                setattr(row, column, getattr(fresh, column))
+        await self._session.flush()
+        await self._session.refresh(row)
+        return row.to_domain()
+
     async def delete(self, log_id: UUID) -> None:
         row = await self._session.get(WaterLogORM, log_id)
         if row is None or row.deleted_at is not None:

@@ -14,6 +14,11 @@ class WaterLogRepositoryProtocol(Protocol):
 
     async def get_by_id(self, log_id: UUID) -> WaterLog | None: ...
 
+    async def update(self, log: WaterLog) -> WaterLog:
+        """Full replace. Raise ``WaterLogNotFoundException`` if it doesn't
+        exist or is soft-deleted."""
+        ...
+
     async def delete(self, log_id: UUID) -> None:
         """Soft delete. Raise ``WaterLogNotFoundException`` if it doesn't
         exist or is already deleted."""

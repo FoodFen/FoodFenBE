@@ -1,4 +1,4 @@
-"""CreateWaterLogUseCase / DeleteWaterLogUseCase unit tests. No I/O."""
+"""CreateWaterLogUseCase / UpdateWaterLogUseCase / DeleteWaterLogUseCase unit tests. No I/O."""
 
 from __future__ import annotations
 
@@ -6,9 +6,10 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from src.application.dtos.water_log import CreateWaterLogInputDTO
+from src.application.dtos.water_log import CreateWaterLogInputDTO, UpdateWaterLogInputDTO
 from src.application.use_cases.create_water_log import CreateWaterLogUseCase
 from src.application.use_cases.delete_water_log import DeleteWaterLogUseCase
+from src.application.use_cases.update_water_log import UpdateWaterLogUseCase
 from src.domain.entities.water_log import WaterLog
 from src.domain.exceptions import WaterLogNotFoundException
 
@@ -28,6 +29,12 @@ class FakeWaterLogRepo:
 
     async def get_by_id(self, log_id):
         return self._by_id.get(log_id)
+
+    async def update(self, log: WaterLog) -> WaterLog:
+        if self._by_id.get(log.id) is None:
+            raise WaterLogNotFoundException(f"no water log {log.id}")
+        self._by_id[log.id] = log
+        return log
 
     async def delete(self, log_id):
         if self._by_id.get(log_id) is None:
@@ -69,6 +76,44 @@ async def test_create_stores_an_explicit_logged_at_instead_of_the_servers_clock(
     result = await use_case.execute(
         CreateWaterLogInputDTO(user_id=1, amount_ml=350, client_id="water_1", logged_at=explicit)
     )
+    assert result.logged_at == explicit
+
+
+async def test_update_replaces_fields_for_the_owner():
+    repo = FakeWaterLogRepo()
+    created = await CreateWaterLogUseCase(water_logs=repo).execute(_dto())
+
+    use_case = UpdateWaterLogUseCase(water_logs=repo)
+    result = await use_case.execute(
+        user_id=1, log_id=created.id, input_dto=UpdateWaterLogInputDTO(amount_ml=100)
+    )
+
+    assert result.amount_ml == 100
+
+
+async def test_update_raises_not_found_for_another_users_log():
+    repo = FakeWaterLogRepo()
+    created = await CreateWaterLogUseCase(water_logs=repo).execute(_dto())
+
+    use_case = UpdateWaterLogUseCase(water_logs=repo)
+    with pytest.raises(WaterLogNotFoundException):
+        await use_case.execute(
+            user_id=999, log_id=created.id, input_dto=UpdateWaterLogInputDTO(amount_ml=100)
+        )
+
+
+async def test_update_stores_an_explicit_logged_at():
+    repo = FakeWaterLogRepo()
+    created = await CreateWaterLogUseCase(water_logs=repo).execute(_dto())
+    explicit = datetime(2026, 1, 15, 8, 0, tzinfo=UTC)
+
+    use_case = UpdateWaterLogUseCase(water_logs=repo)
+    result = await use_case.execute(
+        user_id=1,
+        log_id=created.id,
+        input_dto=UpdateWaterLogInputDTO(amount_ml=100, logged_at=explicit),
+    )
+
     assert result.logged_at == explicit
 
 

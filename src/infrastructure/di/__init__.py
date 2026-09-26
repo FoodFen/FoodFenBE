@@ -93,6 +93,7 @@ from src.infrastructure.di.use_cases import (
     UpdateActivityLogUseCaseDep,
     UpdateFoodEntryUseCaseDep,
     UpdateUserProfileUseCaseDep,
+    UpdateWaterLogUseCaseDep,
     VerifyEmailUseCaseDep,
     get_analyze_food_image_use_case,
     get_analyze_food_text_use_case,
@@ -128,6 +129,7 @@ from src.infrastructure.di.use_cases import (
     get_update_activity_log_use_case,
     get_update_food_entry_use_case,
     get_update_user_profile_use_case,
+    get_update_water_log_use_case,
     get_verify_email_use_case,
 )
 
@@ -186,6 +188,7 @@ __all__ = [
     "UpdateActivityLogUseCaseDep",
     "UpdateFoodEntryUseCaseDep",
     "UpdateUserProfileUseCaseDep",
+    "UpdateWaterLogUseCaseDep",
     "UserRepositoryDep",
     "VerifyEmailUseCaseDep",
     "WaterLogRepositoryDep",
@@ -243,6 +246,7 @@ __all__ = [
     "get_update_activity_log_use_case",
     "get_update_food_entry_use_case",
     "get_update_user_profile_use_case",
+    "get_update_water_log_use_case",
     "get_user_repository",
     "get_verify_email_use_case",
     "get_water_log_repository",

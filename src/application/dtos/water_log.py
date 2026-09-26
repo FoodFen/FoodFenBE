@@ -35,3 +35,10 @@ class CreateWaterLogInputDTO:
     client_id: str
     logged_at: datetime | None = None
     logged_on: date | None = None
+
+
+@dataclass(frozen=True)
+class UpdateWaterLogInputDTO:
+    amount_ml: int
+    logged_at: datetime | None = None
+    logged_on: date | None = None
