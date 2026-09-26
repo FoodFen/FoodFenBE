@@ -195,6 +195,55 @@ async def test_auto_links_to_existing_password_account_with_same_email():
     assert linked.user_id == existing.id
 
 
+async def test_auto_link_to_unverified_existing_account_invalidates_its_password():
+    """Pre-account-takeover guard: email verification is non-gating at
+    sign-up, so an attacker can register a password account with an email
+    they don't own. If the real owner later proves ownership via a
+    provider-verified social sign-in, auto-linking must not leave the
+    attacker's password credential valid on the now-legitimized account."""
+    users, socials, refresh, verifier, tokens = _wire()
+    existing = users.seed(
+        User.create(email="squatted@example.com", name="Squatter", password_hash="hashed::attacker")
+    )
+    assert not existing.is_email_verified
+    verifier.stub(
+        "good-token",
+        VerifiedIdentity(subject="google-sub-9", email="squatted@example.com", email_verified=True),
+    )
+    uc = _use_case(users, socials, refresh, verifier, tokens)
+
+    session = await uc.execute(
+        SocialSignInInputDTO(provider=AuthProvider.GOOGLE, id_token="good-token")
+    )
+
+    assert session.user.id == existing.id
+    stored = await users.get_by_id(existing.id)
+    assert stored.password_hash is None
+    assert stored.is_email_verified
+
+
+async def test_auto_link_to_already_verified_existing_account_keeps_its_password():
+    """No overreach: if the existing account's email was already verified
+    through our own flow, ownership is already proven — the password stays
+    valid (this is the ordinary "add a second sign-in method" case, not a
+    suspected squat)."""
+    users, socials, refresh, verifier, tokens = _wire()
+    existing = users.seed(
+        User.create(email="verified@example.com", name="Real Owner", password_hash="hashed::real")
+    )
+    existing.verify_email(datetime.now(UTC))
+    verifier.stub(
+        "good-token",
+        VerifiedIdentity(subject="google-sub-10", email="verified@example.com", email_verified=True),
+    )
+    uc = _use_case(users, socials, refresh, verifier, tokens)
+
+    await uc.execute(SocialSignInInputDTO(provider=AuthProvider.GOOGLE, id_token="good-token"))
+
+    stored = await users.get_by_id(existing.id)
+    assert stored.password_hash == "hashed::real"
+
+
 async def test_missing_email_everywhere_is_rejected():
     users, socials, refresh, verifier, tokens = _wire()
     verifier.stub("no-email", VerifiedIdentity(subject="sub-x", email=None, email_verified=False))

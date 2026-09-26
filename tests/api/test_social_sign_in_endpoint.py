@@ -78,6 +78,26 @@ async def test_auto_links_to_existing_password_account(client, social_verifier, 
     assert resp.json()["user"]["id"] == signed_up["user"]["id"]
 
 
+async def test_auto_link_to_unverified_account_invalidates_its_password(
+    client, social_verifier, signed_up
+):
+    """signed_up's account is unverified (verification is non-gating at
+    sign-up) — a real Google sign-in for that same email must invalidate
+    whatever password credential was on it, closing the squatted-email
+    takeover vector."""
+    social_verifier.stub(
+        "google-link-token",
+        VerifiedIdentity(subject="g-4", email="user@example.com", email_verified=True),
+    )
+    await client.post("/auth/social", json={"provider": "google", "idToken": "google-link-token"})
+
+    resp = await client.post(
+        "/auth/sign-in", json={"email": "user@example.com", "password": "s3cret-pass"}
+    )
+
+    assert resp.status_code == 401
+
+
 async def test_bad_identity_token_is_401(client):
     resp = await client.post(
         "/auth/social", json={"provider": "google", "idToken": "not-a-real-token"}

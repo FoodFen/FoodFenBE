@@ -58,6 +58,15 @@ class SocialSignInUseCase:
             user = User.create(email=email, name=data.full_name)
             user.verify_email(datetime.now(UTC))  # provider already verified this address
             user = await self.users.create(user)
+        elif not user.is_email_verified:
+            # Sign-up never gates on email verification, so an existing,
+            # unverified account for this address may belong to someone who
+            # registered it without owning it. The provider has now proven
+            # real ownership — invalidate any password credential so a
+            # squatter can no longer sign in, and record the verification.
+            user.password_hash = None
+            user.verify_email(datetime.now(UTC))
+            user = await self.users.update(user)
 
         await self.social_identities.create(
             SocialIdentity.create(
