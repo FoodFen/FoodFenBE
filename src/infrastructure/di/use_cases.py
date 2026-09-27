@@ -17,6 +17,8 @@ from src.application.use_cases.create_activity_log import CreateActivityLogUseCa
 from src.application.use_cases.create_checkout import CreateCheckoutUseCase
 from src.application.use_cases.create_daily_goal import CreateDailyGoalUseCase
 from src.application.use_cases.create_food_entry import CreateFoodEntryUseCase
+from src.application.use_cases.create_water_log import CreateWaterLogUseCase
+from src.application.use_cases.create_weight_log import CreateWeightLogUseCase
 from src.application.use_cases.delete_food_entry import DeleteFoodEntryUseCase
 from src.application.use_cases.delete_water_log import DeleteWaterLogUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
@@ -38,8 +40,6 @@ from src.application.use_cases.request_password_reset import RequestPasswordRese
 from src.application.use_cases.resend_verification import ResendVerificationUseCase
 from src.application.use_cases.reset_password import ResetPasswordUseCase
 from src.application.use_cases.send_chat_message import SendChatMessageUseCase
-from src.application.use_cases.create_water_log import CreateWaterLogUseCase
-from src.application.use_cases.create_weight_log import CreateWeightLogUseCase
 from src.application.use_cases.social_sign_in import SocialSignInUseCase
 from src.application.use_cases.update_activity_log import UpdateActivityLogUseCase
 from src.application.use_cases.update_food_entry import UpdateFoodEntryUseCase

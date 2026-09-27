@@ -82,6 +82,21 @@ async def test_gender_updates():
     assert result.gender is Gender.FEMALE
 
 
+async def test_explicit_null_clears_a_nullable_field():
+    """The spec's own case: {"weightGoal": null} must clear the field, not
+    be indistinguishable from omitting it — exclude_unset (via the
+    controller) is what makes "sent as null" different from "not sent"."""
+    repo = FakeUserRepo([_user(weight_goal=70.0, height=170.0)])
+    use_case = UpdateUserProfileUseCase(users=repo)
+
+    result = await use_case.execute(
+        UpdateUserProfileInputDTO(user_id=1, updates={"weight_goal": None})
+    )
+
+    assert result.weight_goal is None
+    assert result.height == 170.0  # untouched: not in `updates`
+
+
 async def test_invalid_value_raises_domain_exception():
     repo = FakeUserRepo([_user()])
     use_case = UpdateUserProfileUseCase(users=repo)

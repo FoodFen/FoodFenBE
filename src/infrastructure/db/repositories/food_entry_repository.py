@@ -20,6 +20,11 @@ class SQLAlchemyFoodEntryRepository:
 
     async def create(self, entry: FoodEntry) -> FoodEntry:
         row = await create_idempotent(self._session, FoodEntryORM.from_domain(entry), FoodEntryORM)
+        if row.deleted_at is not None:
+            # create_idempotent resolved this client_id to a row the user
+            # has since deleted — handing back that stale data as a fresh
+            # 200 would look like a successful create of live data.
+            raise FoodEntryNotFoundException(f"no food entry for client_id {entry.client_id!r}")
         return row.to_domain()
 
     async def get_by_id(self, entry_id: UUID) -> FoodEntry | None:

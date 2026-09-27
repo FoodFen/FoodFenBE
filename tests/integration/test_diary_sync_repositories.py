@@ -392,6 +392,22 @@ async def test_water_log_repository_delete_twice_raises_not_found(session):
         await repo.delete(created.id)
 
 
+async def test_water_log_repository_create_with_client_id_of_a_deleted_log_raises_not_found(session):
+    user_a, _ = await _make_two_users(session)
+    repo = SQLAlchemyWaterLogRepository(session)
+    created = await repo.create(
+        WaterLog.create(user_a.id, 350, client_id="w1", logged_on=date(2026, 1, 1))
+    )
+    await session.commit()
+    await repo.delete(created.id)
+    await session.commit()
+
+    with pytest.raises(WaterLogNotFoundException):
+        await repo.create(
+            WaterLog.create(user_a.id, 350, client_id="w1", logged_on=date(2026, 1, 1))
+        )
+
+
 async def test_water_log_repository_update_replaces_fields(session):
     user_a, _ = await _make_two_users(session)
     repo = SQLAlchemyWaterLogRepository(session)

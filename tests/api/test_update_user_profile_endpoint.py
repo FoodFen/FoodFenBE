@@ -65,6 +65,16 @@ async def test_patch_email_collision_with_different_case_still_returns_400(clien
     assert resp.status_code == 400
 
 
+async def test_patch_explicit_null_clears_a_nullable_field(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    await client.patch("/users/me", json={"weightGoal": 70.0}, headers=headers)
+
+    resp = await client.patch("/users/me", json={"weightGoal": None}, headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json()["weightGoal"] is None
+
+
 async def test_patch_null_unit_system_returns_400_not_500(client, signed_up):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
 

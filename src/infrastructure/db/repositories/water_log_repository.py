@@ -20,6 +20,11 @@ class SQLAlchemyWaterLogRepository:
 
     async def create(self, log: WaterLog) -> WaterLog:
         row = await create_idempotent(self._session, WaterLogORM.from_domain(log), WaterLogORM)
+        if row.deleted_at is not None:
+            # create_idempotent resolved this client_id to a row the user
+            # has since deleted — handing back that stale data as a fresh
+            # 200 would look like a successful create of live data.
+            raise WaterLogNotFoundException(f"no water log for client_id {log.client_id!r}")
         return row.to_domain()
 
     async def get_by_id(self, log_id: UUID) -> WaterLog | None:

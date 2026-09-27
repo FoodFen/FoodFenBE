@@ -44,6 +44,10 @@ class CreateActivityLogRequest(CamelModel):
 
 
 class UpdateActivityLogRequest(CamelModel):
+    """Full replace, same shape as ``CreateActivityLogRequest`` minus
+    ``clientId`` — an omitted ``source`` is not "left unchanged", it resets
+    to ``MANUAL`` like every other omitted field on this full-replace PATCH."""
+
     activity_type: str = Field(min_length=1)
     calories_burned: int
     source: ActivitySource = ActivitySource.MANUAL

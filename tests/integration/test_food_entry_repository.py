@@ -193,3 +193,18 @@ async def test_delete_on_an_already_deleted_entry_raises_not_found(session):
 
     with pytest.raises(FoodEntryNotFoundException):
         await repo.delete(created.id)
+
+
+async def test_create_with_the_client_id_of_a_deleted_entry_raises_not_found(session):
+    """A create() retry that resolves (by client_id) to a row the user has
+    since deleted must not hand back that stale, deleted data as if it were
+    a fresh success."""
+    user = await _make_user(session)
+    repo = SQLAlchemyFoodEntryRepository(session)
+    created = await repo.create(_entry_with_ingredients(user.id))
+    await session.commit()
+    await repo.delete(created.id)
+    await session.commit()
+
+    with pytest.raises(FoodEntryNotFoundException):
+        await repo.create(_entry_with_ingredients(user.id))  # same client_id="entry_1"

@@ -140,3 +140,13 @@ async def test_delete_rejects_another_users_log(client, signed_up):
 
     resp = await client.delete(f"/water-logs/{created['id']}", headers=other_headers)
     assert resp.status_code == 404
+
+
+async def test_post_with_the_client_id_of_a_deleted_log_returns_404_not_200(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/water-logs", json=_CREATE_BODY, headers=headers)).json()
+    await client.delete(f"/water-logs/{created['id']}", headers=headers)
+
+    resp = await client.post("/water-logs", json=_CREATE_BODY, headers=headers)
+
+    assert resp.status_code == 404

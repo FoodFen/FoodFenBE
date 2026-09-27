@@ -225,6 +225,16 @@ async def test_delete_rejects_another_users_entry(client, signed_up):
     assert resp.status_code == 404
 
 
+async def test_post_with_the_client_id_of_a_deleted_entry_returns_404_not_200(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
+    await client.delete(f"/food-entries/{created['id']}", headers=headers)
+
+    resp = await client.post("/food-entries", json=_BODY, headers=headers)
+
+    assert resp.status_code == 404
+
+
 async def test_list_excludes_entries_outside_the_range(client, signed_up):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
     created = (await client.post("/food-entries", json=_BODY, headers=headers)).json()
