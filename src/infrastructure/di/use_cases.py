@@ -45,6 +45,7 @@ from src.application.use_cases.update_activity_log import UpdateActivityLogUseCa
 from src.application.use_cases.update_food_entry import UpdateFoodEntryUseCase
 from src.application.use_cases.update_user_profile import UpdateUserProfileUseCase
 from src.application.use_cases.update_water_log import UpdateWaterLogUseCase
+from src.application.use_cases.upsert_streak import UpsertStreakUseCase
 from src.application.use_cases.verify_email import VerifyEmailUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
@@ -55,6 +56,7 @@ from src.infrastructure.di.repositories import (
     PaymentRepositoryDep,
     RefreshTokenRepositoryDep,
     SocialIdentityRepositoryDep,
+    StreakRepositoryDep,
     SubscriptionRepositoryDep,
     UserRepositoryDep,
     WaterLogRepositoryDep,
@@ -412,3 +414,10 @@ ListWaterLogsUseCaseDep = Annotated[ListWaterLogsUseCase, Depends(get_list_water
 ListWeightLogsUseCaseDep = Annotated[
     ListWeightLogsUseCase, Depends(get_list_weight_logs_use_case)
 ]
+
+
+def get_upsert_streak_use_case(streaks: StreakRepositoryDep) -> UpsertStreakUseCase:
+    return UpsertStreakUseCase(streaks=streaks)
+
+
+UpsertStreakUseCaseDep = Annotated[UpsertStreakUseCase, Depends(get_upsert_streak_use_case)]

@@ -17,6 +17,7 @@ from src.application.ports.food_entry_repository import FoodEntryRepositoryProto
 from src.application.ports.payment_repository import PaymentRepositoryProtocol
 from src.application.ports.refresh_token_repository import RefreshTokenRepositoryProtocol
 from src.application.ports.social_identity_repository import SocialIdentityRepositoryProtocol
+from src.application.ports.streak_repository import StreakRepositoryProtocol
 from src.application.ports.subscription_repository import SubscriptionRepositoryProtocol
 from src.application.ports.user_repository import UserRepositoryProtocol
 from src.application.ports.water_log_repository import WaterLogRepositoryProtocol
@@ -36,6 +37,7 @@ from src.infrastructure.db.repositories.refresh_token_repository import (
 from src.infrastructure.db.repositories.social_identity_repository import (
     SQLAlchemySocialIdentityRepository,
 )
+from src.infrastructure.db.repositories.streak_repository import SQLAlchemyStreakRepository
 from src.infrastructure.db.repositories.subscription_repository import (
     SQLAlchemySubscriptionRepository,
 )
@@ -130,3 +132,10 @@ def get_weight_log_repository(session: SessionDep) -> WeightLogRepositoryProtoco
 
 
 WeightLogRepositoryDep = Annotated[WeightLogRepositoryProtocol, Depends(get_weight_log_repository)]
+
+
+def get_streak_repository(session: SessionDep) -> StreakRepositoryProtocol:
+    return SQLAlchemyStreakRepository(session)
+
+
+StreakRepositoryDep = Annotated[StreakRepositoryProtocol, Depends(get_streak_repository)]
