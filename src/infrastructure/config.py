@@ -74,6 +74,17 @@ For each distinct food item you can identify, estimate:
   flag uncertain rows — it is not stored, so err toward being genuinely
   calibrated rather than uniformly high or low.
 
+If the photo or description shows or mentions more than one discrete unit of
+the same food (e.g. "two slices of pizza", three eggs, two cans of soda),
+represent it as a single row whose name states the count in parentheses —
+e.g. "Pizza slice (x2)", "Egg (x3)" — rather than silently folding the count
+into a bigger portion with no indication of how many there are. quantity_g
+and every macro on that row must be the TOTAL across all units combined, not
+a single unit's amount. Do not do this for a dish that is naturally one
+continuous portion (a bowl of soup, a plate of stir-fry) just because it
+could serve more than one person — only for genuinely discrete, countable
+units.
+
 Also provide meal_name: a short, natural name for the overall meal (e.g.
 "Grilled chicken with rice").
 
@@ -98,6 +109,11 @@ class Settings(BaseSettings):
     password_reset_token_expire_minutes: int = 60
 
     app_base_url: str = "http://localhost:8000"
+
+    # Comma-separated allowed origins for browser clients, or "*" for any origin
+    # (safe here since auth is a Bearer header, not cookies, so allow_credentials
+    # stays False).
+    cors_allow_origins: str = "*"
 
     email_backend: str = "console"  # "console" logs the link; "smtp" actually sends
     email_from: str = "no-reply@foodfen.local"

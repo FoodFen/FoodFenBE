@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: foodfenbe
+    runtime: python
+    plan: free
+    buildCommand: pip install uv && uv sync --frozen --no-dev
+    startCommand: uv run alembic upgrade head && uv run uvicorn src.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DATABASE_URL
+        sync: false # postgresql+asyncpg://... — e.g. a Neon free Postgres connection string
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_BASE_URL
+        sync: false # the https://*.onrender.com URL Render assigns this service
+      - key: CORS_ALLOW_ORIGINS
+        value: "*"
+      # Optional, only needed if the client exercises that feature — add in the
+      # Render dashboard, they fail closed (not open) when unset:
+      # GEMINI_API_KEY, GOOGLE_OAUTH_CLIENT_IDS, APPLE_CLIENT_IDS, CLOUDINARY_URL,
+      # PAYOS_CLIENT_ID, PAYOS_API_KEY, PAYOS_CHECKSUM_KEY, PAYOS_RETURN_URL, PAYOS_CANCEL_URL
