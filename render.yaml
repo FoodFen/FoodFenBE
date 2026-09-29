@@ -1,13 +1,10 @@
 services:
   - type: web
     name: foodfenbe
-    runtime: python
+    runtime: docker
+    dockerfilePath: ./Dockerfile
     plan: free
-    buildCommand: pip install uv && uv sync --frozen --no-dev
-    startCommand: uv run alembic upgrade head && uv run uvicorn src.main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
       - key: DATABASE_URL
         sync: false # postgresql+asyncpg://... — e.g. a Neon free Postgres connection string
       - key: JWT_SECRET

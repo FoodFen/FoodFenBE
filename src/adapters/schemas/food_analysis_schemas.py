@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from src.adapters.schemas.base import CamelModel
@@ -48,3 +50,4 @@ class FoodAnalysisResponse(CamelModel):
 
 class AnalyzeFoodTextRequest(CamelModel):
     description: str = Field(min_length=1)
+    language: Literal["vi", "en"] = "vi"

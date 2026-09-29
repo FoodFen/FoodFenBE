@@ -14,7 +14,7 @@ class AnalyzeFoodImageUseCase:
     vision: FoodVisionProviderProtocol
     images: ImageStorageProtocol
 
-    async def execute(self, image_bytes: bytes, content_type: str) -> FoodAnalysisDTO:
-        result = await self.vision.analyze_image(image_bytes, content_type)
+    async def execute(self, image_bytes: bytes, content_type: str, language: str) -> FoodAnalysisDTO:
+        result = await self.vision.analyze_image(image_bytes, content_type, language)
         image_url = await self.images.upload(image_bytes, content_type)
         return replace(result, image_url=image_url)

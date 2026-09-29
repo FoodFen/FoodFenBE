@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from src.adapters.schemas.food_analysis_schemas import (
     AnalyzeFoodTextRequest,
@@ -28,11 +28,12 @@ async def analyze_image(
     _: CurrentUserDep,
     use_case: AnalyzeFoodImageUseCaseDep,
     image: Annotated[UploadFile, File()],
+    language: Annotated[Literal["vi", "en"], Form()] = "vi",
 ) -> FoodAnalysisResponse:
     if image.content_type not in _ALLOWED_IMAGE_TYPES:
         raise UnreadableImageException(f"unsupported image type: {image.content_type!r}")
     data = await image.read()
-    result = await use_case.execute(data, image.content_type)
+    result = await use_case.execute(data, image.content_type, language)
     return FoodAnalysisResponse.from_dto(result)
 
 
@@ -42,5 +43,5 @@ async def analyze_text(
     _: CurrentUserDep,
     use_case: AnalyzeFoodTextUseCaseDep,
 ) -> FoodAnalysisResponse:
-    result = await use_case.execute(body.description)
+    result = await use_case.execute(body.description, body.language)
     return FoodAnalysisResponse.from_dto(result)

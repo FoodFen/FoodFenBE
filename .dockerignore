@@ -1,0 +1,14 @@
+.venv
+.git
+.github
+.pytest_cache
+.import_linter_cache
+tests
+docs
+*.md
+.env
+.env.example
+docker
+docker-compose.yml
+__pycache__
+*.pyc

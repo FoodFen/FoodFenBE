@@ -133,10 +133,10 @@ class FakeFoodVisionProvider:
             image_url=None,
         )
 
-    async def analyze_image(self, image_bytes, content_type):
+    async def analyze_image(self, image_bytes, content_type, language):
         return self.result
 
-    async def analyze_text(self, description):
+    async def analyze_text(self, description, language):
         return self.result
 
 

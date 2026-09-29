@@ -29,6 +29,9 @@ class _AnalysisSchema(BaseModel):
     ingredients: list[_IngredientSchema]
 
 
+_LANGUAGE_NAMES = {"vi": "Vietnamese", "en": "English"}
+
+
 class GeminiFoodVisionProvider:
     def __init__(
         self,
@@ -42,19 +45,26 @@ class GeminiFoodVisionProvider:
         self._system_prompt = system_prompt
         self._client = client or genai.Client(api_key=api_key)
 
-    async def analyze_image(self, image_bytes: bytes, content_type: str) -> FoodAnalysisDTO:
+    async def analyze_image(
+        self, image_bytes: bytes, content_type: str, language: str
+    ) -> FoodAnalysisDTO:
         part = types.Part.from_bytes(data=image_bytes, mime_type=content_type)
-        return await self._generate([part])
+        return await self._generate([part], language)
 
-    async def analyze_text(self, description: str) -> FoodAnalysisDTO:
-        return await self._generate([description])
+    async def analyze_text(self, description: str, language: str) -> FoodAnalysisDTO:
+        return await self._generate([description], language)
 
-    async def _generate(self, contents: list) -> FoodAnalysisDTO:
+    async def _generate(self, contents: list, language: str) -> FoodAnalysisDTO:
+        language_name = _LANGUAGE_NAMES.get(language, language)
+        system_instruction = (
+            f"{self._system_prompt}\n\nRespond entirely in {language_name}. Do not mix "
+            "languages within mealName or any ingredient name."
+        )
         response = await self._client.aio.models.generate_content(
             model=self._model,
             contents=contents,
             config=types.GenerateContentConfig(
-                system_instruction=self._system_prompt,
+                system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=_AnalysisSchema,
                 # No tools configured — see gemini_chat_provider.py for why this

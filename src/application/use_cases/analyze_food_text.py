@@ -12,5 +12,5 @@ from src.application.ports.food_vision_provider import FoodVisionProviderProtoco
 class AnalyzeFoodTextUseCase:
     vision: FoodVisionProviderProtocol
 
-    async def execute(self, description: str) -> FoodAnalysisDTO:
-        return await self.vision.analyze_text(description)
+    async def execute(self, description: str, language: str) -> FoodAnalysisDTO:
+        return await self.vision.analyze_text(description, language)

@@ -25,6 +25,32 @@ async def test_analyze_image_uploads_and_returns_suggestion(client, signed_up):
     assert body["imageUrl"] == "https://cdn.example/meal.jpg"
 
 
+async def test_analyze_image_accepts_language(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.post(
+        "/ai/food/analyze-image",
+        headers=headers,
+        files={"image": ("meal.jpg", b"fake-jpeg-bytes", "image/jpeg")},
+        data={"language": "en"},
+    )
+
+    assert resp.status_code == 200
+
+
+async def test_analyze_image_rejects_invalid_language(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.post(
+        "/ai/food/analyze-image",
+        headers=headers,
+        files={"image": ("meal.jpg", b"fake-jpeg-bytes", "image/jpeg")},
+        data={"language": "fr"},
+    )
+
+    assert resp.status_code == 422
+
+
 async def test_analyze_image_rejects_unsupported_content_type(client, signed_up):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
 
@@ -57,6 +83,18 @@ async def test_analyze_text_returns_suggestion_with_no_image_url(client, signed_
     body = resp.json()
     assert body["mealName"] == "Pho"
     assert body["imageUrl"] is None
+
+
+async def test_analyze_text_rejects_invalid_language(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.post(
+        "/ai/food/analyze-text",
+        json={"description": "pho", "language": "fr"},
+        headers=headers,
+    )
+
+    assert resp.status_code == 422
 
 
 async def test_analyze_text_rejects_empty_description(client, signed_up):

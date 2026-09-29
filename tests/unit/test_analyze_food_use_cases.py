@@ -21,15 +21,17 @@ _INGREDIENT = IngredientSuggestionDTO(
 class FakeVisionProvider:
     def __init__(self, result: FoodAnalysisDTO) -> None:
         self._result = result
-        self.image_calls: list[tuple[bytes, str]] = []
-        self.text_calls: list[str] = []
+        self.image_calls: list[tuple[bytes, str, str]] = []
+        self.text_calls: list[tuple[str, str]] = []
 
-    async def analyze_image(self, image_bytes: bytes, content_type: str) -> FoodAnalysisDTO:
-        self.image_calls.append((image_bytes, content_type))
+    async def analyze_image(
+        self, image_bytes: bytes, content_type: str, language: str
+    ) -> FoodAnalysisDTO:
+        self.image_calls.append((image_bytes, content_type, language))
         return self._result
 
-    async def analyze_text(self, description: str) -> FoodAnalysisDTO:
-        self.text_calls.append(description)
+    async def analyze_text(self, description: str, language: str) -> FoodAnalysisDTO:
+        self.text_calls.append((description, language))
         return self._result
 
 
@@ -48,12 +50,12 @@ async def test_analyze_image_uploads_and_sets_image_url():
     storage = FakeImageStorage()
     uc = AnalyzeFoodImageUseCase(vision=vision, images=storage)
 
-    result = await uc.execute(b"fake-bytes", "image/jpeg")
+    result = await uc.execute(b"fake-bytes", "image/jpeg", "en")
 
     assert result.meal_name == "Pho"
     assert result.ingredients == [_INGREDIENT]
     assert result.image_url == storage.url
-    assert vision.image_calls == [(b"fake-bytes", "image/jpeg")]
+    assert vision.image_calls == [(b"fake-bytes", "image/jpeg", "en")]
     assert storage.uploads == [(b"fake-bytes", "image/jpeg")]
 
 
@@ -61,17 +63,17 @@ async def test_analyze_text_never_touches_image_storage():
     vision = FakeVisionProvider(FoodAnalysisDTO("Pho", [_INGREDIENT], image_url=None))
     uc = AnalyzeFoodTextUseCase(vision=vision)
 
-    result = await uc.execute("a bowl of beef pho")
+    result = await uc.execute("a bowl of beef pho", "vi")
 
     assert result.image_url is None
-    assert vision.text_calls == ["a bowl of beef pho"]
+    assert vision.text_calls == [("a bowl of beef pho", "vi")]
 
 
 async def test_no_food_recognized_returns_empty_result_not_an_error():
     vision = FakeVisionProvider(FoodAnalysisDTO("", [], image_url=None))
     uc = AnalyzeFoodTextUseCase(vision=vision)
 
-    result = await uc.execute("asdf")
+    result = await uc.execute("asdf", "vi")
 
     assert result.meal_name == ""
     assert result.ingredients == []
