@@ -21,6 +21,7 @@ from src.application.use_cases.create_water_log import CreateWaterLogUseCase
 from src.application.use_cases.create_weight_log import CreateWeightLogUseCase
 from src.application.use_cases.delete_food_entry import DeleteFoodEntryUseCase
 from src.application.use_cases.delete_water_log import DeleteWaterLogUseCase
+from src.application.use_cases.get_quests import GetQuestsUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
 from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCase
 from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
@@ -34,6 +35,7 @@ from src.application.use_cases.list_water_logs import ListWaterLogsUseCase
 from src.application.use_cases.list_weight_logs import ListWeightLogsUseCase
 from src.application.use_cases.login import LoginUseCase
 from src.application.use_cases.logout import LogoutUseCase
+from src.application.use_cases.redeem_coins import RedeemCoinsUseCase
 from src.application.use_cases.refresh_token import RefreshTokenUseCase
 from src.application.use_cases.register_user import RegisterUserUseCase
 from src.application.use_cases.request_password_reset import RequestPasswordResetUseCase
@@ -50,6 +52,8 @@ from src.application.use_cases.verify_email import VerifyEmailUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
     ActivityLogRepositoryDep,
+    CoinRepositoryDep,
+    QuestRepositoryDep,
     ChatMessageRepositoryDep,
     DailyGoalRepositoryDep,
     FoodEntryRepositoryDep,
@@ -421,3 +425,19 @@ def get_upsert_streak_use_case(streaks: StreakRepositoryDep) -> UpsertStreakUseC
 
 
 UpsertStreakUseCaseDep = Annotated[UpsertStreakUseCase, Depends(get_upsert_streak_use_case)]
+
+
+def get_get_quests_use_case(
+    quests: QuestRepositoryDep, coins: CoinRepositoryDep
+) -> GetQuestsUseCase:
+    return GetQuestsUseCase(quests=quests, coins=coins)
+
+
+def get_redeem_coins_use_case(
+    coins: CoinRepositoryDep, subscriptions: SubscriptionRepositoryDep, users: UserRepositoryDep
+) -> RedeemCoinsUseCase:
+    return RedeemCoinsUseCase(coins=coins, subscriptions=subscriptions, users=users)
+
+
+GetQuestsUseCaseDep = Annotated[GetQuestsUseCase, Depends(get_get_quests_use_case)]
+RedeemCoinsUseCaseDep = Annotated[RedeemCoinsUseCase, Depends(get_redeem_coins_use_case)]

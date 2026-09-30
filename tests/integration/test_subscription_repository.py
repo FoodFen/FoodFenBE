@@ -94,4 +94,27 @@ async def test_save_updates_the_single_row_per_user(session):
     fetched = await repo.get_by_user_id(user.id)
     assert fetched is not None
     assert fetched.id == first.id  # same row, not a second one
-    assert fetched.start_date == date(2026, 2, 2)
+    assert fetched.start_date == date(2026, 1, 1)
+    assert fetched.end_date == date(2026, 3, 2)
+
+
+async def test_expiry_sweep_expires_lapsed_and_downgrades_user(session):
+    from src.domain.enums import SubscriptionStatus, SubscriptionTier
+    from src.infrastructure.expiry_job import expire_lapsed_subscriptions
+
+    lapsed = await _make_user(session)
+    lapsed.subscription_tier = SubscriptionTier.PREMIUM
+    await SQLAlchemyUserRepository(session).update(lapsed)
+    repo = SQLAlchemySubscriptionRepository(session)
+    await repo.save(
+        Subscription.create(lapsed.id, PlanType.MONTHLY, date(2026, 1, 1), date(2026, 2, 1), 49000)
+    )
+    await session.commit()
+
+    assert await expire_lapsed_subscriptions(session, date(2026, 2, 2)) == 1
+    await session.commit()
+    assert (await repo.get_by_user_id(lapsed.id)).status is SubscriptionStatus.EXPIRED
+    assert (await SQLAlchemyUserRepository(session).get_by_id(lapsed.id)).subscription_tier is (
+        SubscriptionTier.FREE
+    )
+    assert await expire_lapsed_subscriptions(session, date(2026, 2, 2)) == 0  # idempotent

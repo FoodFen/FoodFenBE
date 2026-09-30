@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from src.adapters.schemas.base import CamelModel, MoneyField
 from src.application.dtos.payment import CheckoutOutputDTO, PaymentOutputDTO
@@ -10,7 +11,8 @@ from src.domain.enums import PaymentStatus, PlanType
 
 
 class CreateCheckoutRequest(CamelModel):
-    plan_type: PlanType
+    # coin_redeem is not purchasable — it would be priced as an annual plan.
+    plan_type: Literal[PlanType.MONTHLY, PlanType.ANNUAL]
 
 
 class CheckoutResponse(CamelModel):

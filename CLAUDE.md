@@ -175,6 +175,21 @@ async def create_user(
 - Tests never call the real Gemini API — `tests/api/conftest.py::FakeAiChatProvider` overrides
   `get_ai_chat_provider` with a scripted reply.
 
+## Coins & quests
+
+Design + defaults: `docs/superpowers/specs/2026-09-30-coins-quests-design.md`.
+
+- **Endpoints** (`coin_controller.py`, `CurrentUserDep`): `GET /quests?date=` (client's local day),
+  `POST /coins/redeem {days: 10|30}` (`COIN_BUNDLES` in `use_cases/redeem_coins.py`).
+- **Balance is `SUM(coin_transactions.amount)`**, never a stored field. Redeem takes the user row
+  `FOR UPDATE` before checking it; insufficient coins → `InsufficientCoinsException` (409).
+- **Quests are evaluated lazily** inside `GET /quests` from synced diary rows — the client never reports
+  completion. Payout happens only for the request whose `QuestRepository.record()` flips `completed`
+  (conditional UPDATE), so concurrent reads can't pay twice.
+- **The catalog is the `quest_definitions` table** (seeded in migration 0012). What each `QuestType`
+  *measures* lives in `SQLAlchemyQuestRepository.measure()`; a new type needs an evaluator there.
+- **`PlanType.COIN_REDEEM` is not purchasable** — `CreateCheckoutRequest` only accepts monthly/annual.
+
 ## Commands
 
     make dev            # uvicorn --reload
