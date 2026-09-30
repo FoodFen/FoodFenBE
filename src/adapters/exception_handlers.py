@@ -16,6 +16,7 @@ from src.domain.exceptions import (
     AuthenticationException,
     DomainException,
     EntityNotFoundException,
+    InsufficientCoinsException,
     InvalidAttributeException,
     InvalidWebhookSignatureException,
     PremiumRequiredException,
@@ -31,6 +32,7 @@ EXCEPTION_STATUS: list[tuple[type[DomainException], int]] = [
     (InvalidAttributeException, 400),  # + InvalidUserAttributeException, WeakPasswordException, InvalidPaymentStateException
     (AuthenticationException, 401),  # + InvalidCredentialsException, InvalidTokenException
     (PremiumRequiredException, 402),
+    (InsufficientCoinsException, 409),
     (EntityNotFoundException, 404),  # + UserNotFoundException, PaymentNotFoundException
     (DomainException, 400),  # catch-all
 ]

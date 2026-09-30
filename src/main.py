@@ -5,6 +5,7 @@ Domain-exception -> HTTP-status mapping lives in ``src/adapters/exception_handle
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -14,6 +15,7 @@ from sqlalchemy import text
 from src.adapters.controllers.activity_log_controller import router as activity_log_router
 from src.adapters.controllers.auth_controller import router as auth_router
 from src.adapters.controllers.chat_controller import router as chat_router
+from src.adapters.controllers.coin_controller import router as coin_router
 from src.adapters.controllers.daily_goal_controller import router as daily_goal_router
 from src.adapters.controllers.food_analysis_controller import router as food_analysis_router
 from src.adapters.controllers.food_entry_controller import router as food_entry_router
@@ -26,6 +28,7 @@ from src.adapters.controllers.weight_log_controller import router as weight_log_
 from src.adapters.exception_handlers import register_exception_handlers
 from src.infrastructure.config import DEV_JWT_SECRET, settings
 from src.infrastructure.db.session import engine
+from src.infrastructure.expiry_job import run_expiry_loop
 from src.infrastructure.logging import configure_logging
 
 _log = configure_logging()
@@ -39,7 +42,9 @@ async def lifespan(_: FastAPI):
         )
     async with engine.connect() as conn:
         await conn.execute(text("SELECT 1"))
+    sweep = asyncio.create_task(run_expiry_loop())
     yield
+    sweep.cancel()
     await engine.dispose()
 
 
@@ -63,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(water_log_router)
     app.include_router(weight_log_router)
     app.include_router(streak_router)
+    app.include_router(coin_router)
     register_exception_handlers(app)
     return app
 

@@ -71,3 +71,7 @@ class ActivityLogNotFoundException(EntityNotFoundException):
 
 class WaterLogNotFoundException(EntityNotFoundException):
     """A requested water log does not exist."""
+
+
+class InsufficientCoinsException(DomainException):
+    """The coin balance can't cover the requested spend. Maps to HTTP 409."""

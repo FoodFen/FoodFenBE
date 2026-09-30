@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import calendar
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -81,19 +81,41 @@ class Subscription:
         """Extend or start a subscription. An early renewal (before ``existing``
         expires) stacks the new period after the current one instead of
         wasting the days already paid for."""
-        if existing is not None and existing.end_date is not None and existing.end_date >= today:
-            start = existing.end_date + timedelta(days=1)
-        else:
-            start = today
-        end = _add_period(start, plan_type)
+        running = existing is not None and existing.end_date is not None and existing.end_date >= today
+        # The new period stacks after the old one, but ``start_date`` must stay in the
+        # past: ``covers`` is false before it, so a future start would lapse the user today.
+        period_start = existing.end_date + timedelta(days=1) if running else today
         return cls(
             id=existing.id if existing is not None else uuid4(),
             user_id=user_id,
             plan_type=plan_type,
             status=SubscriptionStatus.ACTIVE,
-            start_date=start,
-            end_date=end,
+            start_date=existing.start_date if running else today,
+            end_date=_add_period(period_start, plan_type),
             price=Decimal(str(price)),
+        )
+
+    @classmethod
+    def grant_days(
+        cls, existing: Subscription | None, user_id: int, days: int, today: date
+    ) -> Subscription:
+        """Add ``days`` of Premium. While ``existing`` still runs, extend its end date
+        in place (keeping its plan and price); otherwise start a free coin-funded
+        period today."""
+        if existing is not None and existing.end_date is not None and existing.end_date >= today:
+            return replace(
+                existing,
+                status=SubscriptionStatus.ACTIVE,
+                end_date=existing.end_date + timedelta(days=days),
+            )
+        return cls(
+            id=existing.id if existing is not None else uuid4(),
+            user_id=user_id,
+            plan_type=PlanType.COIN_REDEEM,
+            status=SubscriptionStatus.ACTIVE,
+            start_date=today,
+            end_date=today + timedelta(days=days - 1),
+            price=Decimal(0),
         )
 
 

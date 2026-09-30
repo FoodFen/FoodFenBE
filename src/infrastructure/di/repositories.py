@@ -12,9 +12,11 @@ from fastapi import Depends
 
 from src.application.ports.activity_log_repository import ActivityLogRepositoryProtocol
 from src.application.ports.chat_message_repository import ChatMessageRepositoryProtocol
+from src.application.ports.coin_repository import CoinRepositoryProtocol
 from src.application.ports.daily_goal_repository import DailyGoalRepositoryProtocol
 from src.application.ports.food_entry_repository import FoodEntryRepositoryProtocol
 from src.application.ports.payment_repository import PaymentRepositoryProtocol
+from src.application.ports.quest_repository import QuestRepositoryProtocol
 from src.application.ports.refresh_token_repository import RefreshTokenRepositoryProtocol
 from src.application.ports.social_identity_repository import SocialIdentityRepositoryProtocol
 from src.application.ports.streak_repository import StreakRepositoryProtocol
@@ -28,9 +30,11 @@ from src.infrastructure.db.repositories.activity_log_repository import (
 from src.infrastructure.db.repositories.chat_message_repository import (
     SQLAlchemyChatMessageRepository,
 )
+from src.infrastructure.db.repositories.coin_repository import SQLAlchemyCoinRepository
 from src.infrastructure.db.repositories.daily_goal_repository import SQLAlchemyDailyGoalRepository
 from src.infrastructure.db.repositories.food_entry_repository import SQLAlchemyFoodEntryRepository
 from src.infrastructure.db.repositories.payment_repository import SQLAlchemyPaymentRepository
+from src.infrastructure.db.repositories.quest_repository import SQLAlchemyQuestRepository
 from src.infrastructure.db.repositories.refresh_token_repository import (
     SQLAlchemyRefreshTokenRepository,
 )
@@ -139,3 +143,17 @@ def get_streak_repository(session: SessionDep) -> StreakRepositoryProtocol:
 
 
 StreakRepositoryDep = Annotated[StreakRepositoryProtocol, Depends(get_streak_repository)]
+
+
+def get_coin_repository(session: SessionDep) -> CoinRepositoryProtocol:
+    return SQLAlchemyCoinRepository(session)
+
+
+CoinRepositoryDep = Annotated[CoinRepositoryProtocol, Depends(get_coin_repository)]
+
+
+def get_quest_repository(session: SessionDep) -> QuestRepositoryProtocol:
+    return SQLAlchemyQuestRepository(session)
+
+
+QuestRepositoryDep = Annotated[QuestRepositoryProtocol, Depends(get_quest_repository)]

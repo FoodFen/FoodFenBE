@@ -86,6 +86,7 @@ class ActivitySource(StrEnum):
 class PlanType(StrEnum):
     MONTHLY = "monthly"
     ANNUAL = "annual"
+    COIN_REDEEM = "coin_redeem"  # granted by spending coins, never purchased via PayOS
 
 
 class SubscriptionStatus(StrEnum):
