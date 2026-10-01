@@ -18,7 +18,7 @@ from src.infrastructure.ai.gemini_food_vision_provider import (
     _AnalysisSchema,
 )
 
-_USAGE = SimpleNamespace(prompt_token_count=120, response_token_count=40, thoughts_token_count=7)
+_USAGE = SimpleNamespace(prompt_token_count=120, candidates_token_count=40, thoughts_token_count=7)
 
 
 class _FakeModels:
