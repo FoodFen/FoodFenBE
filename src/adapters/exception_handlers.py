@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from src.domain.exceptions import (
+    AiTrialExhaustedException,
     AuthenticationException,
     DomainException,
     EntityNotFoundException,
@@ -20,6 +21,7 @@ from src.domain.exceptions import (
     InvalidAttributeException,
     InvalidWebhookSignatureException,
     PremiumRequiredException,
+    RateLimitedException,
     UserAlreadyExistsException,
 )
 
@@ -32,6 +34,7 @@ EXCEPTION_STATUS: list[tuple[type[DomainException], int]] = [
     (InvalidAttributeException, 400),  # + InvalidUserAttributeException, WeakPasswordException, InvalidPaymentStateException
     (AuthenticationException, 401),  # + InvalidCredentialsException, InvalidTokenException
     (PremiumRequiredException, 402),
+    (RateLimitedException, 429),
     (InsufficientCoinsException, 409),
     (EntityNotFoundException, 404),  # + UserNotFoundException, PaymentNotFoundException
     (DomainException, 400),  # catch-all
@@ -56,6 +59,18 @@ async def _duplicate_email_handler(_: Request, exc: UserAlreadyExistsException) 
     )
 
 
+async def _ai_trial_exhausted_handler(_: Request, exc: AiTrialExhaustedException) -> JSONResponse:
+    """403 with a stable machine code, so the client can tell it from any other 403."""
+    return JSONResponse(
+        status_code=403,
+        content={
+            "message": str(exc),
+            "code": "ai_trial_exhausted",
+            "inputMethod": exc.input_method.value,
+        },
+    )
+
+
 async def _validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
     """Reshape Pydantic's ``{"detail": [...]}`` into ``{message, errors}``."""
     errors: dict[str, str] = {}
@@ -70,5 +85,6 @@ async def _validation_error_handler(_: Request, exc: RequestValidationError) -> 
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(RequestValidationError, _validation_error_handler)
     app.add_exception_handler(UserAlreadyExistsException, _duplicate_email_handler)
+    app.add_exception_handler(AiTrialExhaustedException, _ai_trial_exhausted_handler)
     for exc_type, status_code in EXCEPTION_STATUS:
         app.add_exception_handler(exc_type, _domain_exception_handler(status_code))

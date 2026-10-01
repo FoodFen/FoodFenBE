@@ -11,6 +11,7 @@ from typing import Annotated
 from fastapi import Depends
 
 from src.application.ports.activity_log_repository import ActivityLogRepositoryProtocol
+from src.application.ports.ai_trial_repository import AiTrialRepositoryProtocol
 from src.application.ports.chat_message_repository import ChatMessageRepositoryProtocol
 from src.application.ports.coin_repository import CoinRepositoryProtocol
 from src.application.ports.daily_goal_repository import DailyGoalRepositoryProtocol
@@ -27,6 +28,7 @@ from src.application.ports.weight_log_repository import WeightLogRepositoryProto
 from src.infrastructure.db.repositories.activity_log_repository import (
     SQLAlchemyActivityLogRepository,
 )
+from src.infrastructure.db.repositories.ai_trial_repository import SQLAlchemyAiTrialRepository
 from src.infrastructure.db.repositories.chat_message_repository import (
     SQLAlchemyChatMessageRepository,
 )
@@ -136,6 +138,13 @@ def get_weight_log_repository(session: SessionDep) -> WeightLogRepositoryProtoco
 
 
 WeightLogRepositoryDep = Annotated[WeightLogRepositoryProtocol, Depends(get_weight_log_repository)]
+
+
+def get_ai_trial_repository(session: SessionDep) -> AiTrialRepositoryProtocol:
+    return SQLAlchemyAiTrialRepository(session)
+
+
+AiTrialRepositoryDep = Annotated[AiTrialRepositoryProtocol, Depends(get_ai_trial_repository)]
 
 
 def get_streak_repository(session: SessionDep) -> StreakRepositoryProtocol:

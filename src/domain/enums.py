@@ -72,6 +72,14 @@ class InputMethod(StrEnum):
     MANUAL = "manual"
 
 
+class AiTrialMethod(StrEnum):
+    """Input methods with their own free-trial counter. Voice rides analyze-text."""
+
+    IMAGE = "image"
+    TEXT = "text"
+    VOICE = "voice"
+
+
 class AiFeedback(StrEnum):
     UP = "up"
     DOWN = "down"

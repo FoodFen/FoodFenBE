@@ -8,6 +8,8 @@ from pydantic import Field
 
 from src.adapters.schemas.base import CamelModel
 from src.application.dtos.food_analysis import FoodAnalysisDTO, IngredientSuggestionDTO
+from src.application.use_cases.ai_trial import AI_TRIAL_LIMIT
+from src.domain.enums import AiTrialMethod
 
 
 class IngredientSuggestionResponse(CamelModel):
@@ -51,3 +53,34 @@ class FoodAnalysisResponse(CamelModel):
 class AnalyzeFoodTextRequest(CamelModel):
     description: str = Field(min_length=1)
     language: Literal["vi", "en"] = "vi"
+    # Voice is dictated text sent to this same endpoint; only the free-trial counter cares.
+    input_method: Literal["text", "voice"] = "text"
+
+
+class QuotaCounterResponse(CamelModel):
+    limit: int
+    remaining: int
+
+
+class AiQuotaResponse(CamelModel):
+    """Free trials left per input method. ``unlimited`` (Premium) leaves the counters null."""
+
+    unlimited: bool
+    image: QuotaCounterResponse | None
+    text: QuotaCounterResponse | None
+    voice: QuotaCounterResponse | None
+
+    @classmethod
+    def from_remaining(cls, remaining: dict[AiTrialMethod, int] | None) -> AiQuotaResponse:
+        if remaining is None:
+            return cls(unlimited=True, image=None, text=None, voice=None)
+
+        def counter(method: AiTrialMethod) -> QuotaCounterResponse:
+            return QuotaCounterResponse(limit=AI_TRIAL_LIMIT, remaining=remaining[method])
+
+        return cls(
+            unlimited=False,
+            image=counter(AiTrialMethod.IMAGE),
+            text=counter(AiTrialMethod.TEXT),
+            voice=counter(AiTrialMethod.VOICE),
+        )

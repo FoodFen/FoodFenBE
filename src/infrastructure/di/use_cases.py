@@ -10,6 +10,7 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from src.application.use_cases.ai_trial import AiTrialUseCase
 from src.application.use_cases.analyze_food_image import AnalyzeFoodImageUseCase
 from src.application.use_cases.analyze_food_text import AnalyzeFoodTextUseCase
 from src.application.use_cases.cancel_payment import CancelPaymentUseCase
@@ -51,6 +52,7 @@ from src.application.use_cases.upsert_streak import UpsertStreakUseCase
 from src.application.use_cases.verify_email import VerifyEmailUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
+    AiTrialRepositoryDep,
     ActivityLogRepositoryDep,
     CoinRepositoryDep,
     QuestRepositoryDep,
@@ -187,14 +189,23 @@ def get_send_chat_message_use_case(
     )
 
 
+def get_ai_trial_use_case(usage: AiTrialRepositoryDep) -> AiTrialUseCase:
+    return AiTrialUseCase(usage=usage)
+
+
+AiTrialUseCaseDep = Annotated[AiTrialUseCase, Depends(get_ai_trial_use_case)]
+
+
 def get_analyze_food_image_use_case(
-    vision: FoodVisionProviderDep, images: ImageStorageDep
+    vision: FoodVisionProviderDep, images: ImageStorageDep, trial: AiTrialUseCaseDep
 ) -> AnalyzeFoodImageUseCase:
-    return AnalyzeFoodImageUseCase(vision=vision, images=images)
+    return AnalyzeFoodImageUseCase(vision=vision, images=images, trial=trial)
 
 
-def get_analyze_food_text_use_case(vision: FoodVisionProviderDep) -> AnalyzeFoodTextUseCase:
-    return AnalyzeFoodTextUseCase(vision=vision)
+def get_analyze_food_text_use_case(
+    vision: FoodVisionProviderDep, trial: AiTrialUseCaseDep
+) -> AnalyzeFoodTextUseCase:
+    return AnalyzeFoodTextUseCase(vision=vision, trial=trial)
 
 
 RegisterUseCaseDep = Annotated[RegisterUserUseCase, Depends(get_register_use_case)]

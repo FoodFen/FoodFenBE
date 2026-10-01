@@ -1,5 +1,7 @@
 """Domain error hierarchy. Standard library only."""
 
+from src.domain.enums import AiTrialMethod
+
 
 class DomainException(Exception):
     """Base class for every domain-level error."""
@@ -75,3 +77,15 @@ class WaterLogNotFoundException(EntityNotFoundException):
 
 class InsufficientCoinsException(DomainException):
     """The coin balance can't cover the requested spend. Maps to HTTP 409."""
+
+
+class AiTrialExhaustedException(DomainException):
+    """All free AI analyses for an input method are used. Maps to HTTP 403."""
+
+    def __init__(self, input_method: AiTrialMethod) -> None:
+        super().__init__("free AI trials used up; Premium is required")
+        self.input_method = input_method
+
+
+class RateLimitedException(DomainException):
+    """Too many requests from one caller. Maps to HTTP 429."""

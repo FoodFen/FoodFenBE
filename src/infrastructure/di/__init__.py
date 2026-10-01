@@ -14,6 +14,7 @@ from src.infrastructure.di.notifications import (
 )
 from src.infrastructure.di.repositories import (
     ActivityLogRepositoryDep,
+    AiTrialRepositoryDep,
     ChatMessageRepositoryDep,
     CoinRepositoryDep,
     QuestRepositoryDep,
@@ -28,6 +29,7 @@ from src.infrastructure.di.repositories import (
     WaterLogRepositoryDep,
     WeightLogRepositoryDep,
     get_activity_log_repository,
+    get_ai_trial_repository,
     get_chat_message_repository,
     get_coin_repository,
     get_quest_repository,
@@ -43,6 +45,7 @@ from src.infrastructure.di.repositories import (
     get_weight_log_repository,
 )
 from src.infrastructure.di.security import (
+    AiCallerDep,
     AiChatProviderDep,
     CurrentPremiumUserDep,
     CurrentUserDep,
@@ -53,6 +56,7 @@ from src.infrastructure.di.security import (
     PremiumStatusDep,
     SocialIdentityVerifierDep,
     TokenServiceDep,
+    get_ai_caller,
     get_ai_chat_provider,
     get_current_premium_user,
     get_current_user,
@@ -65,6 +69,7 @@ from src.infrastructure.di.security import (
     get_token_service,
 )
 from src.infrastructure.di.use_cases import (
+    AiTrialUseCaseDep,
     AnalyzeFoodImageUseCaseDep,
     AnalyzeFoodTextUseCaseDep,
     CancelPaymentUseCaseDep,
@@ -104,6 +109,7 @@ from src.infrastructure.di.use_cases import (
     UpdateWaterLogUseCaseDep,
     UpsertStreakUseCaseDep,
     VerifyEmailUseCaseDep,
+    get_ai_trial_use_case,
     get_analyze_food_image_use_case,
     get_analyze_food_text_use_case,
     get_cancel_payment_use_case,
@@ -148,6 +154,9 @@ from src.infrastructure.di.use_cases import (
 __all__ = [
     "ActivityLogRepositoryDep",
     "AiChatProviderDep",
+    "AiCallerDep",
+    "AiTrialRepositoryDep",
+    "AiTrialUseCaseDep",
     "AnalyzeFoodImageUseCaseDep",
     "AnalyzeFoodTextUseCaseDep",
     "CancelPaymentUseCaseDep",
@@ -213,6 +222,9 @@ __all__ = [
     "WeightLogRepositoryDep",
     "get_activity_log_repository",
     "get_ai_chat_provider",
+    "get_ai_caller",
+    "get_ai_trial_repository",
+    "get_ai_trial_use_case",
     "get_analyze_food_image_use_case",
     "get_analyze_food_text_use_case",
     "get_cancel_payment_use_case",

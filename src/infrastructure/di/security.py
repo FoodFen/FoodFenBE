@@ -11,9 +11,10 @@ from datetime import date, timedelta
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 
+from src.application.dtos.ai_trial import AiCallerDTO
 from src.application.ports.ai_chat_provider import AiChatProviderProtocol
 from src.application.ports.food_vision_provider import FoodVisionProviderProtocol
 from src.application.ports.image_storage import ImageStorageProtocol
@@ -23,13 +24,18 @@ from src.application.ports.social_identity_verifier import SocialIdentityVerifie
 from src.application.ports.token_service import TokenServiceProtocol
 from src.domain.entities.user import User
 from src.domain.enums import SubscriptionStatus, SubscriptionTier
-from src.domain.exceptions import InvalidTokenException, PremiumRequiredException
+from src.domain.exceptions import (
+    InvalidTokenException,
+    PremiumRequiredException,
+    RateLimitedException,
+)
 from src.infrastructure.ai.gemini_chat_provider import GeminiChatProvider
 from src.infrastructure.ai.gemini_food_vision_provider import GeminiFoodVisionProvider
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import SubscriptionRepositoryDep, UserRepositoryDep
 from src.infrastructure.images.cloudinary_image_storage import CloudinaryImageStorage
 from src.infrastructure.payments.payos_provider import PayOsPaymentProvider
+from src.infrastructure.rate_limiter import SlidingWindowLimiter
 from src.infrastructure.security.jwt_service import JwtTokenService
 from src.infrastructure.security.password_hasher import BcryptPasswordHasher
 from src.infrastructure.security.social_identity_verifier import JwtSocialIdentityVerifier
@@ -155,13 +161,7 @@ PaymentProviderDep = Annotated[PaymentProviderProtocol, Depends(get_payment_prov
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token", auto_error=False)
 
 
-async def get_current_user(
-    token: Annotated[str | None, Depends(_oauth2_scheme)],
-    tokens: TokenServiceDep,
-    users: UserRepositoryDep,
-) -> User:
-    if token is None:
-        raise InvalidTokenException("missing bearer token")
+async def _user_from_token(token: str, tokens: TokenServiceProtocol, users) -> User:
     user_id = tokens.read_access_token(token)
     user = await users.get_by_id(user_id)
     if user is None or not user.is_active:
@@ -169,14 +169,20 @@ async def get_current_user(
     return user
 
 
+async def get_current_user(
+    token: Annotated[str | None, Depends(_oauth2_scheme)],
+    tokens: TokenServiceDep,
+    users: UserRepositoryDep,
+) -> User:
+    if token is None:
+        raise InvalidTokenException("missing bearer token")
+    return await _user_from_token(token, tokens, users)
+
+
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 
-async def get_premium_status(
-    user: CurrentUserDep,
-    subscriptions: SubscriptionRepositoryDep,
-    users: UserRepositoryDep,
-) -> bool:
+async def _reconcile_premium(user: User, subscriptions, users) -> bool:
     """Whether ``user`` is entitled to Premium right now — reconciling a lapsed
     subscription first. There is no cron (manual-renewal model), so this is the
     only place expiry is enforced. Used both by the hard gate below and by
@@ -193,6 +199,14 @@ async def get_premium_status(
     return user.is_premium
 
 
+async def get_premium_status(
+    user: CurrentUserDep,
+    subscriptions: SubscriptionRepositoryDep,
+    users: UserRepositoryDep,
+) -> bool:
+    return await _reconcile_premium(user, subscriptions, users)
+
+
 PremiumStatusDep = Annotated[bool, Depends(get_premium_status)]
 
 
@@ -203,3 +217,35 @@ async def get_current_premium_user(user: CurrentUserDep, is_premium: PremiumStat
 
 
 CurrentPremiumUserDep = Annotated[User, Depends(get_current_premium_user)]
+
+
+# Anonymous AI calls per client IP. The device id is client-supplied and spoofable, so this is
+# what bounds the paid-AI cost of someone minting fresh ids. Signed-in calls skip it.
+# ponytail: per-process, 30/hour/IP; shared NATs share the budget. Tune or move to Redis if needed.
+_anon_ip_limiter = SlidingWindowLimiter(limit=30, window_seconds=3600)
+
+
+async def get_ai_caller(
+    request: Request,
+    token: Annotated[str | None, Depends(_oauth2_scheme)],
+    tokens: TokenServiceDep,
+    users: UserRepositoryDep,
+    subscriptions: SubscriptionRepositoryDep,
+    device_id: Annotated[str | None, Header(alias="X-Device-Id", min_length=1, max_length=64)] = None,
+) -> AiCallerDTO:
+    """Who is calling an AI endpoint: a signed-in user (bearer, optionally plus a device) or an
+    anonymous device. Neither is a 401. Quota keys include both, so a device's used trials
+    carry over when its owner signs in."""
+    keys = [f"device:{device_id}"] if device_id else []
+    if token is not None:
+        user = await _user_from_token(token, tokens, users)
+        keys.append(f"user:{user.id}")
+        return AiCallerDTO(tuple(keys), await _reconcile_premium(user, subscriptions, users))
+    if not keys:
+        raise InvalidTokenException("missing bearer token or X-Device-Id header")
+    if not _anon_ip_limiter.allow(request.client.host if request.client else "unknown"):
+        raise RateLimitedException("too many requests, try again later")
+    return AiCallerDTO(tuple(keys), is_premium=False)
+
+
+AiCallerDep = Annotated[AiCallerDTO, Depends(get_ai_caller)]
