@@ -198,12 +198,10 @@ Design + defaults: `docs/superpowers/specs/2026-09-30-coins-quests-design.md`.
     make migrate        # alembic upgrade head
     make docker-up      # local postgres:16
 
-`unit` tests use an in-memory repo (no DB). `integration` and `api` tests hit a real Postgres,
-dropping and recreating the schema per test — they need `make docker-up` first and run against a
-separate `foodfen_test` database (`make test` sets `DATABASE_URL`/`TEST_DATABASE_URL` for you). To
-run a single test file or node id against that DB directly:
-
-    DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/foodfen_test uv run pytest tests/unit/test_user_use_cases.py::test_name
+`unit` tests use an in-memory repo. `integration` and `api` tests run on in-memory SQLite — `tests/conftest.py`
+forces `DATABASE_URL`, so `.env` (prod) is never touched, and shims the Postgres gaps (tz-aware datetimes,
+the non-PK `payments.order_code` identity). No Docker needed; SQLite ignores `FOR UPDATE`, so row-lock
+behaviour (e.g. coin redeem) is not exercised by tests.
 
 ## Adding a slice
 

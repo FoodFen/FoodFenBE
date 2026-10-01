@@ -1,13 +1,11 @@
 .PHONY: dev test lint-imports migrate docker-up
 
-TEST_DB := postgresql+asyncpg://postgres:postgres@localhost:5433/foodfen_test
-
 dev:
 	uv run uvicorn src.main:app --reload
 
-# Tests drop and recreate their schema, so they use a separate database.
+# tests/conftest.py points the tests at in-memory SQLite, never at .env's DATABASE_URL.
 test:
-	DATABASE_URL=$(TEST_DB) TEST_DATABASE_URL=$(TEST_DB) uv run pytest
+	uv run pytest
 
 lint-imports:
 	uv run lint-imports
