@@ -51,7 +51,7 @@ class FoodAnalysisResponse(CamelModel):
 
 
 class AnalyzeFoodTextRequest(CamelModel):
-    description: str = Field(min_length=1)
+    description: str = Field(min_length=1, max_length=1000)
     language: Literal["vi", "en"] = "vi"
     # Voice is dictated text sent to this same endpoint; only the free-trial counter cares.
     input_method: Literal["text", "voice"] = "text"

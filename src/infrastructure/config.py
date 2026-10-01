@@ -129,7 +129,7 @@ class Settings(BaseSettings):
     apple_client_ids: str = ""
 
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-flash-latest"
+    gemini_model: str = "gemini-3-flash-preview"
     gemini_system_prompt: str = DEFAULT_GEMINI_SYSTEM_PROMPT
     chat_history_limit: int = 10
     gemini_food_analysis_prompt: str = DEFAULT_GEMINI_FOOD_ANALYSIS_PROMPT

@@ -110,3 +110,26 @@ async def test_analyze_text_rejects_empty_description(client, signed_up):
 async def test_analyze_text_requires_auth(client):
     resp = await client.post("/ai/food/analyze-text", json={"description": "pho"})
     assert resp.status_code == 401
+
+
+async def test_analyze_text_rejects_over_long_description(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.post(
+        "/ai/food/analyze-text", json={"description": "x" * 1001}, headers=headers
+    )
+
+    assert resp.status_code == 422
+
+
+async def test_analyze_image_rejects_oversized_upload(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    too_big = b"0" * (15 * 1024 * 1024 + 1)
+
+    resp = await client.post(
+        "/ai/food/analyze-image",
+        headers=headers,
+        files={"image": ("meal.jpg", too_big, "image/jpeg")},
+    )
+
+    assert resp.status_code == 400

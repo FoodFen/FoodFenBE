@@ -27,6 +27,8 @@ from src.infrastructure.di import (
 router = APIRouter(prefix="/ai/food", tags=["ai-food"])
 
 _ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/heic", "image/heif"}
+# Bounds the paid-AI input per call. Generous on purpose: the app doesn't downscale photos yet.
+_MAX_IMAGE_BYTES = 15 * 1024 * 1024
 
 
 @router.post("/analyze-image", response_model=FoodAnalysisResponse)
@@ -38,7 +40,9 @@ async def analyze_image(
 ) -> FoodAnalysisResponse:
     if image.content_type not in _ALLOWED_IMAGE_TYPES:
         raise UnreadableImageException(f"unsupported image type: {image.content_type!r}")
-    data = await image.read()
+    data = await image.read(_MAX_IMAGE_BYTES + 1)
+    if len(data) > _MAX_IMAGE_BYTES:
+        raise UnreadableImageException("image is larger than 15 MB")
     result = await use_case.execute(caller, data, image.content_type, language)
     return FoodAnalysisResponse.from_dto(result)
 

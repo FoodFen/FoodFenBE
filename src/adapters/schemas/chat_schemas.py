@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
+from pydantic import Field
+
 from src.adapters.schemas.base import CamelModel
 from src.application.dtos.chat import ChatHistoryPageDTO, ChatMessageDTO
 
@@ -33,4 +35,4 @@ class ChatHistoryResponse(CamelModel):
 
 
 class SendChatMessageRequest(CamelModel):
-    message: str
+    message: str = Field(max_length=2000)

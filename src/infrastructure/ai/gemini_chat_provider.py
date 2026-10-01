@@ -14,6 +14,7 @@ from google.genai import types
 
 from src.domain.entities.chat_message import ChatMessage
 from src.domain.enums import ChatRole
+from src.infrastructure.ai.usage import log_usage
 
 _GEMINI_ROLE = {ChatRole.USER: "user", ChatRole.ASSISTANT: "model"}
 
@@ -50,8 +51,13 @@ class GeminiChatProvider:
                 # nothing to do, and its default-on state just logs an unrelated
                 # warning ("use AFC in AsyncChat instead") on every call.
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                # Casual chat needs little reasoning; thinking tokens are billed as output.
+                thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW),
             ),
         )
+        usage = None
         async for chunk in stream:
+            usage = chunk.usage_metadata or usage  # cumulative; the last chunk has the total
             if chunk.text:
                 yield chunk.text
+        log_usage("chat", usage)

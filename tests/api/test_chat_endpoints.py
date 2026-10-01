@@ -74,3 +74,11 @@ async def test_history_paginates_with_cursor(client, signed_up):
 
     seen_ids = {m["id"] for m in first_body["messages"]} | {m["id"] for m in second_body["messages"]}
     assert len(seen_ids) == 4  # no duplicate across the page boundary
+
+
+async def test_send_message_rejects_over_long_message(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.post("/chat/messages", json={"message": "x" * 2001}, headers=headers)
+
+    assert resp.status_code == 422
