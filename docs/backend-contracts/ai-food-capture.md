@@ -18,10 +18,13 @@ Neither header present: **401** (as before). An invalid or expired Bearer: **401
 
 ## Free trials
 
-- 3 successful analyses per input method: `image`, `text`, `voice`. Three independent counters.
-- Counters are **lifetime**; they never reset.
+- 3 successful analyses per input method **per day**: `image`, `text`, `voice`. Three independent counters.
+- **Daily reset at midnight Vietnam time** (Asia/Ho_Chi_Minh, UTC+7, no DST), the same calendar day the
+  diary uses. Not a rolling 24 hours: the reset is the same moment for every user, and the 403 and
+  `GET /ai/food/quota` both say when it is (`resetsAt`).
 - Quota key is the device while anonymous. A signed-in call uses the **higher** of the device's and the
-  account's used count, and both are incremented. Signing up therefore does not give a fresh trial.
+  account's used count **for that day**, and both are incremented. Signing up does not give a fresh trial
+  on the same day; the next day both start at 0 again.
   A signed-in call with no `X-Device-Id` is counted on the account alone.
 - Premium is unlimited and never touches the counters.
 - Applies to signed-in **free** users too: after 3 successes per method they get the 403 below.
@@ -54,10 +57,12 @@ Both return `200`:
 ## Trials used up: `403`
 
 ```json
-{ "message": "free AI trials used up; Premium is required", "code": "ai_trial_exhausted", "inputMethod": "image" }
+{ "message": "free AI trials used up; Premium is required", "code": "ai_trial_exhausted",
+  "inputMethod": "image", "resetsAt": "2026-10-02T00:00:00+07:00" }
 ```
 
-Match on `code === "ai_trial_exhausted"`. `inputMethod` is `image`, `text`, or `voice`. Other 403s do not
+Match on `code === "ai_trial_exhausted"`. `inputMethod` is `image`, `text`, or `voice`. `resetsAt` is an ISO 8601
+timestamp with a `+07:00` offset: the next Vietnam midnight, when that method has 3 tries again. Other 403s do not
 carry this code. (Not 402: `402` is the existing `premium_required` response for Premium-only features.)
 
 ## `GET /ai/food/quota`
@@ -66,12 +71,13 @@ Same identity rules as above. `200`:
 
 ```json
 { "unlimited": false,
+  "resetsAt": "2026-10-02T00:00:00+07:00",
   "image": { "limit": 3, "remaining": 2 },
   "text":  { "limit": 3, "remaining": 3 },
   "voice": { "limit": 3, "remaining": 2 } }
 ```
 
-Premium: `{ "unlimited": true, "image": null, "text": null, "voice": null }`.
+`remaining` is for today. Premium: `{ "unlimited": true, "resetsAt": null, "image": null, "text": null, "voice": null }`.
 
 ## Rate limits
 
@@ -81,5 +87,7 @@ spoofable, so the IP limit is what bounds abuse. Signed-in calls skip it. The li
 
 ## Known limits
 
+- A device can use up to 9 free analyses every day with no end date, and a spoofed device id restarts at 3
+  per method; only the per-IP limit bounds that.
 - Check-then-consume is not atomic: concurrent requests from one owner can overshoot the 3 by a few.
 - IPs behind a shared NAT share the 30/hour budget.

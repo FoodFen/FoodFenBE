@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import date
 from uuid import uuid4
 
 from sqlalchemy import func, select
@@ -17,21 +18,21 @@ class SQLAlchemyAiTrialRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def used(self, owner_keys: Sequence[str]) -> dict[AiTrialMethod, int]:
+    async def used(self, owner_keys: Sequence[str], day: date) -> dict[AiTrialMethod, int]:
         rows = await self._session.execute(
             select(AiTrialUsageORM.input_method, func.max(AiTrialUsageORM.used))
-            .where(AiTrialUsageORM.owner_key.in_(owner_keys))
+            .where(AiTrialUsageORM.owner_key.in_(owner_keys), AiTrialUsageORM.day == day)
             .group_by(AiTrialUsageORM.input_method)
         )
         return {method: used for method, used in rows}
 
-    async def increment(self, owner_keys: Sequence[str], method: AiTrialMethod) -> None:
+    async def increment(self, owner_keys: Sequence[str], method: AiTrialMethod, day: date) -> None:
         for key in owner_keys:
             await self._session.execute(
                 pg_insert(AiTrialUsageORM)
-                .values(id=uuid4(), owner_key=key, input_method=method, used=1)
+                .values(id=uuid4(), owner_key=key, input_method=method, day=day, used=1)
                 .on_conflict_do_update(
-                    index_elements=["owner_key", "input_method"],
+                    index_elements=["owner_key", "input_method", "day"],
                     set_={"used": AiTrialUsageORM.used + 1},
                 )
             )

@@ -13,7 +13,7 @@ def log_usage(call: str, usage) -> None:
         _log.info(
             "gemini %s tokens: prompt=%s output=%s thoughts=%s",
             call,
-            usage.prompt_token_count,
-            usage.response_token_count,
-            usage.thoughts_token_count,
+            getattr(usage, "prompt_token_count", None),
+            getattr(usage, "candidates_token_count", None),
+            getattr(usage, "thoughts_token_count", None),
         )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import Field
@@ -63,23 +64,28 @@ class QuotaCounterResponse(CamelModel):
 
 
 class AiQuotaResponse(CamelModel):
-    """Free trials left per input method. ``unlimited`` (Premium) leaves the counters null."""
+    """Free trials left today per input method. ``unlimited`` (Premium) leaves the counters and
+    ``resets_at`` null."""
 
     unlimited: bool
+    resets_at: datetime | None
     image: QuotaCounterResponse | None
     text: QuotaCounterResponse | None
     voice: QuotaCounterResponse | None
 
     @classmethod
-    def from_remaining(cls, remaining: dict[AiTrialMethod, int] | None) -> AiQuotaResponse:
+    def from_remaining(
+        cls, remaining: dict[AiTrialMethod, int] | None, resets_at: datetime
+    ) -> AiQuotaResponse:
         if remaining is None:
-            return cls(unlimited=True, image=None, text=None, voice=None)
+            return cls(unlimited=True, resets_at=None, image=None, text=None, voice=None)
 
         def counter(method: AiTrialMethod) -> QuotaCounterResponse:
             return QuotaCounterResponse(limit=AI_TRIAL_LIMIT, remaining=remaining[method])
 
         return cls(
             unlimited=False,
+            resets_at=resets_at,
             image=counter(AiTrialMethod.IMAGE),
             text=counter(AiTrialMethod.TEXT),
             voice=counter(AiTrialMethod.VOICE),

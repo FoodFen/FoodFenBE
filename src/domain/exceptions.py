@@ -1,5 +1,7 @@
 """Domain error hierarchy. Standard library only."""
 
+from datetime import datetime
+
 from src.domain.enums import AiTrialMethod
 
 
@@ -82,9 +84,10 @@ class InsufficientCoinsException(DomainException):
 class AiTrialExhaustedException(DomainException):
     """All free AI analyses for an input method are used. Maps to HTTP 403."""
 
-    def __init__(self, input_method: AiTrialMethod) -> None:
+    def __init__(self, input_method: AiTrialMethod, resets_at: datetime) -> None:
         super().__init__("free AI trials used up; Premium is required")
         self.input_method = input_method
+        self.resets_at = resets_at
 
 
 class RateLimitedException(DomainException):

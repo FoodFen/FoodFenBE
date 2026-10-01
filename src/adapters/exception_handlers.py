@@ -67,6 +67,7 @@ async def _ai_trial_exhausted_handler(_: Request, exc: AiTrialExhaustedException
             "message": str(exc),
             "code": "ai_trial_exhausted",
             "inputMethod": exc.input_method.value,
+            "resetsAt": exc.resets_at.isoformat(),
         },
     )
 
