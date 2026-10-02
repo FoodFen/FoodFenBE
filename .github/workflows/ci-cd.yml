@@ -9,22 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: foodfen_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/foodfen_test
-      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/foodfen_test
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -32,39 +16,24 @@ jobs:
           version: "latest"
       - run: uv sync --frozen
       - run: uv run lint-imports
+      # tests/conftest.py runs them on in-memory SQLite: no database service needed.
       - run: uv run pytest
 
-  build-and-push:
-    needs: test
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Lowercase image name
-        run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
+  # Render builds the image from the repo's Dockerfile itself, so CI no longer builds or pushes one.
   deploy:
-    needs: build-and-push
+    needs: test
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Render deploy
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          out=$(curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL")
+          echo "$out"
+          # Must be the service's Deploy Hook (Render > foodfenbe > Settings). A Blueprint sync
+          # hook answers "sync started", goes green, and deploys nothing.
+          if echo "$out" | grep -qi blueprint; then
+            echo "::error::RENDER_DEPLOY_HOOK_URL is a Blueprint sync hook, not the service Deploy Hook"
+            exit 1
+          fi
