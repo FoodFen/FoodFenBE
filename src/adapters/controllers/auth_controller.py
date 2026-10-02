@@ -55,9 +55,10 @@ from src.infrastructure.di import (
     SocialSignInUseCaseDep,
     VerifyEmailUseCaseDep,
     get_current_user,
+    limit_auth_by_ip,
 )
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(limit_auth_by_ip)])
 
 
 @router.post("/sign-up", response_model=AuthSessionResponse)

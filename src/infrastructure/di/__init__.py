@@ -67,6 +67,8 @@ from src.infrastructure.di.security import (
     get_premium_status,
     get_social_identity_verifier,
     get_token_service,
+    limit_auth_by_ip,
+    limit_chat_by_user,
 )
 from src.infrastructure.di.use_cases import (
     AiTrialUseCaseDep,
@@ -222,6 +224,8 @@ __all__ = [
     "WeightLogRepositoryDep",
     "get_activity_log_repository",
     "get_ai_chat_provider",
+    "limit_auth_by_ip",
+    "limit_chat_by_user",
     "get_ai_caller",
     "get_ai_trial_repository",
     "get_ai_trial_use_case",

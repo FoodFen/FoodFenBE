@@ -87,7 +87,9 @@ Same identity rules as above. `200`:
 
 Anonymous calls (no Bearer) are limited to **30 per hour per client IP**, counted on every attempt including
 403s. Over the limit: **429** `{ "message": "too many requests, try again later" }`. The device id is
-spoofable, so the IP limit is what bounds abuse. Signed-in calls skip it. The limit is per server process.
+spoofable, so the IP limit is what bounds abuse. Signed-in calls skip it but have their own burst limit of
+**20 per minute per user** (also 429). Other limits: `/auth/*` 30/min per IP, `POST /chat/messages` 10/min per user.
+All limits are per server process.
 
 ## Known limits
 

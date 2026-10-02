@@ -212,3 +212,41 @@ async def test_resend_verification_always_202(client, signed_up, notifier):
     )
     assert unknown.status_code == 202
     assert len(notifier.sent) == before + 1
+
+
+async def test_auth_endpoints_are_rate_limited_per_ip(client, monkeypatch):
+    from src.infrastructure.di import security
+
+    monkeypatch.setattr(security._auth_ip_limiter, "limit", 2)
+    body = {"email": "nobody@example.com", "password": "wrong-pass-1"}
+
+    assert (await client.post("/auth/sign-in", json=body)).status_code == 401
+    assert (await client.post("/auth/sign-in", json=body)).status_code == 401
+    resp = await client.post("/auth/sign-in", json=body)
+
+    assert resp.status_code == 429
+    assert resp.json()["message"] == "too many requests, try again later"
+
+
+async def test_failing_email_delivery_does_not_undo_sign_up(client, monkeypatch):
+    """The mail runs as a background task *inside* the request's DB-session scope; if delivery
+    raises, the sign-up transaction must still commit."""
+    from src.infrastructure.di import get_email_verification_notifier
+    from src.infrastructure.notifications.email_verification_notifier import (
+        SmtpEmailVerificationNotifier,
+    )
+    from src.main import app
+
+    def _unreachable(self, message):
+        raise OSError("Network is unreachable")
+
+    monkeypatch.setattr(SmtpEmailVerificationNotifier, "_deliver", _unreachable)
+    smtp = SmtpEmailVerificationNotifier(
+        base_url="http://x", sender="a@b.c", host="h", port=25, username="", password="",
+        starttls=False,
+    )
+    app.dependency_overrides[get_email_verification_notifier] = lambda: smtp
+    creds = {"email": "mail@example.com", "password": "s3cret-pass"}
+
+    assert (await client.post("/auth/sign-up", json=creds)).status_code == 200
+    assert (await client.post("/auth/sign-in", json=creds)).status_code == 200

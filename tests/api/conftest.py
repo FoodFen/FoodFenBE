@@ -17,6 +17,7 @@ from src.domain.enums import PaymentStatus
 from src.domain.exceptions import InvalidTokenException, InvalidWebhookSignatureException
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.session import engine
+from src.infrastructure.di import security
 from src.infrastructure.di import (
     get_ai_chat_provider,
     get_email_verification_notifier,
@@ -25,6 +26,7 @@ from src.infrastructure.di import (
     get_payment_provider,
     get_social_identity_verifier,
 )
+from src.infrastructure.rate_limiter import SlidingWindowLimiter
 from src.main import app
 
 _CREDENTIALS = {"email": "user@example.com", "password": "s3cret-pass", "displayName": "User"}
@@ -60,6 +62,16 @@ async def _reset_schema():
     yield
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest_asyncio.fixture(autouse=True)
+def _fresh_rate_limiters():
+    limiters = [v for v in vars(security).values() if isinstance(v, SlidingWindowLimiter)]
+    for limiter in limiters:
+        limiter.hits.clear()
+    yield
+    for limiter in limiters:
+        limiter.hits.clear()
 
 
 @pytest_asyncio.fixture

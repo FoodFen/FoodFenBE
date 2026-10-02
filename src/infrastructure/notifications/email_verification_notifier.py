@@ -107,13 +107,21 @@ class SmtpEmailVerificationNotifier:
         message = _verification_message(
             self._sender, email, name, _verification_link(self._base_url, token)
         )
-        await asyncio.to_thread(self._deliver, message)
+        await self._send(message)
 
     async def send_password_reset(self, email: str, name: str | None, token: str) -> None:
         message = _password_reset_message(
             self._sender, email, name, _password_reset_link(self._base_url, token)
         )
-        await asyncio.to_thread(self._deliver, message)
+        await self._send(message)
+
+    async def _send(self, message: EmailMessage) -> None:
+        # Runs as a background task inside the request's DB-session scope: an exception here would
+        # be thrown into get_db_session and roll back the sign-up that already returned 200.
+        try:
+            await asyncio.to_thread(self._deliver, message)
+        except Exception:
+            _log.exception("email delivery to %s failed", message["To"])
 
     def _deliver(self, message: EmailMessage) -> None:
         with smtplib.SMTP(self._host, self._port, timeout=10) as smtp:

@@ -219,6 +219,31 @@ async def get_current_premium_user(user: CurrentUserDep, is_premium: PremiumStat
 CurrentPremiumUserDep = Annotated[User, Depends(get_current_premium_user)]
 
 
+def _enforce(limiter: SlidingWindowLimiter, key: str) -> None:
+    if not limiter.allow(key):
+        raise RateLimitedException("too many requests, try again later")
+
+
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+# Per-process limiters (see SlidingWindowLimiter's ponytail note). Auth endpoints cost bcrypt CPU,
+# send email, and are the brute-force surface; chat and signed-in AI calls are paid Gemini calls
+# that the daily trial quota doesn't cover (chat has none; premium AI is unlimited).
+_auth_ip_limiter = SlidingWindowLimiter(limit=30, window_seconds=60)
+_chat_user_limiter = SlidingWindowLimiter(limit=10, window_seconds=60)
+_ai_user_limiter = SlidingWindowLimiter(limit=20, window_seconds=60)
+
+
+async def limit_auth_by_ip(request: Request) -> None:
+    _enforce(_auth_ip_limiter, _client_ip(request))
+
+
+async def limit_chat_by_user(user: CurrentUserDep) -> None:
+    _enforce(_chat_user_limiter, str(user.id))
+
+
 # Anonymous AI calls per client IP. The device id is client-supplied and spoofable, so this is
 # what bounds the paid-AI cost of someone minting fresh ids. Signed-in calls skip it.
 # ponytail: per-process, 30/hour/IP; shared NATs share the budget. Tune or move to Redis if needed.
@@ -239,13 +264,13 @@ async def get_ai_caller(
     keys = [f"device:{device_id}"] if device_id else []
     if token is not None:
         user = await _user_from_token(token, tokens, users)
+        _enforce(_ai_user_limiter, str(user.id))
         keys.append(f"user:{user.id}")
         is_premium = await _reconcile_premium(user, subscriptions, users)
         return AiCallerDTO(tuple(keys), is_premium, signed_in=True)
     if not keys:
         raise InvalidTokenException("missing bearer token or X-Device-Id header")
-    if not _anon_ip_limiter.allow(request.client.host if request.client else "unknown"):
-        raise RateLimitedException("too many requests, try again later")
+    _enforce(_anon_ip_limiter, _client_ip(request))
     return AiCallerDTO(tuple(keys), is_premium=False, signed_in=False)
 
 

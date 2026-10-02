@@ -262,3 +262,11 @@ async def test_quota_for_a_guest_has_limit_three(client):
     body = (await client.get("/ai/food/quota", headers=_device())).json()
 
     assert body["image"] == {"limit": 3, "remaining": 3}
+
+
+async def test_signed_in_ai_calls_are_rate_limited_per_user(client, signed_up, monkeypatch):
+    monkeypatch.setattr(security._ai_user_limiter, "limit", 1)
+    bearer = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    assert (await client.get("/ai/food/quota", headers=bearer)).status_code == 200
+    assert (await client.get("/ai/food/quota", headers=bearer)).status_code == 429

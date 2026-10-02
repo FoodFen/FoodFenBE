@@ -25,6 +25,7 @@ from src.infrastructure.di import (
     ListChatMessagesUseCaseDep,
     SendChatMessageUseCaseDep,
     get_current_user,
+    limit_chat_by_user,
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(get_current_user)])
@@ -41,7 +42,7 @@ async def list_messages(
     return ChatHistoryResponse.from_dto(page)
 
 
-@router.post("/messages")
+@router.post("/messages", dependencies=[Depends(limit_chat_by_user)])
 async def send_message(
     body: SendChatMessageRequest,
     current_user: CurrentUserDep,

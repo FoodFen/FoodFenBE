@@ -82,3 +82,15 @@ async def test_send_message_rejects_over_long_message(client, signed_up):
     resp = await client.post("/chat/messages", json={"message": "x" * 2001}, headers=headers)
 
     assert resp.status_code == 422
+
+
+async def test_chat_is_rate_limited_per_user(client, signed_up, monkeypatch):
+    from src.infrastructure.di import security
+
+    monkeypatch.setattr(security._chat_user_limiter, "limit", 1)
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    assert (await client.post("/chat/messages", json={"message": "hi"}, headers=headers)).status_code == 200
+    resp = await client.post("/chat/messages", json={"message": "hi"}, headers=headers)
+
+    assert resp.status_code == 429
