@@ -18,16 +18,18 @@ Neither header present: **401** (as before). An invalid or expired Bearer: **401
 
 ## Free trials
 
-- 3 successful analyses per input method **per day**: `image`, `text`, `voice`. Three independent counters.
+- Successful analyses per input method **per day**: **3 for a guest** (anonymous device), **5 for a signed-in
+  free user**. Methods are `image`, `text`, `voice`, three independent counters. `GET /ai/food/quota` reports the
+  `limit` that applies to the caller.
 - **Daily reset at midnight Vietnam time** (Asia/Ho_Chi_Minh, UTC+7, no DST), the same calendar day the
   diary uses. Not a rolling 24 hours: the reset is the same moment for every user, and the 403 and
   `GET /ai/food/quota` both say when it is (`resetsAt`).
 - Quota key is the device while anonymous. A signed-in call uses the **higher** of the device's and the
-  account's used count **for that day**, and both are incremented. Signing up does not give a fresh trial
-  on the same day; the next day both start at 0 again.
+  account's used count **for that day**, and both are incremented. Signing up does not give a fresh trial on
+  the same day: a device that used 3 and then signs in has 2 left (limit 5), not 5. The next day both start at 0.
   A signed-in call with no `X-Device-Id` is counted on the account alone.
 - Premium is unlimited and never touches the counters.
-- Applies to signed-in **free** users too: after 3 successes per method they get the 403 below.
+- Applies to signed-in **free** users too: after 5 successes per method they get the 403 below.
 - Only a **successful, non-empty** analysis consumes a trial. A 5xx, a provider failure, or a result with
   no ingredients does not.
 - Buying Premium still requires login (unchanged).
@@ -62,7 +64,7 @@ Both return `200`:
 ```
 
 Match on `code === "ai_trial_exhausted"`. `inputMethod` is `image`, `text`, or `voice`. `resetsAt` is an ISO 8601
-timestamp with a `+07:00` offset: the next Vietnam midnight, when that method has 3 tries again. Other 403s do not
+timestamp with a `+07:00` offset: the next Vietnam midnight, when that method has its tries again. Other 403s do not
 carry this code. (Not 402: `402` is the existing `premium_required` response for Premium-only features.)
 
 ## `GET /ai/food/quota`
@@ -77,6 +79,8 @@ Same identity rules as above. `200`:
   "voice": { "limit": 3, "remaining": 2 } }
 ```
 
+(`limit` is 3 for a guest, 5 for a signed-in user.)
+
 `remaining` is for today. Premium: `{ "unlimited": true, "resetsAt": null, "image": null, "text": null, "voice": null }`.
 
 ## Rate limits
@@ -88,6 +92,6 @@ spoofable, so the IP limit is what bounds abuse. Signed-in calls skip it. The li
 ## Known limits
 
 - A device can use up to 9 free analyses every day with no end date, and a spoofed device id restarts at 3
-  per method; only the per-IP limit bounds that.
-- Check-then-consume is not atomic: concurrent requests from one owner can overshoot the 3 by a few.
+  per method; only the per-IP limit bounds that. A signed-in account gets up to 15 a day.
+- Check-then-consume is not atomic: concurrent requests from one owner can overshoot the limit by a few.
 - IPs behind a shared NAT share the 30/hour budget.

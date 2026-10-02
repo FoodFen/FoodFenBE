@@ -1,4 +1,4 @@
-"""Anonymous / free-tier AI trial: 3 successful analyses per input method per day, then 403.
+"""Free-tier AI trial per input method per day, then 403: 3 for a guest, 5 once signed in.
 
 A day is a calendar day in Vietnam (UTC+7); the clock is frozen so tests never straddle midnight.
 """
@@ -121,12 +121,15 @@ async def test_signing_in_inherits_the_devices_used_trials(client, signed_up):
         await _image(client, _device())
     bearer = {"Authorization": f"Bearer {signed_up['accessToken']}", **_device()}
 
+    # The signed-in limit is 5 and the device already used 3, so 2 are left, not a fresh 5.
+    for _ in range(2):
+        assert (await _image(client, bearer)).status_code == 200
     assert (await _image(client, bearer)).status_code == 403
 
 
-async def test_account_without_device_header_still_gets_trials(client, signed_up):
+async def test_signed_in_user_gets_five_a_day(client, signed_up):
     bearer = {"Authorization": f"Bearer {signed_up['accessToken']}"}
-    for _ in range(3):
+    for _ in range(5):
         assert (await _image(client, bearer)).status_code == 200
 
     assert (await _image(client, bearer)).status_code == 403
@@ -221,6 +224,8 @@ async def test_inherited_device_count_only_applies_within_the_same_day(client, s
     for _ in range(3):
         await _image(client, _device())
     bearer = {"Authorization": f"Bearer {signed_up['accessToken']}", **_device()}
+    for _ in range(2):
+        await _image(client, bearer)
     assert (await _image(client, bearer)).status_code == 403
 
     clock["now"] += timedelta(days=1)
@@ -237,3 +242,23 @@ async def test_quota_remaining_resets_the_next_day(client, clock):
 
     assert body["image"] == {"limit": 3, "remaining": 3}
     assert body["resetsAt"] == "2026-10-03T00:00:00+07:00"
+
+
+async def test_quota_for_signed_in_user_has_limit_five_and_counts_the_devices_use(
+    client, signed_up
+):
+    for _ in range(3):
+        await _image(client, _device())
+    bearer = {"Authorization": f"Bearer {signed_up['accessToken']}", **_device()}
+
+    body = (await client.get("/ai/food/quota", headers=bearer)).json()
+
+    assert body["image"] == {"limit": 5, "remaining": 2}
+    assert body["text"] == {"limit": 5, "remaining": 5}
+    assert body["voice"] == {"limit": 5, "remaining": 5}
+
+
+async def test_quota_for_a_guest_has_limit_three(client):
+    body = (await client.get("/ai/food/quota", headers=_device())).json()
+
+    assert body["image"] == {"limit": 3, "remaining": 3}

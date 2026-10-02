@@ -240,12 +240,13 @@ async def get_ai_caller(
     if token is not None:
         user = await _user_from_token(token, tokens, users)
         keys.append(f"user:{user.id}")
-        return AiCallerDTO(tuple(keys), await _reconcile_premium(user, subscriptions, users))
+        is_premium = await _reconcile_premium(user, subscriptions, users)
+        return AiCallerDTO(tuple(keys), is_premium, signed_in=True)
     if not keys:
         raise InvalidTokenException("missing bearer token or X-Device-Id header")
     if not _anon_ip_limiter.allow(request.client.host if request.client else "unknown"):
         raise RateLimitedException("too many requests, try again later")
-    return AiCallerDTO(tuple(keys), is_premium=False)
+    return AiCallerDTO(tuple(keys), is_premium=False, signed_in=False)
 
 
 AiCallerDep = Annotated[AiCallerDTO, Depends(get_ai_caller)]

@@ -49,7 +49,7 @@ class FakeTrialUsage:
 
 
 _TRIAL = AiTrialUseCase(usage=FakeTrialUsage())
-_CALLER = AiCallerDTO(keys=("user:1",), is_premium=True)
+_CALLER = AiCallerDTO(keys=("user:1",), is_premium=True, signed_in=True)
 
 
 class FakeImageStorage:

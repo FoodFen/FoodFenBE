@@ -10,3 +10,5 @@ class AiCallerDTO:
     # Quota owners: "device:<id>" and/or "user:<id>". Never empty.
     keys: tuple[str, ...]
     is_premium: bool
+    # False for an anonymous device (a guest); guests get a smaller free quota.
+    signed_in: bool

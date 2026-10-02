@@ -61,4 +61,6 @@ async def analyze_text(
 
 @router.get("/quota", response_model=AiQuotaResponse)
 async def get_quota(caller: AiCallerDep, use_case: AiTrialUseCaseDep) -> AiQuotaResponse:
-    return AiQuotaResponse.from_remaining(await use_case.remaining(caller), use_case.resets_at())
+    return AiQuotaResponse.from_remaining(
+        await use_case.remaining(caller), use_case.limit_for(caller), use_case.resets_at()
+    )

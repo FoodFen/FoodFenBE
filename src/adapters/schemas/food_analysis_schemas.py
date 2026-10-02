@@ -9,7 +9,6 @@ from pydantic import Field
 
 from src.adapters.schemas.base import CamelModel
 from src.application.dtos.food_analysis import FoodAnalysisDTO, IngredientSuggestionDTO
-from src.application.use_cases.ai_trial import AI_TRIAL_LIMIT
 from src.domain.enums import AiTrialMethod
 
 
@@ -75,13 +74,13 @@ class AiQuotaResponse(CamelModel):
 
     @classmethod
     def from_remaining(
-        cls, remaining: dict[AiTrialMethod, int] | None, resets_at: datetime
+        cls, remaining: dict[AiTrialMethod, int] | None, limit: int, resets_at: datetime
     ) -> AiQuotaResponse:
         if remaining is None:
             return cls(unlimited=True, resets_at=None, image=None, text=None, voice=None)
 
         def counter(method: AiTrialMethod) -> QuotaCounterResponse:
-            return QuotaCounterResponse(limit=AI_TRIAL_LIMIT, remaining=remaining[method])
+            return QuotaCounterResponse(limit=limit, remaining=remaining[method])
 
         return cls(
             unlimited=False,
