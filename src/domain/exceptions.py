@@ -92,3 +92,23 @@ class AiTrialExhaustedException(DomainException):
 
 class RateLimitedException(DomainException):
     """Too many requests from one caller. Maps to HTTP 429."""
+
+
+class QuizNotFoundException(EntityNotFoundException):
+    """A requested quiz doesn't exist or belongs to someone else."""
+
+
+class QuizTopicNotFoundException(EntityNotFoundException):
+    """A requested quiz topic doesn't exist or is inactive."""
+
+
+class QuizAlreadySubmittedException(DomainException):
+    """The quiz was already graded. Maps to HTTP 409 with error code ``quiz_already_submitted``."""
+
+
+class InvalidQuizAnswersException(InvalidAttributeException):
+    """Submitted answers don't match the quiz: wrong count, unknown question or option."""
+
+
+class InvalidQuizDateException(InvalidAttributeException):
+    """A quiz date is outside the allowed window around the server's day."""
