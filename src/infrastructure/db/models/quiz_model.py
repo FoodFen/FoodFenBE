@@ -29,6 +29,8 @@ class QuizORM(UUIDPrimaryKey, UserOwned, Base):
             postgresql_where=text("kind = 'daily'"),
             sqlite_where=text("kind = 'daily'"),
         ),
+        # Every per-player query (seen questions, practice cap, reads) filters by user.
+        Index("ix_quizzes_user_id_created_at", "user_id", "created_at"),
     )
 
     kind: Mapped[QuizKind] = mapped_column(enum_column(QuizKind, "quiz_kind"), nullable=False)
