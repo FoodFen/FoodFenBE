@@ -20,6 +20,7 @@ from src.adapters.controllers.daily_goal_controller import router as daily_goal_
 from src.adapters.controllers.food_analysis_controller import router as food_analysis_router
 from src.adapters.controllers.food_entry_controller import router as food_entry_router
 from src.adapters.controllers.payment_controller import router as payment_router
+from src.adapters.controllers.quiz_controller import router as quiz_router
 from src.adapters.controllers.streak_controller import router as streak_router
 from src.adapters.controllers.subscription_controller import router as subscription_router
 from src.adapters.controllers.user_controller import router as user_router
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(weight_log_router)
     app.include_router(streak_router)
     app.include_router(coin_router)
+    app.include_router(quiz_router)
     register_exception_handlers(app)
     return app
 

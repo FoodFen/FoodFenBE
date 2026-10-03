@@ -18,6 +18,7 @@ from src.application.ports.daily_goal_repository import DailyGoalRepositoryProto
 from src.application.ports.food_entry_repository import FoodEntryRepositoryProtocol
 from src.application.ports.payment_repository import PaymentRepositoryProtocol
 from src.application.ports.quest_repository import QuestRepositoryProtocol
+from src.application.ports.quiz_repository import QuizRepositoryProtocol
 from src.application.ports.refresh_token_repository import RefreshTokenRepositoryProtocol
 from src.application.ports.social_identity_repository import SocialIdentityRepositoryProtocol
 from src.application.ports.streak_repository import StreakRepositoryProtocol
@@ -37,6 +38,7 @@ from src.infrastructure.db.repositories.daily_goal_repository import SQLAlchemyD
 from src.infrastructure.db.repositories.food_entry_repository import SQLAlchemyFoodEntryRepository
 from src.infrastructure.db.repositories.payment_repository import SQLAlchemyPaymentRepository
 from src.infrastructure.db.repositories.quest_repository import SQLAlchemyQuestRepository
+from src.infrastructure.db.repositories.quiz_repository import SQLAlchemyQuizRepository
 from src.infrastructure.db.repositories.refresh_token_repository import (
     SQLAlchemyRefreshTokenRepository,
 )
@@ -166,3 +168,10 @@ def get_quest_repository(session: SessionDep) -> QuestRepositoryProtocol:
 
 
 QuestRepositoryDep = Annotated[QuestRepositoryProtocol, Depends(get_quest_repository)]
+
+
+def get_quiz_repository(session: SessionDep) -> QuizRepositoryProtocol:
+    return SQLAlchemyQuizRepository(session)
+
+
+QuizRepositoryDep = Annotated[QuizRepositoryProtocol, Depends(get_quiz_repository)]

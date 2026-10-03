@@ -22,7 +22,12 @@ from src.application.use_cases.create_water_log import CreateWaterLogUseCase
 from src.application.use_cases.create_weight_log import CreateWeightLogUseCase
 from src.application.use_cases.delete_food_entry import DeleteFoodEntryUseCase
 from src.application.use_cases.delete_water_log import DeleteWaterLogUseCase
+from src.application.use_cases.get_daily_quiz import GetDailyQuizUseCase
 from src.application.use_cases.get_quests import GetQuestsUseCase
+from src.application.use_cases.get_quiz import GetQuizUseCase
+from src.application.use_cases.list_quiz_topics import ListQuizTopicsUseCase
+from src.application.use_cases.quiz_support import QuizRewards
+from src.application.use_cases.start_practice_quiz import StartPracticeQuizUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
 from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCase
 from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
@@ -56,6 +61,7 @@ from src.infrastructure.di.repositories import (
     ActivityLogRepositoryDep,
     CoinRepositoryDep,
     QuestRepositoryDep,
+    QuizRepositoryDep,
     ChatMessageRepositoryDep,
     DailyGoalRepositoryDep,
     FoodEntryRepositoryDep,
@@ -452,3 +458,39 @@ def get_redeem_coins_use_case(
 
 GetQuestsUseCaseDep = Annotated[GetQuestsUseCase, Depends(get_get_quests_use_case)]
 RedeemCoinsUseCaseDep = Annotated[RedeemCoinsUseCase, Depends(get_redeem_coins_use_case)]
+
+
+def _quiz_rewards() -> QuizRewards:
+    return QuizRewards(
+        daily_per_correct=settings.quiz_daily_coins_per_correct,
+        practice_per_correct=settings.quiz_practice_coins_per_correct,
+        practice_daily_cap=settings.quiz_practice_daily_cap,
+    )
+
+
+def get_list_quiz_topics_use_case(quizzes: QuizRepositoryDep) -> ListQuizTopicsUseCase:
+    return ListQuizTopicsUseCase(quizzes=quizzes)
+
+
+def get_get_daily_quiz_use_case(
+    quizzes: QuizRepositoryDep, coins: CoinRepositoryDep
+) -> GetDailyQuizUseCase:
+    return GetDailyQuizUseCase(quizzes=quizzes, coins=coins, rewards=_quiz_rewards())
+
+
+def get_start_practice_quiz_use_case(
+    quizzes: QuizRepositoryDep, coins: CoinRepositoryDep
+) -> StartPracticeQuizUseCase:
+    return StartPracticeQuizUseCase(quizzes=quizzes, coins=coins, rewards=_quiz_rewards())
+
+
+def get_get_quiz_use_case(quizzes: QuizRepositoryDep, coins: CoinRepositoryDep) -> GetQuizUseCase:
+    return GetQuizUseCase(quizzes=quizzes, coins=coins, rewards=_quiz_rewards())
+
+
+ListQuizTopicsUseCaseDep = Annotated[ListQuizTopicsUseCase, Depends(get_list_quiz_topics_use_case)]
+GetDailyQuizUseCaseDep = Annotated[GetDailyQuizUseCase, Depends(get_get_daily_quiz_use_case)]
+StartPracticeQuizUseCaseDep = Annotated[
+    StartPracticeQuizUseCase, Depends(get_start_practice_quiz_use_case)
+]
+GetQuizUseCaseDep = Annotated[GetQuizUseCase, Depends(get_get_quiz_use_case)]
