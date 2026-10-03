@@ -8,6 +8,7 @@ from src.application.dtos.quiz import (
     QuizOptionDTO,
     QuizOutputDTO,
     QuizQuestionOutputDTO,
+    QuizResultDTO,
 )
 from src.application.ports.coin_repository import CoinRepositoryProtocol
 from src.application.ports.quiz_repository import QuizRepositoryProtocol
@@ -35,6 +36,19 @@ async def coins_remaining_today(
     return max(0, rewards.practice_daily_cap - used)
 
 
+async def quiz_result(
+    quiz: Quiz,
+    quizzes: QuizRepositoryProtocol,
+    coins: CoinRepositoryProtocol,
+    rewards: QuizRewards,
+) -> QuizResultDTO:
+    return QuizResultDTO.from_entity(
+        quiz,
+        balance=await coins.balance(quiz.user_id),
+        coins_remaining_today=await coins_remaining_today(quiz, quizzes, rewards),
+    )
+
+
 async def quiz_output(
     quiz: Quiz,
     quizzes: QuizRepositoryProtocol,
@@ -49,7 +63,7 @@ async def quiz_output(
         coins_per_correct=rewards.per_correct(quiz.kind),
         coins_remaining_today=await coins_remaining_today(quiz, quizzes, rewards),
         status="completed" if quiz.submitted else "available",
-        result=None,
+        result=await quiz_result(quiz, quizzes, coins, rewards) if quiz.submitted else None,
         questions=[
             QuizQuestionOutputDTO(
                 id=q.id,

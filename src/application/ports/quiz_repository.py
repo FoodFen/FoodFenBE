@@ -35,3 +35,8 @@ class QuizRepositoryProtocol(Protocol):
     async def practice_coins_earned(self, user_id: int, day: date) -> int:
         """Coins already paid for submitted practice quizzes dated ``day``."""
         ...
+
+    async def mark_submitted(self, quiz: Quiz) -> bool:
+        """Persist the grade, but only if the quiz is still unsubmitted. ``False`` means another
+        request got there first — the caller must not pay."""
+        ...

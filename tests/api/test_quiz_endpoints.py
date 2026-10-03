@@ -6,9 +6,11 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest_asyncio
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from src.domain.enums import CoinReason
+from src.infrastructure.db.models.coin_transaction_model import CoinTransactionORM
 from src.infrastructure.db.models.quiz_question_model import QuizQuestionORM
 from src.infrastructure.db.models.quiz_topic_model import QuizTopicORM
 from src.infrastructure.db.session import engine
@@ -162,3 +164,114 @@ async def test_an_issued_quiz_survives_a_question_being_deactivated(client, auth
         await session.commit()
     again = await client.get(f"/quizzes/{quiz['id']}", headers=auth)
     assert again.status_code == 200 and len(again.json()["questions"]) == 5
+
+
+def _answers(quiz: dict, option: str = "a", wrong: int = 0) -> dict:
+    """Answer every question with ``option``; the first ``wrong`` ones with "b" instead."""
+    return {
+        "answers": [
+            {"questionId": q["id"], "optionId": "b" if i < wrong else option}
+            for i, q in enumerate(quiz["questions"])
+        ]
+    }
+
+
+async def _submit(client, headers, quiz: dict, body: dict | None = None):
+    return await client.post(
+        f"/quizzes/{quiz['id']}/submit", json=body or _answers(quiz), headers=headers
+    )
+
+
+async def _ledger():
+    async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+        return list((await session.execute(select(CoinTransactionORM))).scalars())
+
+
+async def test_submit_requires_auth(client):
+    resp = await client.post(f"/quizzes/{uuid4()}/submit", json={"answers": []})
+    assert resp.status_code == 401
+
+
+async def test_submitting_a_daily_quiz_grades_it_and_pays_per_correct_answer(client, auth, bank):
+    quiz = (await _daily(client, auth)).json()
+    resp = await _submit(client, auth, quiz, _answers(quiz, wrong=1))
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["quizId"], body["correctCount"], body["total"]) == (quiz["id"], 4, 5)
+    assert (body["coinsEarned"], body["balance"], body["coinsRemainingToday"]) == (16, 16, None)
+    first = body["answers"][0]
+    assert first["questionId"] == quiz["questions"][0]["id"]
+    assert (first["selectedOptionId"], first["correctOptionId"], first["correct"]) == ("b", "a", False)
+    assert first["explanation"].startswith("giải thích")
+    [row] = await _ledger()
+    assert (row.amount, row.reason) == (16, CoinReason.QUIZ_DAILY)
+
+
+async def test_a_submitted_quiz_reads_back_as_completed_with_its_result(client, auth, bank):
+    quiz = (await _daily(client, auth)).json()
+    result = (await _submit(client, auth, quiz)).json()
+    again = (await client.get(f"/quizzes/{quiz['id']}", headers=auth)).json()
+    assert again["status"] == "completed" and again["result"] == result
+    assert len(again["questions"]) == 5
+
+
+async def test_submitting_twice_is_409_with_a_code_and_pays_once(client, auth, bank):
+    quiz = (await _daily(client, auth)).json()
+    assert (await _submit(client, auth, quiz)).status_code == 200
+    again = await _submit(client, auth, quiz)
+    assert again.status_code == 409
+    assert again.json()["error"] == "quiz_already_submitted"
+    assert [row.amount for row in await _ledger()] == [20]
+
+
+async def test_malformed_answers_are_rejected_without_paying(client, auth, bank):
+    quiz = (await _daily(client, auth)).json()
+    ok = _answers(quiz)["answers"]
+    bad_bodies = [
+        {"answers": ok[:4]},  # one missing
+        {"answers": [*ok[:4], {"questionId": str(uuid4()), "optionId": "a"}]},  # not this quiz's
+        {"answers": [*ok[:4], {**ok[0]}]},  # one question twice
+        _answers(quiz, option="z"),  # option the questions don't have
+    ]
+    for body in bad_bodies:
+        assert (await _submit(client, auth, quiz, body)).status_code == 400
+    assert await _ledger() == []
+    assert (await _submit(client, auth, quiz)).status_code == 200  # still submittable
+
+
+async def test_another_users_quiz_cannot_be_submitted(client, auth, bank):
+    quiz = (await _daily(client, auth)).json()
+    stranger = await _other_user_headers(client)
+    assert (await _submit(client, stranger, quiz)).status_code == 404
+    assert await _ledger() == []
+
+
+async def test_practice_pays_one_coin_per_correct_answer_up_to_the_daily_cap(client, auth, bank):
+    results = []
+    for _ in range(3):
+        quiz = (await _practice(client, auth)).json()
+        results.append((await _submit(client, auth, quiz)).json())
+    assert [(r["coinsEarned"], r["coinsRemainingToday"]) for r in results] == [(5, 5), (5, 0), (0, 0)]
+    assert results[2]["correctCount"] == 5  # past the cap it still grades, it just pays nothing
+    assert results[2]["balance"] == 10
+    assert [row.amount for row in await _ledger()] == [5, 5]  # no zero-coin ledger line
+
+
+async def test_practice_cap_is_per_the_quizs_own_date(client, auth, bank):
+    for _ in range(2):  # spend today's cap
+        quiz = (await _practice(client, auth)).json()
+        await _submit(client, auth, quiz)
+    yesterday = _today() - timedelta(days=1)
+    quiz = (await _practice(client, auth, yesterday)).json()
+    assert quiz["coinsRemainingToday"] == 10
+    result = (await _submit(client, auth, quiz)).json()
+    assert (result["coinsEarned"], result["balance"]) == (5, 15)
+
+
+async def test_practice_quiz_started_before_the_cap_is_clipped_when_submitted(client, auth, bank):
+    first, second, third = [(await _practice(client, auth)).json() for _ in range(3)]
+    await _submit(client, auth, first)
+    await _submit(client, auth, second)
+    # `third` was issued while 10 coins were still available; the cap is applied at submit.
+    assert third["coinsRemainingToday"] == 10
+    assert (await _submit(client, auth, third)).json()["coinsEarned"] == 0

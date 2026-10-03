@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -93,6 +93,24 @@ class SQLAlchemyQuizRepository:
             )
         )
         return int(total)
+
+    async def mark_submitted(self, quiz: Quiz) -> bool:
+        flipped = await self._session.scalar(
+            update(QuizORM)
+            .where(
+                QuizORM.id == quiz.id,
+                QuizORM.user_id == quiz.user_id,
+                QuizORM.submitted_at.is_(None),
+            )
+            .values(
+                answers={str(question_id): option_id for question_id, option_id in quiz.answers.items()},
+                correct_count=quiz.correct_count,
+                coins_earned=quiz.coins_earned,
+                submitted_at=quiz.submitted_at,
+            )
+            .returning(QuizORM.id)
+        )
+        return flipped is not None
 
     async def _load(self, row: QuizORM) -> Quiz:
         ids = [UUID(i) for i in row.question_ids]

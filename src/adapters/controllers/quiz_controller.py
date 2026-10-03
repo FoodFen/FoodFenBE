@@ -9,15 +9,19 @@ from fastapi import APIRouter
 
 from src.adapters.schemas.quiz_schemas import (
     QuizResponse,
+    QuizResultResponse,
     QuizTopicsResponse,
     StartPracticeRequest,
+    SubmitQuizRequest,
 )
+from src.application.dtos.quiz import QuizAnswerInputDTO
 from src.infrastructure.di import (
     CurrentUserDep,
     GetDailyQuizUseCaseDep,
     GetQuizUseCaseDep,
     ListQuizTopicsUseCaseDep,
     StartPracticeQuizUseCaseDep,
+    SubmitQuizUseCaseDep,
 )
 
 router = APIRouter(prefix="/quizzes", tags=["quizzes"])
@@ -47,3 +51,14 @@ async def get_quiz(
     quiz_id: UUID, user: CurrentUserDep, use_case: GetQuizUseCaseDep
 ) -> QuizResponse:
     return QuizResponse.from_dto(await use_case.execute(user.id, quiz_id))
+
+
+@router.post("/{quiz_id}/submit", response_model=QuizResultResponse)
+async def submit_quiz(
+    quiz_id: UUID,
+    body: SubmitQuizRequest,
+    user: CurrentUserDep,
+    use_case: SubmitQuizUseCaseDep,
+) -> QuizResultResponse:
+    answers = [QuizAnswerInputDTO(a.question_id, a.option_id) for a in body.answers]
+    return QuizResultResponse.from_dto(await use_case.execute(user.id, quiz_id, answers))

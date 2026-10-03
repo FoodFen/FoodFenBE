@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
+from src.domain.entities.quiz import Quiz
 from src.domain.enums import QuizKind
 
 
@@ -48,6 +49,30 @@ class QuizResultDTO:
     coins_earned: int
     balance: int
     coins_remaining_today: int | None
+
+    @classmethod
+    def from_entity(
+        cls, quiz: Quiz, balance: int, coins_remaining_today: int | None
+    ) -> QuizResultDTO:
+        answers = [
+            QuizAnswerResultDTO(
+                question_id=q.id,
+                selected_option_id=quiz.answers[q.id],
+                correct_option_id=q.correct_option_id,
+                correct=quiz.answers[q.id] == q.correct_option_id,
+                explanation=q.explanation,
+            )
+            for q in quiz.questions
+        ]
+        return cls(
+            quiz_id=quiz.id,
+            correct_count=quiz.correct_count,
+            total=len(quiz.questions),
+            answers=answers,
+            coins_earned=quiz.coins_earned,
+            balance=balance,
+            coins_remaining_today=coins_remaining_today,
+        )
 
 
 @dataclass(frozen=True)

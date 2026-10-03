@@ -8,7 +8,7 @@ from typing import Literal
 from uuid import UUID
 
 from src.adapters.schemas.base import CamelModel
-from src.application.dtos.quiz import QuizOutputDTO, QuizTopicOutputDTO
+from src.application.dtos.quiz import QuizOutputDTO, QuizResultDTO, QuizTopicOutputDTO
 from src.domain.enums import QuizKind
 
 
@@ -53,6 +53,10 @@ class QuizResultResponse(CamelModel):
     balance: int
     coins_remaining_today: int | None
 
+    @classmethod
+    def from_dto(cls, dto: QuizResultDTO) -> QuizResultResponse:
+        return cls.model_validate(asdict(dto))
+
 
 class QuizResponse(CamelModel):
     id: UUID
@@ -75,3 +79,12 @@ class QuizResponse(CamelModel):
 class StartPracticeRequest(CamelModel):
     topic: str
     date: dt.date
+
+
+class QuizAnswerRequest(CamelModel):
+    question_id: UUID
+    option_id: str
+
+
+class SubmitQuizRequest(CamelModel):
+    answers: list[QuizAnswerRequest]

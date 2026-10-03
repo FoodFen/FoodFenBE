@@ -28,6 +28,7 @@ from src.application.use_cases.get_quiz import GetQuizUseCase
 from src.application.use_cases.list_quiz_topics import ListQuizTopicsUseCase
 from src.application.use_cases.quiz_support import QuizRewards
 from src.application.use_cases.start_practice_quiz import StartPracticeQuizUseCase
+from src.application.use_cases.submit_quiz import SubmitQuizUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
 from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCase
 from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
@@ -494,3 +495,12 @@ StartPracticeQuizUseCaseDep = Annotated[
     StartPracticeQuizUseCase, Depends(get_start_practice_quiz_use_case)
 ]
 GetQuizUseCaseDep = Annotated[GetQuizUseCase, Depends(get_get_quiz_use_case)]
+
+
+def get_submit_quiz_use_case(
+    quizzes: QuizRepositoryDep, coins: CoinRepositoryDep
+) -> SubmitQuizUseCase:
+    return SubmitQuizUseCase(quizzes=quizzes, coins=coins, rewards=_quiz_rewards())
+
+
+SubmitQuizUseCaseDep = Annotated[SubmitQuizUseCase, Depends(get_submit_quiz_use_case)]
