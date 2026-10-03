@@ -147,6 +147,10 @@ class Settings(BaseSettings):
     payos_cancel_url: str = ""
     payos_monthly_price_vnd: int = 49_000
     payos_annual_price_vnd: int = 499_000
+    # Quiz rewards (coins). Passed into the use cases by DI, so changing one is an env edit.
+    quiz_daily_coins_per_correct: int = 4
+    quiz_practice_coins_per_correct: int = 1
+    quiz_practice_daily_cap: int = 10
 
 
 settings = Settings()
