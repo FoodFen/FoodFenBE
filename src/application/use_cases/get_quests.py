@@ -10,6 +10,7 @@ from src.application.ports.coin_repository import CoinRepositoryProtocol
 from src.application.ports.quest_repository import QuestRepositoryProtocol
 from src.domain.entities.coin_transaction import CoinTransaction
 from src.domain.entities.quest import Quest
+from src.domain.entities.quest_definition import QuestDefinition
 from src.domain.enums import CoinReason, QuestCadence
 
 
@@ -18,9 +19,10 @@ class GetQuestsUseCase:
     quests: QuestRepositoryProtocol
     coins: CoinRepositoryProtocol
 
-    async def execute(self, user_id: int, day: date) -> QuestsOutputDTO:
-        """``day`` is the client's local day. Weekly quests are keyed on that week's Monday."""
-        issued: list[Quest] = []
+    async def execute(self, user_id: int, day: date, language: str = "vi") -> QuestsOutputDTO:
+        """``day`` is the client's local day. Weekly quests are keyed on that week's Monday.
+        ``language`` picks the quest copy ("vi" or "en")."""
+        issued: list[tuple[Quest, QuestDefinition]] = []
         for definition in await self.quests.active_definitions():
             quest_date = (
                 day - timedelta(days=day.weekday())
@@ -45,8 +47,8 @@ class GetQuestsUseCase:
                     await self.coins.add(
                         CoinTransaction.create(user_id, quest.reward_coins, CoinReason.QUEST_COMPLETED)
                     )
-            issued.append(quest)
+            issued.append((quest, definition))
         return QuestsOutputDTO(
             balance=await self.coins.balance(user_id),
-            quests=[QuestOutputDTO.from_entity(q) for q in issued],
+            quests=[QuestOutputDTO.from_entity(q, *d.text(language)) for q, d in issued],
         )

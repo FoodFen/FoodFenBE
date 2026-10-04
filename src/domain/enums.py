@@ -131,6 +131,13 @@ class QuestType(StrEnum):
     STAY_ACTIVE_WEEK = "stay_active_week"
 
 
+class QuestUnit(StrEnum):
+    """What a quest's ``progress`` / ``target`` count: things done, or percent of a user goal."""
+
+    COUNT = "count"
+    PERCENT = "percent"
+
+
 class QuestCadence(StrEnum):
     """`daily` quests are issued fresh each day; `weekly` once per calendar week."""
 

@@ -13,6 +13,7 @@ from fastapi import Depends
 from src.application.ports.activity_log_repository import ActivityLogRepositoryProtocol
 from src.application.ports.ai_trial_repository import AiTrialRepositoryProtocol
 from src.application.ports.chat_message_repository import ChatMessageRepositoryProtocol
+from src.application.ports.coin_bundle_repository import CoinBundleRepositoryProtocol
 from src.application.ports.coin_repository import CoinRepositoryProtocol
 from src.application.ports.daily_goal_repository import DailyGoalRepositoryProtocol
 from src.application.ports.food_entry_repository import FoodEntryRepositoryProtocol
@@ -32,6 +33,9 @@ from src.infrastructure.db.repositories.activity_log_repository import (
 from src.infrastructure.db.repositories.ai_trial_repository import SQLAlchemyAiTrialRepository
 from src.infrastructure.db.repositories.chat_message_repository import (
     SQLAlchemyChatMessageRepository,
+)
+from src.infrastructure.db.repositories.coin_bundle_repository import (
+    SQLAlchemyCoinBundleRepository,
 )
 from src.infrastructure.db.repositories.coin_repository import SQLAlchemyCoinRepository
 from src.infrastructure.db.repositories.daily_goal_repository import SQLAlchemyDailyGoalRepository
@@ -175,3 +179,12 @@ def get_quiz_repository(session: SessionDep) -> QuizRepositoryProtocol:
 
 
 QuizRepositoryDep = Annotated[QuizRepositoryProtocol, Depends(get_quiz_repository)]
+
+
+def get_coin_bundle_repository(session: SessionDep) -> CoinBundleRepositoryProtocol:
+    return SQLAlchemyCoinBundleRepository(session)
+
+
+CoinBundleRepositoryDep = Annotated[
+    CoinBundleRepositoryProtocol, Depends(get_coin_bundle_repository)
+]

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Literal
 
 from src.adapters.schemas.base import CamelModel, MoneyField
-from src.application.dtos.payment import CheckoutOutputDTO, PaymentOutputDTO
+from src.application.dtos.payment import CheckoutOutputDTO, PaymentOutputDTO, PlanOutputDTO
 from src.domain.enums import PaymentStatus, PlanType
 
 
@@ -57,3 +57,16 @@ class PaymentResponse(CamelModel):
 
 class CancelPaymentRequest(CamelModel):
     cancellation_reason: str | None = None
+
+
+class PlanResponse(CamelModel):
+    plan_type: PlanType
+    price_vnd: int
+
+
+class PlansResponse(CamelModel):
+    plans: list[PlanResponse]
+
+    @classmethod
+    def from_dtos(cls, dtos: list[PlanOutputDTO]) -> PlansResponse:
+        return cls(plans=[PlanResponse(**vars(d)) for d in dtos])

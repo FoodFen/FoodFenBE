@@ -7,6 +7,7 @@ from datetime import date
 
 from src.application.dtos.coin import RedeemOutputDTO
 from src.application.dtos.subscription import SubscriptionOutputDTO
+from src.application.ports.coin_bundle_repository import CoinBundleRepositoryProtocol
 from src.application.ports.coin_repository import CoinRepositoryProtocol
 from src.application.ports.subscription_repository import SubscriptionRepositoryProtocol
 from src.application.ports.user_repository import UserRepositoryProtocol
@@ -15,20 +16,19 @@ from src.domain.entities.subscription import Subscription
 from src.domain.enums import CoinReason, SubscriptionTier
 from src.domain.exceptions import InsufficientCoinsException, InvalidAttributeException, UserNotFoundException
 
-# days -> coin cost. ponytail: constants until someone needs to edit bundles without a deploy.
-COIN_BUNDLES = {10: 600, 30: 1500}
-
 
 @dataclass
 class RedeemCoinsUseCase:
     coins: CoinRepositoryProtocol
+    bundles: CoinBundleRepositoryProtocol
     subscriptions: SubscriptionRepositoryProtocol
     users: UserRepositoryProtocol
 
     async def execute(self, user_id: int, days: int) -> RedeemOutputDTO:
-        cost = COIN_BUNDLES.get(days)
+        costs = {b.days: b.coin_cost for b in await self.bundles.list_active()}
+        cost = costs.get(days)
         if cost is None:
-            raise InvalidAttributeException(f"days must be one of {sorted(COIN_BUNDLES)}")
+            raise InvalidAttributeException(f"days must be one of {sorted(costs)}")
         user = await self.users.get_by_id(user_id)
         if user is None:
             raise UserNotFoundException(f"no user {user_id}")

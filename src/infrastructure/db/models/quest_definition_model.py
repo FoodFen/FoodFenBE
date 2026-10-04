@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Float, Integer, UniqueConstraint, text
+from sqlalchemy import Boolean, Float, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.domain.entities.quest_definition import QuestDefinition
@@ -28,6 +28,10 @@ class QuestDefinitionORM(UUIDPrimaryKey, Base):
         Float, nullable=False, server_default=text("1")
     )
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    title_vi: Mapped[str] = mapped_column(String(80), nullable=False)
+    title_en: Mapped[str] = mapped_column(String(80), nullable=False)
+    description_vi: Mapped[str] = mapped_column(String(200), nullable=False)
+    description_en: Mapped[str] = mapped_column(String(200), nullable=False)
 
     def to_domain(self) -> QuestDefinition:
         return QuestDefinition(
@@ -38,4 +42,8 @@ class QuestDefinitionORM(UUIDPrimaryKey, Base):
             cadence=self.cadence,
             completion_ratio=self.completion_ratio,
             active=self.active,
+            title_vi=self.title_vi,
+            title_en=self.title_en,
+            description_vi=self.description_vi,
+            description_en=self.description_en,
         )

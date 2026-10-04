@@ -36,6 +36,8 @@ from src.application.use_cases.get_user import GetUserUseCase
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
 from src.application.use_cases.list_activity_logs import ListActivityLogsUseCase
 from src.application.use_cases.list_chat_messages import ListChatMessagesUseCase
+from src.application.use_cases.list_coin_bundles import ListCoinBundlesUseCase
+from src.application.use_cases.list_plans import ListPlansUseCase
 from src.application.use_cases.list_daily_goals import ListDailyGoalsUseCase
 from src.application.use_cases.list_food_entries import ListFoodEntriesUseCase
 from src.application.use_cases.list_water_logs import ListWaterLogsUseCase
@@ -60,6 +62,7 @@ from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
     AiTrialRepositoryDep,
     ActivityLogRepositoryDep,
+    CoinBundleRepositoryDep,
     CoinRepositoryDep,
     QuestRepositoryDep,
     QuizRepositoryDep,
@@ -452,13 +455,33 @@ def get_get_quests_use_case(
 
 
 def get_redeem_coins_use_case(
-    coins: CoinRepositoryDep, subscriptions: SubscriptionRepositoryDep, users: UserRepositoryDep
+    coins: CoinRepositoryDep,
+    bundles: CoinBundleRepositoryDep,
+    subscriptions: SubscriptionRepositoryDep,
+    users: UserRepositoryDep,
 ) -> RedeemCoinsUseCase:
-    return RedeemCoinsUseCase(coins=coins, subscriptions=subscriptions, users=users)
+    return RedeemCoinsUseCase(
+        coins=coins, bundles=bundles, subscriptions=subscriptions, users=users
+    )
+
+
+def get_list_coin_bundles_use_case(bundles: CoinBundleRepositoryDep) -> ListCoinBundlesUseCase:
+    return ListCoinBundlesUseCase(bundles=bundles)
+
+
+def get_list_plans_use_case() -> ListPlansUseCase:
+    return ListPlansUseCase(
+        monthly_price_vnd=settings.payos_monthly_price_vnd,
+        annual_price_vnd=settings.payos_annual_price_vnd,
+    )
 
 
 GetQuestsUseCaseDep = Annotated[GetQuestsUseCase, Depends(get_get_quests_use_case)]
 RedeemCoinsUseCaseDep = Annotated[RedeemCoinsUseCase, Depends(get_redeem_coins_use_case)]
+ListCoinBundlesUseCaseDep = Annotated[
+    ListCoinBundlesUseCase, Depends(get_list_coin_bundles_use_case)
+]
+ListPlansUseCaseDep = Annotated[ListPlansUseCase, Depends(get_list_plans_use_case)]
 
 
 def _quiz_rewards() -> QuizRewards:

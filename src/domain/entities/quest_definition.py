@@ -20,3 +20,13 @@ class QuestDefinition:
     cadence: QuestCadence
     completion_ratio: float
     active: bool
+    title_vi: str
+    title_en: str
+    description_vi: str
+    description_en: str
+
+    def text(self, language: str) -> tuple[str, str]:
+        """``(title, description)`` in ``language`` ("vi" unless "en")."""
+        if language == "en":
+            return self.title_en, self.description_en
+        return self.title_vi, self.description_vi

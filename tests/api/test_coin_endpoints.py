@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from src.domain.entities.coin_transaction import CoinTransaction
 from src.domain.entities.food_entry import FoodEntry
 from src.domain.enums import CoinReason, InputMethod, MealType, QuestCadence, QuestType
+from src.infrastructure.db.models.coin_bundle_model import CoinBundleORM
 from src.infrastructure.db.models.coin_transaction_model import CoinTransactionORM
 from src.infrastructure.db.models.food_entry_model import FoodEntryORM
 from src.infrastructure.db.models.quest_definition_model import QuestDefinitionORM
@@ -31,7 +32,14 @@ def _definition(
     return QuestDefinitionORM(
         id=uuid4(), quest_type=quest_type, target=target, reward_coins=reward,
         cadence=cadence, completion_ratio=ratio, active=True,
+        title_vi=f"{quest_type.value} vi", title_en=f"{quest_type.value} en",
+        description_vi=f"{quest_type.value} mô tả vi",
+        description_en=f"{quest_type.value} description en",
     )
+
+
+def _bundle(days, cost, active=True) -> CoinBundleORM:
+    return CoinBundleORM(id=uuid4(), days=days, coin_cost=cost, active=active)
 
 
 def _meal(user_id, meal_type, day=DAY) -> FoodEntryORM:
@@ -61,7 +69,8 @@ async def test_quest_is_issued_at_zero_progress_then_paid_once_when_achieved(cli
     assert first["quests"][0] | {"id": None} == {
         "id": None, "questType": "log_breakfast", "cadence": "daily", "questDate": "2026-09-30",
         "progress": 0, "target": 1, "rewardCoins": 10, "completed": False,
-        "completionRatio": 1.0,
+        "completionRatio": 1.0, "unit": "count",
+        "title": "log_breakfast vi", "description": "log_breakfast mô tả vi",
     }
 
     await _add(_meal(user_id, MealType.BREAKFAST))
@@ -95,6 +104,7 @@ async def test_weekly_quest_is_keyed_on_monday_and_counts_distinct_days(client, 
 
 async def test_redeem_needs_enough_coins_then_grants_premium_days(client, auth):
     headers, user_id = auth
+    await _add(_bundle(10, 600), _bundle(30, 1500))
     resp = await client.post("/coins/redeem", json={"days": 10}, headers=headers)
     assert resp.status_code == 409
 
@@ -110,6 +120,55 @@ async def test_redeem_needs_enough_coins_then_grants_premium_days(client, auth):
     me = (await client.get("/subscriptions/me", headers=headers)).json()
     assert me["hasActiveSubscription"] is True
     assert (await client.get("/auth/me", headers=headers)).json()["subscriptionTier"] == "premium"
+
+
+async def test_quest_carries_its_unit_and_copy_in_the_requested_language(client, auth):
+    headers, _ = auth
+    await _add(_definition(QuestType.DRINK_WATER, 100, 10), _definition(QuestType.LOG_BREAKFAST, 1, 10))
+    params = {"date": DAY.isoformat()}
+    vi = (await client.get("/quests", params=params, headers=headers)).json()["quests"]
+    by_type = {q["questType"]: q for q in vi}
+    assert by_type["drink_water"]["unit"] == "percent"
+    assert by_type["log_breakfast"]["unit"] == "count"
+    assert (by_type["drink_water"]["title"], by_type["drink_water"]["description"]) == (
+        "drink_water vi", "drink_water mô tả vi",
+    )
+    en = (await client.get("/quests", params={**params, "language": "en"}, headers=headers)).json()
+    water = next(q for q in en["quests"] if q["questType"] == "drink_water")
+    assert (water["title"], water["description"]) == ("drink_water en", "drink_water description en")
+
+
+async def test_quests_reject_an_unsupported_language(client, auth):
+    headers, _ = auth
+    resp = await client.get("/quests", params={"date": DAY.isoformat(), "language": "fr"}, headers=headers)
+    assert resp.status_code == 422
+
+
+async def test_bundles_require_auth(client):
+    assert (await client.get("/coins/bundles")).status_code == 401
+
+
+async def test_bundles_list_active_bundles_by_days_with_real_ids(client, auth):
+    headers, _ = auth
+    await _add(_bundle(30, 1500), _bundle(10, 600), _bundle(7, 100, active=False))
+    bundles = (await client.get("/coins/bundles", headers=headers)).json()["bundles"]
+    assert [(b["days"], b["coinCost"]) for b in bundles] == [(10, 600), (30, 1500)]
+    assert all(UUID(b["id"]) for b in bundles)
+
+
+async def test_redeem_charges_the_price_stored_in_the_bundle_row(client, auth):
+    headers, user_id = auth
+    await _add(_bundle(10, 250))
+    await _add(CoinTransactionORM.from_domain(CoinTransaction.create(user_id, 300, CoinReason.ADJUSTMENT)))
+    resp = await client.post("/coins/redeem", json={"days": 10}, headers=headers)
+    assert (resp.status_code, resp.json()["balance"]) == (200, 50)
+
+
+async def test_an_inactive_bundle_cannot_be_redeemed(client, auth):
+    headers, user_id = auth
+    await _add(_bundle(10, 100, active=False))
+    await _add(CoinTransactionORM.from_domain(CoinTransaction.create(user_id, 700, CoinReason.ADJUSTMENT)))
+    assert (await client.post("/coins/redeem", json={"days": 10}, headers=headers)).status_code == 400
 
 
 async def test_redeem_rejects_an_unknown_bundle(client, auth):

@@ -13,14 +13,17 @@ Decided with the product owner (2026-09-30). Supersedes the FE's local-only coin
 - **Lazy evaluation.** `GET /quests?date=` issues missing quests, evaluates progress, and pays newly completed
   ones. No scheduler, no hooks on sync writes.
 - **Redeem extends the single subscription row** by N days (`plan_type = coin_redeem`, price 0 if new), sets the
-  user's tier to PREMIUM. Bundles are constants: 10 days / 600 coins, 30 days / 1500 coins.
+  user's tier to PREMIUM. Bundles are rows of `coin_bundles` (migration 0019): 10 days / 600 coins, 30 days / 1500 coins, listed by
+  `GET /coins/bundles` and priced from the same rows at redeem.
 
 ## API (camelCase, `CurrentUserDep`)
 
 - `GET /quests?date=YYYY-MM-DD` → `{balance, quests: [{id, questType, cadence, questDate, progress, target,
   rewardCoins, completed, completionRatio}]}`. `date` is the client's local day (same convention as `loggedOn`).
   `completionRatio` (0..1) is the fraction of `target` that counts as complete (0.9 for the calorie/protein goal quests,
-  1 otherwise); `completed` stays the authority for done/not-done.
+  1 otherwise); `completed` stays the authority for done/not-done. Each quest also carries `unit` (`count` or
+  `percent`: percent for the calorie/protein/water goal quests), and `title` + `description` in the requested
+  `language` (`vi` default, or `en`; static text from `quest_definitions`).
 - `POST /coins/redeem {days: 10|30}` → `{balance, subscription}`. Unknown bundle 400, insufficient coins 409.
 
 ## Assumptions (defaults I picked — correct me)
