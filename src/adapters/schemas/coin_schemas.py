@@ -20,6 +20,7 @@ class QuestResponse(CamelModel):
     target: int
     reward_coins: int
     completed: bool
+    completion_ratio: float
 
     @classmethod
     def from_dto(cls, dto: QuestOutputDTO) -> QuestResponse:

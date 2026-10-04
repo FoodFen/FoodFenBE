@@ -21,6 +21,7 @@ class QuestOutputDTO:
     target: int
     reward_coins: int
     completed: bool
+    completion_ratio: float
 
     @classmethod
     def from_entity(cls, quest: Quest) -> QuestOutputDTO:
@@ -33,6 +34,7 @@ class QuestOutputDTO:
             target=quest.target,
             reward_coins=quest.reward_coins,
             completed=quest.completed,
+            completion_ratio=quest.completion_ratio,
         )
 
 
