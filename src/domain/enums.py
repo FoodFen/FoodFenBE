@@ -138,9 +138,18 @@ class QuestCadence(StrEnum):
     WEEKLY = "weekly"
 
 
+class QuizKind(StrEnum):
+    """`daily`: one per client-local day, answered once. `practice`: replayable, capped payout."""
+
+    DAILY = "daily"
+    PRACTICE = "practice"
+
+
 class CoinReason(StrEnum):
     QUEST_COMPLETED = "quest_completed"
     STREAK_BONUS = "streak_bonus"
     PURCHASE = "purchase"
     SPEND = "spend"
     ADJUSTMENT = "adjustment"
+    QUIZ_DAILY = "quiz_daily"
+    QUIZ_PRACTICE = "quiz_practice"

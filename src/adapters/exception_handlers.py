@@ -21,6 +21,7 @@ from src.domain.exceptions import (
     InvalidAttributeException,
     InvalidWebhookSignatureException,
     PremiumRequiredException,
+    QuizAlreadySubmittedException,
     RateLimitedException,
     UserAlreadyExistsException,
 )
@@ -72,6 +73,15 @@ async def _ai_trial_exhausted_handler(_: Request, exc: AiTrialExhaustedException
     )
 
 
+async def _quiz_already_submitted_handler(
+    _: Request, exc: QuizAlreadySubmittedException
+) -> JSONResponse:
+    """409 with a stable machine code, so the client can tell it from any other 409."""
+    return JSONResponse(
+        status_code=409, content={"message": str(exc), "error": "quiz_already_submitted"}
+    )
+
+
 async def _validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
     """Reshape Pydantic's ``{"detail": [...]}`` into ``{message, errors}``."""
     errors: dict[str, str] = {}
@@ -87,5 +97,6 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(RequestValidationError, _validation_error_handler)
     app.add_exception_handler(UserAlreadyExistsException, _duplicate_email_handler)
     app.add_exception_handler(AiTrialExhaustedException, _ai_trial_exhausted_handler)
+    app.add_exception_handler(QuizAlreadySubmittedException, _quiz_already_submitted_handler)
     for exc_type, status_code in EXCEPTION_STATUS:
         app.add_exception_handler(exc_type, _domain_exception_handler(status_code))

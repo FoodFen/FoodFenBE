@@ -190,6 +190,26 @@ Design + defaults: `docs/superpowers/specs/2026-09-30-coins-quests-design.md`.
   *measures* lives in `SQLAlchemyQuestRepository.measure()`; a new type needs an evaluator there.
 - **`PlanType.COIN_REDEEM` is not purchasable** — `CreateCheckoutRequest` only accepts monthly/annual.
 
+## Quiz
+
+Spec: `docs/superpowers/specs/2026-10-03-quiz-design.md`. Wire contract (owned by the FE repo):
+`FoodFenFE/docs/backend-contracts/quiz.md`.
+
+- **Endpoints** (`quiz_controller.py`, `CurrentUserDep`): `GET /quizzes/topics`, `GET /quizzes/daily?date=`,
+  `POST /quizzes/practice {topic, date}`, `GET /quizzes/{id}`, `POST /quizzes/{id}/submit`.
+- **The client never reports a score.** Correct answers and explanations live in `quiz_questions` and
+  appear only in the submit response / a completed quiz — never in a question payload.
+- **Payout** only happens for the request whose `QuizRepository.mark_submitted()` (conditional UPDATE on
+  `submitted_at IS NULL`) succeeds; a loser gets 409 with `error: "quiz_already_submitted"`. Practice also
+  takes the user row `FOR UPDATE` first, so the daily cap can't be overshot by concurrent submits.
+- **Practice cap** is per the quiz's own `quiz_date` (client-local day, must be within ±1 day of server UTC),
+  summed from `quizzes.coins_earned`. Past the cap a submit still returns 200 with `coinsEarned: 0` and no
+  ledger row.
+- **Rewards** are settings, not data: `QUIZ_DAILY_COINS_PER_CORRECT` (4), `QUIZ_PRACTICE_COINS_PER_CORRECT` (1),
+  `QUIZ_PRACTICE_DAILY_CAP` (10).
+- **Content** is Vietnamese, seeded by migration 0017; add or fix questions with SQL. Deactivate
+  (`active = false`), never delete: issued quizzes reference questions by id.
+
 ## Commands
 
     make dev            # uvicorn --reload

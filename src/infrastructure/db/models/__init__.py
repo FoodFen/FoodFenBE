@@ -12,6 +12,9 @@ from src.infrastructure.db.models.food_entry_model import FoodEntryORM, Ingredie
 from src.infrastructure.db.models.payment_model import PaymentORM
 from src.infrastructure.db.models.quest_definition_model import QuestDefinitionORM
 from src.infrastructure.db.models.quest_model import QuestORM
+from src.infrastructure.db.models.quiz_model import QuizORM
+from src.infrastructure.db.models.quiz_question_model import QuizQuestionORM
+from src.infrastructure.db.models.quiz_topic_model import QuizTopicORM
 from src.infrastructure.db.models.refresh_token_model import RefreshTokenORM
 from src.infrastructure.db.models.social_identity_model import SocialIdentityORM
 from src.infrastructure.db.models.streak_model import StreakORM
@@ -31,6 +34,9 @@ __all__ = [
     "PaymentORM",
     "QuestDefinitionORM",
     "QuestORM",
+    "QuizORM",
+    "QuizQuestionORM",
+    "QuizTopicORM",
     "RefreshTokenORM",
     "SocialIdentityORM",
     "StreakORM",
