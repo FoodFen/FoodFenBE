@@ -32,9 +32,10 @@ async def create_checkout(
     return CheckoutResponse.from_dto(result)
 
 
-# Declared before "/{order_code}" so "plans" is not parsed as an order code.
+# Public: a guest looking at the paywall needs the prices. Declared before "/{order_code}" so
+# "plans" is not parsed as an order code.
 @router.get("/plans", response_model=PlansResponse)
-async def list_plans(user: CurrentUserDep, use_case: ListPlansUseCaseDep) -> PlansResponse:
+async def list_plans(use_case: ListPlansUseCaseDep) -> PlansResponse:
     return PlansResponse.from_dtos(use_case.execute())
 
 

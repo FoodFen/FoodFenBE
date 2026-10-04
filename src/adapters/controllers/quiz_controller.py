@@ -27,8 +27,9 @@ from src.infrastructure.di import (
 router = APIRouter(prefix="/quizzes", tags=["quizzes"])
 
 
+# Public catalog: playing a quiz (and its coins) still needs a login.
 @router.get("/topics", response_model=QuizTopicsResponse)
-async def list_topics(user: CurrentUserDep, use_case: ListQuizTopicsUseCaseDep) -> QuizTopicsResponse:
+async def list_topics(use_case: ListQuizTopicsUseCaseDep) -> QuizTopicsResponse:
     return QuizTopicsResponse.from_dtos(await use_case.execute())
 
 

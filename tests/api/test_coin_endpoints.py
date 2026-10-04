@@ -144,14 +144,15 @@ async def test_quests_reject_an_unsupported_language(client, auth):
     assert resp.status_code == 422
 
 
-async def test_bundles_require_auth(client):
-    assert (await client.get("/coins/bundles")).status_code == 401
+async def test_redeem_still_requires_auth(client):
+    assert (await client.post("/coins/redeem", json={"days": 10})).status_code == 401
 
 
-async def test_bundles_list_active_bundles_by_days_with_real_ids(client, auth):
-    headers, _ = auth
+async def test_bundles_are_public_and_list_active_bundles_by_days_with_real_ids(client):
     await _add(_bundle(30, 1500), _bundle(10, 600), _bundle(7, 100, active=False))
-    bundles = (await client.get("/coins/bundles", headers=headers)).json()["bundles"]
+    resp = await client.get("/coins/bundles")  # no Authorization header
+    assert resp.status_code == 200
+    bundles = resp.json()["bundles"]
     assert [(b["days"], b["coinCost"]) for b in bundles] == [(10, 600), (30, 1500)]
     assert all(UUID(b["id"]) for b in bundles)
 
