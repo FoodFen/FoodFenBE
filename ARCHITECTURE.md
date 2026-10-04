@@ -75,8 +75,7 @@ The full CalSnap ERD is implemented at the two innermost persistence layers: a d
 
 Full vertical slices exist for **auth** (`POST /auth/sign-up|sign-in|refresh|sign-out|social`,
 `POST /auth/password-reset`, `GET /auth/me` — endpoint names and shapes follow a front-end API
-contract, see `docs/authentication.md` and `docs/social-sign-in.md`) and for reading a `User` by id
-(`GET /users/{id}`, token-protected, not part of that contract). Auth added six application ports —
+contract, see `docs/authentication.md` and `docs/social-sign-in.md`). Auth added six application ports —
 `PasswordHasherProtocol`, `TokenServiceProtocol`, `RefreshTokenRepositoryProtocol`,
 `EmailVerificationNotifierProtocol`, `SocialIdentityVerifierProtocol`,
 `SocialIdentityRepositoryProtocol` — implemented in `src/infrastructure/security/`,
