@@ -3,24 +3,41 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter
 
 from src.adapters.schemas.coin_schemas import (
+    CoinBundlesResponse,
     QuestsResponse,
     RedeemRequest,
     RedeemResponse,
 )
-from src.infrastructure.di import CurrentUserDep, GetQuestsUseCaseDep, RedeemCoinsUseCaseDep
+from src.infrastructure.di import (
+    CurrentUserDep,
+    GetQuestsUseCaseDep,
+    ListCoinBundlesUseCaseDep,
+    RedeemCoinsUseCaseDep,
+)
 
 router = APIRouter(tags=["coins"])
 
 
 @router.get("/quests", response_model=QuestsResponse)
 async def get_quests(
-    date: date, user: CurrentUserDep, use_case: GetQuestsUseCaseDep
+    date: date,
+    user: CurrentUserDep,
+    use_case: GetQuestsUseCaseDep,
+    language: Literal["vi", "en"] = "vi",
 ) -> QuestsResponse:
-    return QuestsResponse.from_dto(await use_case.execute(user.id, date))
+    return QuestsResponse.from_dto(await use_case.execute(user.id, date, language))
+
+
+@router.get("/coins/bundles", response_model=CoinBundlesResponse)
+async def list_coin_bundles(
+    user: CurrentUserDep, use_case: ListCoinBundlesUseCaseDep
+) -> CoinBundlesResponse:
+    return CoinBundlesResponse.from_dtos(await use_case.execute())
 
 
 @router.post("/coins/redeem", response_model=RedeemResponse)

@@ -9,6 +9,7 @@ from src.adapters.schemas.payment_schemas import (
     CheckoutResponse,
     CreateCheckoutRequest,
     PaymentResponse,
+    PlansResponse,
 )
 from src.application.dtos.payment import CreateCheckoutInputDTO
 from src.infrastructure.di import (
@@ -17,6 +18,7 @@ from src.infrastructure.di import (
     CurrentUserDep,
     GetPaymentStatusUseCaseDep,
     HandlePaymentWebhookUseCaseDep,
+    ListPlansUseCaseDep,
 )
 
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -28,6 +30,12 @@ async def create_checkout(
 ) -> CheckoutResponse:
     result = await use_case.execute(CreateCheckoutInputDTO(user_id=user.id, plan_type=body.plan_type))
     return CheckoutResponse.from_dto(result)
+
+
+# Declared before "/{order_code}" so "plans" is not parsed as an order code.
+@router.get("/plans", response_model=PlansResponse)
+async def list_plans(user: CurrentUserDep, use_case: ListPlansUseCaseDep) -> PlansResponse:
+    return PlansResponse.from_dtos(use_case.execute())
 
 
 @router.get("/{order_code}", response_model=PaymentResponse)

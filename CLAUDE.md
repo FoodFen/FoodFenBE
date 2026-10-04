@@ -180,7 +180,12 @@ async def create_user(
 Design + defaults: `docs/superpowers/specs/2026-09-30-coins-quests-design.md`.
 
 - **Endpoints** (`coin_controller.py`, `CurrentUserDep`): `GET /quests?date=` (client's local day),
-  `POST /coins/redeem {days: 10|30}` (`COIN_BUNDLES` in `use_cases/redeem_coins.py`).
+  `POST /coins/redeem {days}`, `GET /coins/bundles` (the `coin_bundles` table, seeded in migration 0019:
+  10 days / 600 coins, 30 days / 1500 coins; redeem prices from the same rows). `GET /payments/plans` lists the
+  monthly/annual prices from settings. `GET /quests` also takes `language=vi|en` and returns each quest's
+  `unit` (`count`|`percent`, derived in `Quest.unit`), `completionRatio`, `title` and `description` (the
+  `title_*`/`description_*` columns of `quest_definitions`: static text, edit it with SQL together with any
+  target/ratio change).
 - **Balance is `SUM(coin_transactions.amount)`**, never a stored field. Redeem takes the user row
   `FOR UPDATE` before checking it; insufficient coins → `InsufficientCoinsException` (409).
 - **Quests are evaluated lazily** inside `GET /quests` from synced diary rows — the client never reports

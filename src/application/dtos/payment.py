@@ -60,3 +60,9 @@ class PaymentOutputDTO:
             paid_at=payment.paid_at,
             created_at=payment.created_at,
         )
+
+
+@dataclass(frozen=True)
+class PlanOutputDTO:
+    plan_type: PlanType
+    price_vnd: int

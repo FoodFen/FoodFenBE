@@ -6,9 +6,14 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
-from src.domain.enums import QuestCadence, QuestType
+from src.domain.enums import QuestCadence, QuestType, QuestUnit
 from src.domain.exceptions import InvalidAttributeException
 from src.domain.validation import require_non_negative, require_positive
+
+# Quests scored as a percent of the user's own daily goal; every other type is a plain count.
+_PERCENT_QUESTS = frozenset(
+    {QuestType.HIT_CALORIE_GOAL, QuestType.HIT_PROTEIN_GOAL, QuestType.DRINK_WATER}
+)
 
 
 @dataclass
@@ -37,6 +42,10 @@ class Quest:
             )
         if self.quest_date is None:
             self.quest_date = datetime.now(UTC).date()
+
+    @property
+    def unit(self) -> QuestUnit:
+        return QuestUnit.PERCENT if self.quest_type in _PERCENT_QUESTS else QuestUnit.COUNT
 
     @property
     def is_achieved(self) -> bool:

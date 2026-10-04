@@ -6,6 +6,7 @@ Alembic and ``create_all`` depend on that, so any new model must be added here.
 from src.infrastructure.db.models.activity_log_model import ActivityLogORM
 from src.infrastructure.db.models.ai_trial_usage_model import AiTrialUsageORM
 from src.infrastructure.db.models.chat_message_model import ChatMessageORM
+from src.infrastructure.db.models.coin_bundle_model import CoinBundleORM
 from src.infrastructure.db.models.coin_transaction_model import CoinTransactionORM
 from src.infrastructure.db.models.daily_goal_model import DailyGoalORM
 from src.infrastructure.db.models.food_entry_model import FoodEntryORM, IngredientORM
@@ -27,6 +28,7 @@ __all__ = [
     "ActivityLogORM",
     "AiTrialUsageORM",
     "ChatMessageORM",
+    "CoinBundleORM",
     "CoinTransactionORM",
     "DailyGoalORM",
     "FoodEntryORM",

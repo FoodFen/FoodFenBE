@@ -8,7 +8,7 @@ from uuid import UUID
 
 from src.application.dtos.subscription import SubscriptionOutputDTO
 from src.domain.entities.quest import Quest
-from src.domain.enums import QuestCadence, QuestType
+from src.domain.enums import QuestCadence, QuestType, QuestUnit
 
 
 @dataclass(frozen=True)
@@ -22,9 +22,12 @@ class QuestOutputDTO:
     reward_coins: int
     completed: bool
     completion_ratio: float
+    unit: QuestUnit
+    title: str
+    description: str
 
     @classmethod
-    def from_entity(cls, quest: Quest) -> QuestOutputDTO:
+    def from_entity(cls, quest: Quest, title: str, description: str) -> QuestOutputDTO:
         return cls(
             id=quest.id,
             quest_type=quest.quest_type,
@@ -35,6 +38,9 @@ class QuestOutputDTO:
             reward_coins=quest.reward_coins,
             completed=quest.completed,
             completion_ratio=quest.completion_ratio,
+            unit=quest.unit,
+            title=title,
+            description=description,
         )
 
 
@@ -48,3 +54,10 @@ class QuestsOutputDTO:
 class RedeemOutputDTO:
     balance: int
     subscription: SubscriptionOutputDTO
+
+
+@dataclass(frozen=True)
+class CoinBundleOutputDTO:
+    id: UUID
+    days: int
+    coin_cost: int

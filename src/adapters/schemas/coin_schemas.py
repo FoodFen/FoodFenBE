@@ -7,8 +7,13 @@ from uuid import UUID
 
 from src.adapters.schemas.base import CamelModel
 from src.adapters.schemas.subscription_schemas import SubscriptionResponse
-from src.application.dtos.coin import QuestOutputDTO, QuestsOutputDTO, RedeemOutputDTO
-from src.domain.enums import QuestCadence, QuestType
+from src.application.dtos.coin import (
+    CoinBundleOutputDTO,
+    QuestOutputDTO,
+    QuestsOutputDTO,
+    RedeemOutputDTO,
+)
+from src.domain.enums import QuestCadence, QuestType, QuestUnit
 
 
 class QuestResponse(CamelModel):
@@ -21,6 +26,9 @@ class QuestResponse(CamelModel):
     reward_coins: int
     completed: bool
     completion_ratio: float
+    unit: QuestUnit
+    title: str
+    description: str
 
     @classmethod
     def from_dto(cls, dto: QuestOutputDTO) -> QuestResponse:
@@ -47,3 +55,17 @@ class RedeemResponse(CamelModel):
     @classmethod
     def from_dto(cls, dto: RedeemOutputDTO) -> RedeemResponse:
         return cls(balance=dto.balance, subscription=SubscriptionResponse.from_dto(dto.subscription))
+
+
+class CoinBundleResponse(CamelModel):
+    id: UUID
+    days: int
+    coin_cost: int
+
+
+class CoinBundlesResponse(CamelModel):
+    bundles: list[CoinBundleResponse]
+
+    @classmethod
+    def from_dtos(cls, dtos: list[CoinBundleOutputDTO]) -> CoinBundlesResponse:
+        return cls(bundles=[CoinBundleResponse(**vars(d)) for d in dtos])
