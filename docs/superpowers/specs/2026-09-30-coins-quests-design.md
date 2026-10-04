@@ -18,7 +18,9 @@ Decided with the product owner (2026-09-30). Supersedes the FE's local-only coin
 ## API (camelCase, `CurrentUserDep`)
 
 - `GET /quests?date=YYYY-MM-DD` → `{balance, quests: [{id, questType, cadence, questDate, progress, target,
-  rewardCoins, completed}]}`. `date` is the client's local day (same convention as `loggedOn`).
+  rewardCoins, completed, completionRatio}]}`. `date` is the client's local day (same convention as `loggedOn`).
+  `completionRatio` (0..1) is the fraction of `target` that counts as complete (0.9 for the calorie/protein goal quests,
+  1 otherwise); `completed` stays the authority for done/not-done.
 - `POST /coins/redeem {days: 10|30}` → `{balance, subscription}`. Unknown bundle 400, insufficient coins 409.
 
 ## Assumptions (defaults I picked — correct me)

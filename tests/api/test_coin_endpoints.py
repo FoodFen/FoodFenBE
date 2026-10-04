@@ -25,10 +25,12 @@ async def _add(*rows) -> None:
         await session.commit()
 
 
-def _definition(quest_type, target, reward, cadence=QuestCadence.DAILY) -> QuestDefinitionORM:
+def _definition(
+    quest_type, target, reward, cadence=QuestCadence.DAILY, ratio=1.0
+) -> QuestDefinitionORM:
     return QuestDefinitionORM(
         id=uuid4(), quest_type=quest_type, target=target, reward_coins=reward,
-        cadence=cadence, completion_ratio=1.0, active=True,
+        cadence=cadence, completion_ratio=ratio, active=True,
     )
 
 
@@ -59,6 +61,7 @@ async def test_quest_is_issued_at_zero_progress_then_paid_once_when_achieved(cli
     assert first["quests"][0] | {"id": None} == {
         "id": None, "questType": "log_breakfast", "cadence": "daily", "questDate": "2026-09-30",
         "progress": 0, "target": 1, "rewardCoins": 10, "completed": False,
+        "completionRatio": 1.0,
     }
 
     await _add(_meal(user_id, MealType.BREAKFAST))
@@ -66,6 +69,13 @@ async def test_quest_is_issued_at_zero_progress_then_paid_once_when_achieved(cli
         body = (await client.get("/quests", params={"date": DAY.isoformat()}, headers=headers)).json()
         assert body["balance"] == 10
         assert body["quests"][0]["completed"] is True
+
+
+async def test_quest_exposes_its_completion_ratio(client, auth):
+    headers, _ = auth
+    await _add(_definition(QuestType.HIT_CALORIE_GOAL, 100, 20, ratio=0.9))
+    body = (await client.get("/quests", params={"date": DAY.isoformat()}, headers=headers)).json()
+    assert body["quests"][0]["completionRatio"] == 0.9
 
 
 async def test_weekly_quest_is_keyed_on_monday_and_counts_distinct_days(client, auth):
