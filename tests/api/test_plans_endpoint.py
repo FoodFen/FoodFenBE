@@ -1,23 +1,13 @@
-"""GET /payments/plans — the prices the paywall shows come from the same settings as checkout."""
+"""GET /payments/plans — public: a guest looking at the paywall needs the prices without signing in.
+They are the same settings checkout charges."""
 
 from __future__ import annotations
-
-import pytest_asyncio
 
 from src.infrastructure.config import settings
 
 
-@pytest_asyncio.fixture
-async def auth(signed_up):
-    return {"Authorization": f"Bearer {signed_up['accessToken']}"}
-
-
-async def test_plans_require_auth(client):
-    assert (await client.get("/payments/plans")).status_code == 401
-
-
-async def test_plans_list_the_configured_prices(client, auth):
-    resp = await client.get("/payments/plans", headers=auth)
+async def test_plans_are_public_and_list_the_configured_prices(client):
+    resp = await client.get("/payments/plans")  # no Authorization header
     assert resp.status_code == 200
     assert resp.json() == {
         "plans": [
@@ -25,3 +15,8 @@ async def test_plans_list_the_configured_prices(client, auth):
             {"planType": "annual", "priceVnd": settings.payos_annual_price_vnd},
         ]
     }
+
+
+async def test_checkout_still_requires_auth(client):
+    resp = await client.post("/payments/checkout", json={"planType": "monthly"})
+    assert resp.status_code == 401

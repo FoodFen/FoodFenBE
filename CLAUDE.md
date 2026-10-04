@@ -180,8 +180,8 @@ async def create_user(
 Design + defaults: `docs/superpowers/specs/2026-09-30-coins-quests-design.md`.
 
 - **Endpoints** (`coin_controller.py`, `CurrentUserDep`): `GET /quests?date=` (client's local day),
-  `POST /coins/redeem {days}`, `GET /coins/bundles` (the `coin_bundles` table, seeded in migration 0019:
-  10 days / 600 coins, 30 days / 1500 coins; redeem prices from the same rows). `GET /payments/plans` lists the
+  `POST /coins/redeem {days}`, `GET /coins/bundles` (public; the `coin_bundles` table, seeded in migration 0019:
+  10 days / 600 coins, 30 days / 1500 coins; redeem prices from the same rows). `GET /payments/plans` (public) lists the
   monthly/annual prices from settings. `GET /quests` also takes `language=vi|en` and returns each quest's
   `unit` (`count`|`percent`, derived in `Quest.unit`), `completionRatio`, `title` and `description` (the
   `title_*`/`description_*` columns of `quest_definitions`: static text, edit it with SQL together with any
@@ -200,7 +200,7 @@ Design + defaults: `docs/superpowers/specs/2026-09-30-coins-quests-design.md`.
 Spec: `docs/superpowers/specs/2026-10-03-quiz-design.md`. Wire contract (owned by the FE repo):
 `FoodFenFE/docs/backend-contracts/quiz.md`.
 
-- **Endpoints** (`quiz_controller.py`, `CurrentUserDep`): `GET /quizzes/topics`, `GET /quizzes/daily?date=`,
+- **Endpoints** (`quiz_controller.py`, `CurrentUserDep` except the public `GET /quizzes/topics`): `GET /quizzes/topics`, `GET /quizzes/daily?date=`,
   `POST /quizzes/practice {topic, date}`, `GET /quizzes/{id}`, `POST /quizzes/{id}/submit`.
 - **The client never reports a score.** Correct answers and explanations live in `quiz_questions` and
   appear only in the submit response / a completed quiz — never in a question payload.

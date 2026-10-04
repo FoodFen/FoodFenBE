@@ -32,7 +32,6 @@ from src.application.use_cases.submit_quiz import SubmitQuizUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
 from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCase
 from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
-from src.application.use_cases.get_user import GetUserUseCase
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
 from src.application.use_cases.list_activity_logs import ListActivityLogsUseCase
 from src.application.use_cases.list_chat_messages import ListChatMessagesUseCase
@@ -87,13 +86,6 @@ from src.infrastructure.di.security import (
     SocialIdentityVerifierDep,
     TokenServiceDep,
 )
-
-
-def get_get_user_use_case(repo: UserRepositoryDep) -> GetUserUseCase:
-    return GetUserUseCase(users=repo)
-
-
-GetUserUseCaseDep = Annotated[GetUserUseCase, Depends(get_get_user_use_case)]
 
 
 def get_update_user_profile_use_case(

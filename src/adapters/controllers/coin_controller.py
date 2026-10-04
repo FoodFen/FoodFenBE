@@ -33,10 +33,9 @@ async def get_quests(
     return QuestsResponse.from_dto(await use_case.execute(user.id, date, language))
 
 
+# Public price list: nothing user-specific, and redeeming still needs a login.
 @router.get("/coins/bundles", response_model=CoinBundlesResponse)
-async def list_coin_bundles(
-    user: CurrentUserDep, use_case: ListCoinBundlesUseCaseDep
-) -> CoinBundlesResponse:
+async def list_coin_bundles(use_case: ListCoinBundlesUseCaseDep) -> CoinBundlesResponse:
     return CoinBundlesResponse.from_dtos(await use_case.execute())
 
 

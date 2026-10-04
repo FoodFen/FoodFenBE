@@ -89,15 +89,14 @@ async def _practice(client, headers, day=None, topic="macros"):
 
 async def test_quiz_endpoints_require_auth(client):
     day = _today().isoformat()
-    assert (await client.get("/quizzes/topics")).status_code == 401
     assert (await client.get("/quizzes/daily", params={"date": day})).status_code == 401
     assert (await client.post("/quizzes/practice", json={"topic": "x", "date": day})).status_code == 401
     assert (await client.get(f"/quizzes/{uuid4()}")).status_code == 401
 
 
-async def test_topics_lists_only_active_topics(client, auth, bank):
+async def test_topics_are_public_and_list_only_active_topics(client, bank):
     await _add(_topic("old", "Cũ", active=False))
-    resp = await client.get("/quizzes/topics", headers=auth)
+    resp = await client.get("/quizzes/topics")  # no Authorization header
     assert resp.status_code == 200
     assert resp.json() == {"topics": [{"id": "macros", "label": "Đạm, tinh bột và chất béo"}]}
 
