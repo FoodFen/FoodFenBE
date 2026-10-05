@@ -1,6 +1,6 @@
 # Chat grounded in the user's own data — design
 
-Status: approach approved by the product owner (2026-10-05); pending written-spec review.
+Status: approved by the product owner (2026-10-05); implemented on branch feat/chat-user-context.
 
 ## Context
 
@@ -68,8 +68,8 @@ ChatController ──(message, date?)──▶ SendChatMessageUseCase
    `context`. When `context` is empty, it uses the system prompt alone.
 4. **`SendChatMessageUseCase`** gains `users`, `daily_goals`, `food_entries` (existing protocols)
    and a private `_build_context(user_id, today) -> str`.
-   `execute(user_id, message, today: date | None = None)`, where `today` defaults to the server's
-   UTC date.
+   `execute(user_id, message, today: date | None = None)`, where `today` defaults to the Vietnam (UTC+7)
+   day.
 5. **`SendChatMessageRequest.date: date | None = None`** (optional, the client's local day, the same
    convention as `loggedOn` and `GET /quests?date=`). The controller passes it through. There's no
    ±1-day window check: a wrong date only shows users their own data for another day, which
@@ -120,7 +120,7 @@ grows past a handful of lines.
   profile, no goal and no entries; goal selection across several `effective_date`s; a day without
   entries rendered as "not logged"; today's meals listed only for `today`.
 - **Unit, `tests/unit/test_send_chat_message.py`**: update the construction for the new repositories.
-  Assert that the provider receives the rendered context and that `today` defaults to the UTC date.
+  Assert that the provider receives the rendered context and that `today` defaults to the Vietnam (UTC+7) day.
 - **API**: `FakeAiChatProvider.stream_reply` takes `context` and records it. One test logs a food
   entry, sends a chat message with `date`, and asserts the entry's name is in the recorded context.
 - Never call the real Gemini API.

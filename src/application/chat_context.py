@@ -15,6 +15,8 @@ from src.domain.entities.user import User
 from src.domain.enums import UnitSystem
 
 WINDOW_DAYS = 7
+MAX_MEALS_LISTED = 15
+MAX_NAME_CHARS = 60
 
 
 def render_user_context(
@@ -26,11 +28,16 @@ def render_user_context(
     )
 
 
+def _age(user: User, today: date) -> int | None:
+    age = today.year - user.birth_year if user.birth_year else 0
+    return age if age > 0 else None
+
+
 def _profile(user: User | None, today: date) -> str:
     if user is None:
         return "PROFILE\n- not set"
     fields = [
-        ("Age", today.year - user.birth_year if user.birth_year else None),
+        ("Age", _age(user, today)),
         ("Gender", user.gender),
         ("Height", user.height),
         ("Current weight", user.weight_current),
@@ -68,9 +75,11 @@ def _meals_today(entries: list[FoodEntry], today: date) -> str:
     if not meals:
         return f"{header}\n- nothing logged yet"
     lines = [
-        f"- {e.meal_type}: {e.name} — {_macros(e.total_kcal, e.carbs_g, e.protein_g, e.fat_g)}"
-        for e in meals
+        f"- {e.meal_type}: {e.name[:MAX_NAME_CHARS]} — {_macros(e.total_kcal, e.carbs_g, e.protein_g, e.fat_g)}"
+        for e in meals[:MAX_MEALS_LISTED]
     ]
+    if len(meals) > MAX_MEALS_LISTED:
+        lines.append(f"- … and {len(meals) - MAX_MEALS_LISTED} more")
     return "\n".join([header, *lines])
 
 
@@ -91,5 +100,6 @@ def _last_days(entries: list[FoodEntry], today: date) -> str:
             sum(e.protein_g for e in day_entries),
             sum(e.fat_g for e in day_entries),
         )
-        lines.append(f"- {day.isoformat()}: {totals}")
+        partial = " (so far)" if day == today else ""
+        lines.append(f"- {day.isoformat()}: {totals}{partial}")
     return "\n".join([f"LAST {WINDOW_DAYS} DAYS (daily totals; 'not logged' means unknown, not zero)", *lines])

@@ -176,7 +176,7 @@ async def create_user(
   turn, `SendChatMessageUseCase._build_context` renders profile, goal in force, today's meals and
   7-day totals (`application/chat_context.py`, stdlib-only) and passes it as `stream_reply(...,
   context)`; Gemini appends it after the system prompt. Rebuilt per turn, never persisted.
-  `POST /chat/messages` takes an optional `date` (client-local day). A new source (food catalog,
+  `POST /chat/messages` takes an optional `date` (client-local day; omitted → the Vietnam, UTC+7, day). A new source (food catalog,
   RAG retriever) adds one section in `_build_context`; the provider doesn't change.
 - **System prompt is config, not code**: `settings.gemini_system_prompt` (default in
   `DEFAULT_GEMINI_SYSTEM_PROMPT`, `infrastructure/config.py`), overridable via

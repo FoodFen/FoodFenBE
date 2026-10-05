@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from src.application.chat_context import WINDOW_DAYS, render_user_context
 from src.application.dtos.chat import (
@@ -35,6 +35,8 @@ from src.domain.enums import ChatRole
 # logger name still propagates up to its handler.
 _log = logging.getLogger("foodfenbe.chat")
 
+_VN = timezone(timedelta(hours=7))  # Vietnam day, same convention as ai_trial.py
+
 _GENERATION_FAILED_MESSAGE = "The assistant couldn't generate a reply. Please try again."
 
 
@@ -54,7 +56,7 @@ class SendChatMessageUseCase:
         # twice: once in `history`, once as the separate `user_message` param.
         recent = await self.chat_messages.list_before(user_id, None, self.history_limit)
         history = list(reversed(recent))
-        context = await self._build_context(user_id, today or datetime.now(UTC).date())
+        context = await self._build_context(user_id, today or datetime.now(_VN).date())
 
         await self.chat_messages.create(ChatMessage.create(user_id, ChatRole.USER, message))
 

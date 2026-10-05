@@ -114,7 +114,7 @@ def test_last_days_sums_per_day_oldest_first():
 
     assert len(window) == WINDOW_DAYS
     assert window[0] == "- 2026-09-29: 300 kcal, C 50 g, P 30 g, F 10 g"
-    assert window[-1] == "- 2026-10-05: 1150 kcal, C 100 g, P 60 g, F 20 g"
+    assert window[-1] == "- 2026-10-05: 1150 kcal, C 100 g, P 60 g, F 20 g (so far)"
     assert "999" not in text
 
 
@@ -123,3 +123,29 @@ def test_day_without_entries_is_not_logged_not_zero():
 
     assert "- 2026-10-04: not logged" in text
     assert "- 2026-10-04: 0 kcal" not in text
+
+
+def test_long_meal_name_is_truncated():
+    text = render_user_context(_user(), [], [_entry("x" * 200, TODAY, 450)], TODAY)
+
+    assert f"lunch: {'x' * 60} —" in text
+    assert "x" * 61 not in text
+
+
+def test_meals_today_is_capped_with_a_remainder_line():
+    entries = [_entry(f"M{i:02d}", TODAY, 100, hour=i) for i in range(18)]
+
+    text = render_user_context(_user(), [], entries, TODAY)
+    section = text.split(f"MEALS TODAY ({TODAY.isoformat()})\n")[1].split("\n\n")[0].splitlines()
+
+    assert len(section) == 16
+    assert section[0].startswith("- lunch: M00")
+    assert section[14].startswith("- lunch: M14")
+    assert section[-1] == "- … and 3 more"
+    assert "- 2026-10-05: 1800 kcal, C 900 g, P 540 g, F 180 g (so far)" in text
+
+
+def test_age_not_rendered_when_date_precedes_birth_year():
+    text = render_user_context(_user(birth_year=2006), [], [], date(2000, 1, 1))
+
+    assert "Age" not in text

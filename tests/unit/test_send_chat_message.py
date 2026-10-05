@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
 from src.application.dtos.chat import ChatStreamDone, ChatStreamError, ChatStreamToken
@@ -163,13 +163,13 @@ async def test_context_reads_the_callers_last_seven_days():
     assert food.calls == [(42, date(2026, 9, 28), date(2026, 10, 4))]
 
 
-async def test_today_defaults_to_server_utc_date():
+async def test_today_defaults_to_vietnam_local_date():
     food = FakeFoodEntryRepo()
     uc = _use_case(FakeChatMessageRepo(), FakeProvider(["ok"]), food_entries=food)
 
     await _collect(uc, user_id=1, message="hi")
 
-    today = datetime.now(UTC).date()
+    today = datetime.now(timezone(timedelta(hours=7))).date()
     assert food.calls == [(1, today - timedelta(days=6), today)]
 
 

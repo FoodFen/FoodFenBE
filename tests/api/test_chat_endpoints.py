@@ -149,3 +149,11 @@ async def test_chat_rejects_a_malformed_date(client, signed_up):
     resp = await client.post("/chat/messages", json={"message": "hi", "date": "yesterday"}, headers=headers)
 
     assert resp.status_code == 422
+
+
+async def test_chat_rejects_an_out_of_range_date(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.post("/chat/messages", json={"message": "hi", "date": "0001-01-02"}, headers=headers)
+
+    assert resp.status_code == 422

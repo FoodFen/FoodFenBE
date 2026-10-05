@@ -40,5 +40,5 @@ class ChatHistoryResponse(CamelModel):
 class SendChatMessageRequest(CamelModel):
     message: str = Field(max_length=2000)
     # The client's local day (same convention as loggedOn / GET /quests?date=).
-    # Omitted → the server's UTC day.
-    date: LocalDate | None = None
+    # Omitted → the Vietnam (UTC+7) day. Bounds keep `date - 6 days` from overflowing.
+    date: LocalDate | None = Field(default=None, ge=LocalDate(2000, 1, 1), le=LocalDate(9998, 12, 31))
