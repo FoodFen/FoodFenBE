@@ -556,6 +556,7 @@ dependencies = [
     { name = "cloudinary" },
     { name = "fastapi" },
     { name = "google-genai" },
+    { name = "httpx" },
     { name = "payos" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -568,7 +569,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "aiosqlite" },
-    { name = "httpx" },
     { name = "import-linter" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -582,6 +582,7 @@ requires-dist = [
     { name = "cloudinary", specifier = ">=1.41" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "google-genai", specifier = ">=1.0" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "payos", specifier = ">=1.1.0" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-settings", specifier = ">=2.3" },
@@ -594,7 +595,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "aiosqlite", specifier = ">=0.22.1" },
-    { name = "httpx", specifier = ">=0.27" },
     { name = "import-linter", specifier = ">=2.0" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.24" },

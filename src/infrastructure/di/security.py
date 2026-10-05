@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from functools import lru_cache
 from typing import Annotated
 
+import httpx
 from fastapi import Depends, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 
@@ -34,6 +35,7 @@ from src.infrastructure.ai.gemini_food_vision_provider import GeminiFoodVisionPr
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import SubscriptionRepositoryDep, UserRepositoryDep
 from src.infrastructure.images.cloudinary_image_storage import CloudinaryImageStorage
+from src.infrastructure.payments.momo_provider import MomoPaymentProvider
 from src.infrastructure.payments.payos_provider import PayOsPaymentProvider
 from src.infrastructure.rate_limiter import SlidingWindowLimiter
 from src.infrastructure.security.jwt_service import JwtTokenService
@@ -151,6 +153,20 @@ def _payment_providers() -> dict[PaymentProvider, PaymentProviderProtocol]:
         )
         providers[PaymentProvider.PAYOS] = PayOsPaymentProvider(
             client=client, checksum_key=settings.payos_checksum_key
+        )
+    if (
+        settings.momo_partner_code
+        and settings.momo_access_key
+        and settings.momo_secret_key
+        and settings.momo_ipn_url
+    ):
+        providers[PaymentProvider.MOMO] = MomoPaymentProvider(
+            http=httpx.AsyncClient(base_url=settings.momo_endpoint),
+            partner_code=settings.momo_partner_code,
+            access_key=settings.momo_access_key,
+            secret_key=settings.momo_secret_key,
+            redirect_url=settings.momo_redirect_url,
+            ipn_url=settings.momo_ipn_url,
         )
     return providers
 

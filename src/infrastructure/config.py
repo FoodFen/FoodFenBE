@@ -156,6 +156,15 @@ class Settings(BaseSettings):
     payos_cancel_url: str = ""
     payos_monthly_price_vnd: int = 49_000
     payos_annual_price_vnd: int = 499_000
+    # MoMo (v2 gateway, captureWallet). Offered only when partner code, both keys and the IPN URL are set.
+    momo_partner_code: str = ""
+    momo_access_key: str = ""
+    momo_secret_key: str = ""
+    momo_endpoint: str = "https://test-payment.momo.vn"
+    # Where MoMo sends the user after paying: the app's deep link (or an HTTPS bounce to it).
+    momo_redirect_url: str = "foodfen://premium/return"
+    # Public URL of POST /payments/webhook/momo.
+    momo_ipn_url: str = ""
     # Quiz rewards (coins). Passed into the use cases by DI, so changing one is an env edit.
     quiz_daily_coins_per_correct: int = 4
     quiz_practice_coins_per_correct: int = 1
