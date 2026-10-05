@@ -23,7 +23,7 @@ from src.application.ports.payment_provider import PaymentProviderProtocol
 from src.application.ports.social_identity_verifier import SocialIdentityVerifierProtocol
 from src.application.ports.token_service import TokenServiceProtocol
 from src.domain.entities.user import User
-from src.domain.enums import SubscriptionStatus, SubscriptionTier
+from src.domain.enums import PaymentProvider, SubscriptionStatus, SubscriptionTier
 from src.domain.exceptions import (
     InvalidTokenException,
     PremiumRequiredException,
@@ -138,22 +138,30 @@ ImageStorageDep = Annotated[ImageStorageProtocol, Depends(get_image_storage)]
 
 
 @lru_cache
-def _payment_provider() -> PayOsPaymentProvider:
-    from payos import AsyncPayOS
+def _payment_providers() -> dict[PaymentProvider, PaymentProviderProtocol]:
+    """Only providers with credentials configured — the rest are simply not offered."""
+    providers: dict[PaymentProvider, PaymentProviderProtocol] = {}
+    if settings.payos_client_id and settings.payos_api_key and settings.payos_checksum_key:
+        from payos import AsyncPayOS
 
-    client = AsyncPayOS(
-        client_id=settings.payos_client_id,
-        api_key=settings.payos_api_key,
-        checksum_key=settings.payos_checksum_key,
-    )
-    return PayOsPaymentProvider(client=client, checksum_key=settings.payos_checksum_key)
+        client = AsyncPayOS(
+            client_id=settings.payos_client_id,
+            api_key=settings.payos_api_key,
+            checksum_key=settings.payos_checksum_key,
+        )
+        providers[PaymentProvider.PAYOS] = PayOsPaymentProvider(
+            client=client, checksum_key=settings.payos_checksum_key
+        )
+    return providers
 
 
-def get_payment_provider() -> PaymentProviderProtocol:
-    return _payment_provider()
+def get_payment_providers() -> dict[PaymentProvider, PaymentProviderProtocol]:
+    return _payment_providers()
 
 
-PaymentProviderDep = Annotated[PaymentProviderProtocol, Depends(get_payment_provider)]
+PaymentProvidersDep = Annotated[
+    dict[PaymentProvider, PaymentProviderProtocol], Depends(get_payment_providers)
+]
 
 # Over plain HTTPBearer so Swagger's Authorize button gets a login form
 # (POSTs to tokenUrl) instead of a bare token field. auto_error=False: we

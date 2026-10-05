@@ -82,7 +82,7 @@ from src.infrastructure.di.security import (
     FoodVisionProviderDep,
     ImageStorageDep,
     PasswordHasherDep,
-    PaymentProviderDep,
+    PaymentProvidersDep,
     SocialIdentityVerifierDep,
     TokenServiceDep,
 )
@@ -245,11 +245,11 @@ AnalyzeFoodTextUseCaseDep = Annotated[
 
 
 def get_create_checkout_use_case(
-    payments: PaymentRepositoryDep, provider: PaymentProviderDep
+    payments: PaymentRepositoryDep, providers: PaymentProvidersDep
 ) -> CreateCheckoutUseCase:
     return CreateCheckoutUseCase(
         payments=payments,
-        provider=provider,
+        providers=providers,
         monthly_price_vnd=settings.payos_monthly_price_vnd,
         annual_price_vnd=settings.payos_annual_price_vnd,
         return_url=settings.payos_return_url,
@@ -259,30 +259,30 @@ def get_create_checkout_use_case(
 
 def get_handle_payment_webhook_use_case(
     payments: PaymentRepositoryDep,
-    provider: PaymentProviderDep,
+    providers: PaymentProvidersDep,
     subscriptions: SubscriptionRepositoryDep,
     users: UserRepositoryDep,
 ) -> HandlePaymentWebhookUseCase:
     return HandlePaymentWebhookUseCase(
-        payments=payments, provider=provider, subscriptions=subscriptions, users=users
+        payments=payments, providers=providers, subscriptions=subscriptions, users=users
     )
 
 
 def get_get_payment_status_use_case(
     payments: PaymentRepositoryDep,
-    provider: PaymentProviderDep,
+    providers: PaymentProvidersDep,
     subscriptions: SubscriptionRepositoryDep,
     users: UserRepositoryDep,
 ) -> GetPaymentStatusUseCase:
     return GetPaymentStatusUseCase(
-        payments=payments, provider=provider, subscriptions=subscriptions, users=users
+        payments=payments, providers=providers, subscriptions=subscriptions, users=users
     )
 
 
 def get_cancel_payment_use_case(
-    payments: PaymentRepositoryDep, provider: PaymentProviderDep
+    payments: PaymentRepositoryDep, providers: PaymentProvidersDep
 ) -> CancelPaymentUseCase:
-    return CancelPaymentUseCase(payments=payments, provider=provider)
+    return CancelPaymentUseCase(payments=payments, providers=providers)
 
 
 def get_get_my_subscription_use_case(
@@ -468,10 +468,11 @@ def get_list_coin_bundles_use_case(bundles: CoinBundleRepositoryDep) -> ListCoin
     return ListCoinBundlesUseCase(bundles=bundles)
 
 
-def get_list_plans_use_case() -> ListPlansUseCase:
+def get_list_plans_use_case(providers: PaymentProvidersDep) -> ListPlansUseCase:
     return ListPlansUseCase(
         monthly_price_vnd=settings.payos_monthly_price_vnd,
         annual_price_vnd=settings.payos_annual_price_vnd,
+        providers=list(providers),
     )
 
 

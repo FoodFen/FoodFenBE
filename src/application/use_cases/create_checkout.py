@@ -1,4 +1,4 @@
-"""Use case: start a PayOS checkout for a plan purchase."""
+"""Use case: start a checkout for a plan purchase."""
 
 from __future__ import annotations
 
@@ -9,13 +9,14 @@ from src.application.dtos.payment import CheckoutOutputDTO, CreateCheckoutInputD
 from src.application.ports.payment_provider import PaymentProviderProtocol
 from src.application.ports.payment_repository import PaymentRepositoryProtocol
 from src.domain.entities.payment import Payment
-from src.domain.enums import PlanType
+from src.domain.enums import PaymentProvider, PlanType
+from src.domain.exceptions import PaymentProviderUnavailableException
 
 
 @dataclass
 class CreateCheckoutUseCase:
     payments: PaymentRepositoryProtocol
-    provider: PaymentProviderProtocol
+    providers: dict[PaymentProvider, PaymentProviderProtocol]
     monthly_price_vnd: int
     annual_price_vnd: int
     return_url: str
@@ -26,12 +27,17 @@ class CreateCheckoutUseCase:
         return Decimal(vnd)
 
     async def execute(self, input_dto: CreateCheckoutInputDTO) -> CheckoutOutputDTO:
+        provider = self.providers.get(input_dto.provider)
+        if provider is None:
+            raise PaymentProviderUnavailableException(
+                f"payment provider {input_dto.provider} is not enabled"
+            )
         amount = self._price_for(input_dto.plan_type)
-        payment = Payment.create(input_dto.user_id, input_dto.plan_type, amount)
+        payment = Payment.create(input_dto.user_id, input_dto.plan_type, amount, input_dto.provider)
         payment = await self.payments.create(payment)
         assert payment.order_code is not None  # DB identity column, assigned on insert
 
-        link = await self.provider.create_checkout_link(
+        link = await provider.create_checkout_link(
             order_code=payment.order_code,
             amount=amount,
             description=f"FoodFen {input_dto.plan_type.value} premium",
@@ -40,4 +46,4 @@ class CreateCheckoutUseCase:
         )
         payment.attach_checkout(link.payment_link_id, link.checkout_url, link.qr_code)
         payment = await self.payments.update(payment)
-        return CheckoutOutputDTO.from_entity(payment)
+        return CheckoutOutputDTO.from_entity(payment, link.deeplink)

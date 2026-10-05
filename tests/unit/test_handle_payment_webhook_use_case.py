@@ -9,7 +9,7 @@ from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhoo
 from src.domain.entities.payment import Payment
 from src.domain.entities.subscription import Subscription
 from src.domain.entities.user import User
-from src.domain.enums import PlanType, SubscriptionTier
+from src.domain.enums import PaymentProvider, PlanType, SubscriptionTier
 from src.domain.exceptions import InvalidWebhookSignatureException, PaymentNotFoundException
 
 
@@ -100,10 +100,10 @@ async def test_successful_webhook_marks_paid_creates_subscription_and_upgrades_u
     users = FakeUserRepo(user)
     provider = FakeProvider(WebhookPayload(order_code=42, succeeded=True))
     use_case = HandlePaymentWebhookUseCase(
-        payments=payments, provider=provider, subscriptions=subscriptions, users=users
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions, users=users
     )
 
-    await use_case.execute(b"raw-body")
+    await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
 
     assert payment.status.value == "paid"
     subscription = await subscriptions.get_by_user_id(1)
@@ -119,10 +119,10 @@ async def test_failed_webhook_marks_failed_without_touching_subscription():
     subscriptions = FakeSubscriptionRepo()
     provider = FakeProvider(WebhookPayload(order_code=42, succeeded=False))
     use_case = HandlePaymentWebhookUseCase(
-        payments=payments, provider=provider, subscriptions=subscriptions, users=FakeUserRepo(_user())
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions, users=FakeUserRepo(_user())
     )
 
-    await use_case.execute(b"raw-body")
+    await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
 
     assert payment.status.value == "failed"
     assert await subscriptions.get_by_user_id(1) is None
@@ -136,14 +136,14 @@ async def test_webhook_replay_is_idempotent():
     provider = FakeProvider(WebhookPayload(order_code=42, succeeded=True))
     use_case = HandlePaymentWebhookUseCase(
         payments=payments,
-        provider=provider,
+        providers={PaymentProvider.PAYOS: provider},
         subscriptions=FakeSubscriptionRepo(),
         users=FakeUserRepo(_user()),
     )
 
-    await use_case.execute(b"raw-body")
+    await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
     first_paid_at = payment.paid_at
-    await use_case.execute(b"raw-body")  # replay
+    await use_case.execute(PaymentProvider.PAYOS, b"raw-body")  # replay
     assert payment.paid_at == first_paid_at
 
 
@@ -151,23 +151,23 @@ async def test_invalid_signature_raises():
     provider = FakeProvider(raise_invalid=True)
     use_case = HandlePaymentWebhookUseCase(
         payments=FakePaymentRepo(),
-        provider=provider,
+        providers={PaymentProvider.PAYOS: provider},
         subscriptions=FakeSubscriptionRepo(),
         users=FakeUserRepo(_user()),
     )
 
     with pytest.raises(InvalidWebhookSignatureException):
-        await use_case.execute(b"raw-body")
+        await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
 
 
 async def test_unknown_order_code_raises_not_found():
     provider = FakeProvider(WebhookPayload(order_code=999, succeeded=True))
     use_case = HandlePaymentWebhookUseCase(
         payments=FakePaymentRepo(),
-        provider=provider,
+        providers={PaymentProvider.PAYOS: provider},
         subscriptions=FakeSubscriptionRepo(),
         users=FakeUserRepo(_user()),
     )
 
     with pytest.raises(PaymentNotFoundException):
-        await use_case.execute(b"raw-body")
+        await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
