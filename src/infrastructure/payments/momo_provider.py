@@ -25,9 +25,12 @@ from src.domain.enums import PaymentStatus
 from src.domain.exceptions import InvalidWebhookSignatureException
 
 _ORDER_ID_PREFIX = "FF"
-# MoMo result codes meaning "not finished": 1000 awaiting the user, 7000/7002 processing,
-# 9000 authorized but not yet captured. Everything else except 0 is a final failure.
-_PENDING_RESULT_CODES = frozenset({1000, 7000, 7002, 9000})
+# Final payment failures: insufficient funds, rejected, cancelled, limit, expired, user denied,
+# account inactive, cancelled by partner, promo restriction, account restricted, auth failed.
+# Any other non-zero code (1000 awaiting user, 7000/7002 processing, 9000 authorized, 10 maintenance,
+# 11/13 auth, 99 unknown) stays PENDING so a payment that may still succeed is never failed.
+# ponytail: list from MoMo's result-code table; add a code here only once it is confirmed final.
+_FAILED_RESULT_CODES = frozenset({1001, 1002, 1003, 1004, 1005, 1006, 1007, 1017, 1026, 4001, 4100})
 _IPN_SIGNED_FIELDS = (
     "amount",
     "extraData",
@@ -47,9 +50,9 @@ _IPN_SIGNED_FIELDS = (
 def _status_for(result_code: int) -> PaymentStatus:
     if result_code == 0:
         return PaymentStatus.PAID
-    if result_code in _PENDING_RESULT_CODES:
-        return PaymentStatus.PENDING
-    return PaymentStatus.FAILED
+    if result_code in _FAILED_RESULT_CODES:
+        return PaymentStatus.FAILED
+    return PaymentStatus.PENDING
 
 
 @dataclass
