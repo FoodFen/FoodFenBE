@@ -57,6 +57,21 @@ def test_mark_paid_is_idempotent():
     assert payment.paid_at == first_paid_at
 
 
+def test_mark_paid_after_local_cancel_still_counts():
+    payment = _payment()
+    payment.mark_cancelled()
+    payment.mark_paid()
+    assert payment.status is PaymentStatus.PAID
+    assert payment.paid_at is not None
+
+
+def test_mark_paid_does_not_revive_a_failed_payment():
+    payment = _payment()
+    payment.mark_failed()
+    payment.mark_paid()
+    assert payment.status is PaymentStatus.FAILED
+
+
 def test_mark_cancelled_rejects_non_pending():
     payment = _payment()
     payment.mark_paid()

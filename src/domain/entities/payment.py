@@ -67,8 +67,12 @@ class Payment:
         self.qr_code = qr_code
 
     def mark_paid(self) -> None:
-        """Idempotent: a webhook retry after we've already recorded PAID is a no-op."""
-        if self.status is not PaymentStatus.PENDING:
+        """Idempotent: a webhook retry after we've already recorded PAID is a no-op.
+
+        Money the provider confirmed always counts, even after a local cancel (some
+        providers, e.g. MoMo, have no cancel API, so a cancelled order can still be paid).
+        """
+        if self.status not in (PaymentStatus.PENDING, PaymentStatus.CANCELLED):
             return
         self.status = PaymentStatus.PAID
         self.paid_at = datetime.now(UTC)

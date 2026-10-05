@@ -24,8 +24,12 @@ async def apply_payment_result(
     subscriptions: SubscriptionRepositoryProtocol,
     users: UserRepositoryProtocol,
 ) -> Payment:
-    if payment.status is not PaymentStatus.PENDING:
-        return payment  # already processed — webhook retry or double reconciliation
+    # Already processed (webhook retry / double reconciliation) — except a locally CANCELLED
+    # payment the provider confirms as paid: that money must still grant Premium.
+    if payment.status is not PaymentStatus.PENDING and not (
+        payment.status is PaymentStatus.CANCELLED and succeeded
+    ):
+        return payment
 
     if succeeded:
         payment.mark_paid()

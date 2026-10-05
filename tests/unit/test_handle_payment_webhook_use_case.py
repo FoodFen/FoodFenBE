@@ -128,6 +128,47 @@ async def test_failed_webhook_marks_failed_without_touching_subscription():
     assert await subscriptions.get_by_user_id(1) is None
 
 
+async def test_success_webhook_on_a_cancelled_payment_still_grants_premium():
+    user = _user()
+    payments = FakePaymentRepo()
+    payment = payments.seed(
+        Payment.create(user_id=1, plan_type=PlanType.MONTHLY, amount="49000"), order_code=42
+    )
+    payment.mark_cancelled()
+    subscriptions = FakeSubscriptionRepo()
+    users = FakeUserRepo(user)
+    provider = FakeProvider(WebhookPayload(order_code=42, succeeded=True))
+    use_case = HandlePaymentWebhookUseCase(
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions, users=users
+    )
+
+    await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
+
+    assert payment.status.value == "paid"
+    subscription = await subscriptions.get_by_user_id(1)
+    assert subscription is not None and subscription.status.value == "active"
+    assert users._user.subscription_tier is SubscriptionTier.PREMIUM
+
+
+async def test_failure_webhook_on_a_cancelled_payment_stays_cancelled():
+    payments = FakePaymentRepo()
+    payment = payments.seed(
+        Payment.create(user_id=1, plan_type=PlanType.MONTHLY, amount="49000"), order_code=42
+    )
+    payment.mark_cancelled()
+    provider = FakeProvider(WebhookPayload(order_code=42, succeeded=False))
+    use_case = HandlePaymentWebhookUseCase(
+        payments=payments,
+        providers={PaymentProvider.PAYOS: provider},
+        subscriptions=FakeSubscriptionRepo(),
+        users=FakeUserRepo(_user()),
+    )
+
+    await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
+
+    assert payment.status.value == "cancelled"
+
+
 async def test_webhook_replay_is_idempotent():
     payments = FakePaymentRepo()
     payment = payments.seed(

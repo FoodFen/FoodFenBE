@@ -1,4 +1,4 @@
-"""Use case: read a payment's status, reconciling with the provider if still pending.
+"""Use case: read a payment's status, reconciling with the provider if still pending (or locally cancelled, since a provider may still take payment).
 
 The reconciliation step is the fallback for a lost or delayed webhook.
 """
@@ -30,7 +30,7 @@ class GetPaymentStatusUseCase:
             raise PaymentNotFoundException(f"no payment for order_code {order_code}")
 
         provider = self.providers.get(payment.provider)
-        if payment.status is PaymentStatus.PENDING and provider is not None:
+        if payment.status in (PaymentStatus.PENDING, PaymentStatus.CANCELLED) and provider is not None:
             provider_status = await provider.get_payment_status(order_code)
             if provider_status.status is not PaymentStatus.PENDING:
                 payment = await apply_payment_result(
