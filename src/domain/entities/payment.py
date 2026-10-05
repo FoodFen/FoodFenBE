@@ -1,4 +1,4 @@
-"""Payment entity — one row per PayOS checkout attempt."""
+"""Payment entity — one row per checkout attempt."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from src.domain.enums import PaymentStatus, PlanType
+from src.domain.enums import PaymentProvider, PaymentStatus, PlanType
 from src.domain.exceptions import InvalidPaymentStateException
 from src.domain.validation import require_positive
 
 
 @dataclass
 class Payment:
-    """A single PayOS checkout attempt for one plan purchase.
+    """A single checkout attempt for one plan purchase.
 
     ``order_code`` is ``None`` until the row is inserted: PayOS requires a
     numeric order id, and the database's identity column is the only way to
@@ -27,6 +27,7 @@ class Payment:
     plan_type: PlanType
     amount: Decimal
     status: PaymentStatus
+    provider: PaymentProvider = PaymentProvider.PAYOS
     order_code: int | None = None
     payment_link_id: str | None = None
     checkout_url: str | None = None
@@ -40,16 +41,23 @@ class Payment:
         require_positive(self.amount, "amount")
 
     @classmethod
-    def create(cls, user_id: int, plan_type: PlanType, amount: Decimal | int | str) -> Payment:
+    def create(
+        cls,
+        user_id: int,
+        plan_type: PlanType,
+        amount: Decimal | int | str,
+        provider: PaymentProvider = PaymentProvider.PAYOS,
+    ) -> Payment:
         return cls(
             id=uuid4(),
             user_id=user_id,
             plan_type=plan_type,
             amount=Decimal(str(amount)),
             status=PaymentStatus.PENDING,
+            provider=provider,
         )
 
-    def attach_checkout(self, payment_link_id: str, checkout_url: str, qr_code: str) -> None:
+    def attach_checkout(self, payment_link_id: str, checkout_url: str, qr_code: str | None) -> None:
         if self.status is not PaymentStatus.PENDING:
             raise InvalidPaymentStateException(
                 f"cannot attach checkout info to a payment in status {self.status}"

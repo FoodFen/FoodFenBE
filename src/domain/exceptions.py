@@ -53,6 +53,10 @@ class PaymentNotFoundException(EntityNotFoundException):
     """A requested payment does not exist."""
 
 
+class PaymentProviderUnavailableException(DomainException):
+    """The requested payment provider isn't configured on this server."""
+
+
 class InvalidPaymentStateException(InvalidAttributeException):
     """An operation is not valid for a payment's current status."""
 

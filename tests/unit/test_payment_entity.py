@@ -7,7 +7,7 @@ from decimal import Decimal
 import pytest
 
 from src.domain.entities.payment import Payment
-from src.domain.enums import PaymentStatus, PlanType
+from src.domain.enums import PaymentProvider, PaymentStatus, PlanType
 from src.domain.exceptions import InvalidAttributeException, InvalidPaymentStateException
 
 
@@ -68,3 +68,20 @@ def test_mark_cancelled_sets_status_while_pending():
     payment = _payment()
     payment.mark_cancelled()
     assert payment.status is PaymentStatus.CANCELLED
+
+
+def test_create_defaults_to_payos():
+    payment = Payment.create(1, PlanType.MONTHLY, 49000)
+    assert payment.provider is PaymentProvider.PAYOS
+
+
+def test_create_records_the_chosen_provider():
+    payment = Payment.create(1, PlanType.MONTHLY, 49000, PaymentProvider.MOMO)
+    assert payment.provider is PaymentProvider.MOMO
+
+
+def test_attach_checkout_accepts_no_qr_code():
+    payment = Payment.create(1, PlanType.MONTHLY, 49000, PaymentProvider.MOMO)
+    payment.attach_checkout("FF1", "https://pay.momo/x", None)
+    assert payment.qr_code is None
+    assert payment.checkout_url == "https://pay.momo/x"

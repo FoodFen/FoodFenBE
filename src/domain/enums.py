@@ -112,6 +112,11 @@ class PaymentStatus(StrEnum):
     FAILED = "failed"
 
 
+class PaymentProvider(StrEnum):
+    PAYOS = "payos"
+    MOMO = "momo"
+
+
 class MealType(StrEnum):
     BREAKFAST = "breakfast"
     LUNCH = "lunch"

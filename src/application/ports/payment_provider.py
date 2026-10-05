@@ -1,4 +1,4 @@
-"""Port for the payment provider (PayOS). Structural typing via Protocol."""
+"""Port for a payment provider (PayOS, MoMo). Structural typing via Protocol."""
 
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ from src.domain.enums import PaymentStatus
 class CheckoutLinkResult:
     payment_link_id: str
     checkout_url: str
-    qr_code: str
+    qr_code: str | None
+    deeplink: str | None = None
 
 
 @dataclass(frozen=True)
