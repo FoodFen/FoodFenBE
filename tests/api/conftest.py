@@ -106,12 +106,14 @@ def social_verifier():
 
 
 class FakeAiChatProvider:
-    """Yields a scripted reply instead of calling a real LLM."""
+    """Yields a scripted reply instead of calling a real LLM; records the context it was given."""
 
     def __init__(self) -> None:
         self.deltas = ["Hello", ", world!"]
+        self.last_context: str | None = None
 
-    async def stream_reply(self, history, user_message):
+    async def stream_reply(self, history, user_message, context):
+        self.last_context = context
         for delta in self.deltas:
             yield delta
 

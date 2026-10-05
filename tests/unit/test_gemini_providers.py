@@ -80,8 +80,28 @@ async def test_chat_uses_low_thinking_and_logs_token_usage(caplog):
     history = [ChatMessage.create(1, ChatRole.USER, "hello")]
 
     with caplog.at_level(logging.INFO, logger="foodfenbe.ai"):
-        reply = [d async for d in provider.stream_reply(history, "again")]
+        reply = [d async for d in provider.stream_reply(history, "again", "")]
 
     assert reply == ["Hi", " there"]
     assert models.kwargs["config"].thinking_config.thinking_level == types.ThinkingLevel.LOW
     assert "prompt=120 output=40 thoughts=7" in caplog.text
+
+
+async def test_chat_appends_context_after_the_system_prompt():
+    models = _FakeModels(chunks=[SimpleNamespace(text="ok", usage_metadata=_USAGE)])
+    provider = GeminiChatProvider(api_key="", model="m", system_prompt="p", client=_client(models))
+
+    _ = [d async for d in provider.stream_reply([], "hi", "PROFILE\n- Age: 20")]
+
+    instruction = models.kwargs["config"].system_instruction
+    assert instruction.startswith("p\n\nDATA ABOUT THIS USER")
+    assert instruction.endswith("PROFILE\n- Age: 20")
+
+
+async def test_chat_without_context_sends_the_bare_system_prompt():
+    models = _FakeModels(chunks=[SimpleNamespace(text="ok", usage_metadata=_USAGE)])
+    provider = GeminiChatProvider(api_key="", model="m", system_prompt="p", client=_client(models))
+
+    _ = [d async for d in provider.stream_reply([], "hi", "")]
+
+    assert models.kwargs["config"].system_instruction == "p"

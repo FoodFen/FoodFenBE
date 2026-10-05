@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+# `date` is also the field name below; aliasing the type keeps Pydantic from
+# resolving the annotation to the field's own default (None).
+from datetime import date as LocalDate
 from datetime import datetime
 from typing import Literal
 
@@ -36,3 +39,6 @@ class ChatHistoryResponse(CamelModel):
 
 class SendChatMessageRequest(CamelModel):
     message: str = Field(max_length=2000)
+    # The client's local day (same convention as loggedOn / GET /quests?date=).
+    # Omitted → the Vietnam (UTC+7) day. Bounds keep `date - 6 days` from overflowing.
+    date: LocalDate | None = Field(default=None, ge=LocalDate(2000, 1, 1), le=LocalDate(9998, 12, 31))

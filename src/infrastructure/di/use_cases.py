@@ -182,11 +182,18 @@ def get_list_chat_messages_use_case(
 
 
 def get_send_chat_message_use_case(
-    chat_messages: ChatMessageRepositoryDep, provider: AiChatProviderDep
+    chat_messages: ChatMessageRepositoryDep,
+    provider: AiChatProviderDep,
+    users: UserRepositoryDep,
+    daily_goals: DailyGoalRepositoryDep,
+    food_entries: FoodEntryRepositoryDep,
 ) -> SendChatMessageUseCase:
     return SendChatMessageUseCase(
         chat_messages=chat_messages,
         provider=provider,
+        users=users,
+        daily_goals=daily_goals,
+        food_entries=food_entries,
         history_limit=settings.chat_history_limit,
     )
 
