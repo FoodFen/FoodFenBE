@@ -22,6 +22,10 @@ Dependency direction: `domain <- application <- adapters | infrastructure`. Neve
   with one implementation, no config for a value that never changes, no scaffolding "for later" —
   this repo's Clean Architecture layers are already the intended structure, not a license to add
   more layers on top of them.
+- **Model roles.** If you are running as an **Opus** model, your only job is brainstorming and
+  planning (specs, implementation plans, reviews). **Never write or edit code yourself.** Every
+  coding action must be delegated to a subagent on a lower model (`model: "sonnet"` or `"haiku"`
+  on the Agent tool).
 - **Always** invoke the matching `superpowers` skill before starting non-trivial work:
   `brainstorming` before shaping a new feature or slice, `systematic-debugging` before proposing a
   bug fix, `test-driven-development` before implementation code, `verification-before-completion`
