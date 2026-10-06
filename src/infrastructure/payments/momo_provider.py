@@ -139,9 +139,12 @@ class MomoPaymentProvider:
             fields = {key: data[key] for key in _IPN_SIGNED_FIELDS}
             signature = str(data["signature"])
             order_code = int(str(data["orderId"]).removeprefix(_ORDER_ID_PREFIX))
+            status = _status_for(int(data["resultCode"]))
         except (ValueError, KeyError, TypeError) as exc:
             raise InvalidWebhookSignatureException("malformed MoMo IPN") from exc
         expected = self._sign({**fields, "accessKey": self.access_key})
         if not hmac.compare_digest(expected, signature):
             raise InvalidWebhookSignatureException("MoMo IPN signature mismatch")
-        return WebhookPayload(order_code=order_code, succeeded=data["resultCode"] == 0)
+        return WebhookPayload(
+            order_code=order_code, status=status, succeeded=status is PaymentStatus.PAID
+        )

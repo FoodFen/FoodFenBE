@@ -155,7 +155,27 @@ def test_verify_webhook_reports_a_signed_failed_ipn():
     payload = _provider(_unused).verify_webhook(_ipn(1006))
 
     assert payload.order_code == 42
+    assert payload.status is PaymentStatus.FAILED
     assert payload.succeeded is False
+
+
+def test_verify_webhook_keeps_a_non_final_ipn_code_pending():
+    payload = _provider(_unused).verify_webhook(_ipn(9000))
+
+    assert payload.status is PaymentStatus.PENDING
+    assert payload.succeeded is False
+
+
+def test_verify_webhook_accepts_a_string_result_code():
+    payload = _provider(_unused).verify_webhook(_ipn(0, resultCode="0"))
+
+    assert payload.status is PaymentStatus.PAID
+    assert payload.succeeded is True
+
+
+def test_verify_webhook_rejects_a_non_numeric_result_code():
+    with pytest.raises(InvalidWebhookSignatureException):
+        _provider(_unused).verify_webhook(_ipn(0, resultCode="abc"))
 
 
 def test_verify_webhook_rejects_a_tampered_amount():

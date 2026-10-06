@@ -27,6 +27,7 @@ class ProviderPaymentStatus:
 @dataclass(frozen=True)
 class WebhookPayload:
     order_code: int
+    status: PaymentStatus
     succeeded: bool
 
 

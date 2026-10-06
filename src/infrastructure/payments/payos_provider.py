@@ -77,4 +77,9 @@ class PayOsPaymentProvider:
             data = self.client.webhooks.verify(raw_body)
         except payos.InvalidSignatureError as exc:
             raise InvalidWebhookSignatureException(str(exc)) from exc
-        return WebhookPayload(order_code=data.order_code, succeeded=data.code == "00")
+        succeeded = data.code == "00"
+        return WebhookPayload(
+            order_code=data.order_code,
+            status=PaymentStatus.PAID if succeeded else PaymentStatus.FAILED,
+            succeeded=succeeded,
+        )

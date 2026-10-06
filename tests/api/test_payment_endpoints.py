@@ -38,7 +38,7 @@ async def test_webhook_with_valid_signature_marks_payment_paid(client, signed_up
         await client.post("/payments/checkout", json={"planType": "monthly"}, headers=headers)
     ).json()
 
-    payment_provider.next_webhook = WebhookPayload(order_code=checkout["orderCode"], succeeded=True)
+    payment_provider.next_webhook = WebhookPayload(order_code=checkout["orderCode"], status=PaymentStatus.PAID, succeeded=True)
     resp = await client.post("/payments/webhook", content=b"raw-webhook-body")
     assert resp.status_code == 200
 
@@ -61,7 +61,7 @@ async def test_subscription_me_before_and_after_payment(client, signed_up, payme
     checkout = (
         await client.post("/payments/checkout", json={"planType": "monthly"}, headers=headers)
     ).json()
-    payment_provider.next_webhook = WebhookPayload(order_code=checkout["orderCode"], succeeded=True)
+    payment_provider.next_webhook = WebhookPayload(order_code=checkout["orderCode"], status=PaymentStatus.PAID, succeeded=True)
     await client.post("/payments/webhook", content=b"raw-webhook-body")
 
     after = await client.get("/subscriptions/me", headers=headers)
@@ -76,7 +76,7 @@ async def test_cancel_rejects_an_already_paid_payment(client, signed_up, payment
     checkout = (
         await client.post("/payments/checkout", json={"planType": "monthly"}, headers=headers)
     ).json()
-    payment_provider.next_webhook = WebhookPayload(order_code=checkout["orderCode"], succeeded=True)
+    payment_provider.next_webhook = WebhookPayload(order_code=checkout["orderCode"], status=PaymentStatus.PAID, succeeded=True)
     await client.post("/payments/webhook", content=b"raw-webhook-body")
 
     resp = await client.post(f"/payments/{checkout['orderCode']}/cancel", json={}, headers=headers)
@@ -99,7 +99,7 @@ async def test_premium_gate_blocks_free_user_then_passes_after_payment(
     checkout = (
         await client.post("/payments/checkout", json={"planType": "monthly"}, headers=headers)
     ).json()
-    payment_provider.next_webhook = WebhookPayload(order_code=checkout["orderCode"], succeeded=True)
+    payment_provider.next_webhook = WebhookPayload(order_code=checkout["orderCode"], status=PaymentStatus.PAID, succeeded=True)
     await client.post("/payments/webhook", content=b"raw-webhook-body")
 
     allowed = await client.get("/__test/premium-only", headers=headers)
@@ -163,7 +163,7 @@ async def test_momo_webhook_marks_a_momo_payment_paid(client, signed_up, payment
     ).json()
 
     payment_providers[PaymentProvider.MOMO].next_webhook = WebhookPayload(
-        order_code=checkout["orderCode"], succeeded=True
+        order_code=checkout["orderCode"], status=PaymentStatus.PAID, succeeded=True
     )
     resp = await client.post("/payments/webhook/momo", content=b"raw-ipn-body")
 
