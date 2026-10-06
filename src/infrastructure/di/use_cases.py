@@ -58,6 +58,13 @@ from src.application.use_cases.update_water_log import UpdateWaterLogUseCase
 from src.application.use_cases.upsert_streak import UpsertStreakUseCase
 from src.application.use_cases.verify_email import VerifyEmailUseCase
 from src.infrastructure.config import settings
+from src.infrastructure.db.repositories.chat_message_repository import (
+    SQLAlchemyChatMessageRepository,
+)
+from src.infrastructure.db.repositories.daily_goal_repository import SQLAlchemyDailyGoalRepository
+from src.infrastructure.db.repositories.food_entry_repository import SQLAlchemyFoodEntryRepository
+from src.infrastructure.db.repositories.user_repository import SQLAlchemyUserRepository
+from src.infrastructure.di.database import StreamSessionDep
 from src.infrastructure.di.repositories import (
     AiTrialRepositoryDep,
     ActivityLogRepositoryDep,
@@ -182,18 +189,16 @@ def get_list_chat_messages_use_case(
 
 
 def get_send_chat_message_use_case(
-    chat_messages: ChatMessageRepositoryDep,
-    provider: AiChatProviderDep,
-    users: UserRepositoryDep,
-    daily_goals: DailyGoalRepositoryDep,
-    food_entries: FoodEntryRepositoryDep,
+    session: StreamSessionDep, provider: AiChatProviderDep
 ) -> SendChatMessageUseCase:
+    # The reply streams after the endpoint function returns and the use case writes while it does,
+    # so every repo here shares one request-scoped session (committed once the stream ends).
     return SendChatMessageUseCase(
-        chat_messages=chat_messages,
+        chat_messages=SQLAlchemyChatMessageRepository(session),
         provider=provider,
-        users=users,
-        daily_goals=daily_goals,
-        food_entries=food_entries,
+        users=SQLAlchemyUserRepository(session),
+        daily_goals=SQLAlchemyDailyGoalRepository(session),
+        food_entries=SQLAlchemyFoodEntryRepository(session),
         history_limit=settings.chat_history_limit,
     )
 

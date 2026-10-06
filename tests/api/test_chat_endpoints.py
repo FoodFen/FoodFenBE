@@ -157,3 +157,31 @@ async def test_chat_rejects_an_out_of_range_date(client, signed_up):
     resp = await client.post("/chat/messages", json={"message": "hi", "date": "0001-01-02"}, headers=headers)
 
     assert resp.status_code == 422
+
+
+async def test_chat_session_is_committed_after_the_stream_not_before(
+    client, signed_up, ai_chat_provider, monkeypatch
+):
+    """The reply is persisted while streaming, so the session must outlive the endpoint function."""
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    events: list[str] = []
+    real_commit = AsyncSession.commit
+    real_stream = ai_chat_provider.stream_reply
+
+    async def _spy_commit(self):
+        events.append("commit")
+        await real_commit(self)
+
+    async def _spy_stream(*args):
+        async for delta in real_stream(*args):
+            events.append("stream")
+            yield delta
+
+    monkeypatch.setattr(AsyncSession, "commit", _spy_commit)
+    monkeypatch.setattr(ai_chat_provider, "stream_reply", _spy_stream)
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    await client.post("/chat/messages", json={"message": "hi"}, headers=headers)
+
+    assert events[-1] == "commit"

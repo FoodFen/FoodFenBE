@@ -16,6 +16,11 @@ SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """One session (= one unit of work) per request: commit on success, roll back on error.
 
+    Depend on it with ``scope="function"`` (see ``SessionDep``) so the commit runs as soon as the
+    endpoint function returns: before the response is sent and before ``BackgroundTasks``. With
+    the default request scope it would run after both. ``StreamSessionDep`` keeps that default
+    for SSE, where the use case still writes while the response streams.
+
     ponytail: request-scoped transaction boundary. If a use case ever needs finer
     control (nested transactions, savepoints), give it an explicit UoW object instead.
     """
