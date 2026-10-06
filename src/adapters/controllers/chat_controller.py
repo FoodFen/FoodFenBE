@@ -49,7 +49,7 @@ async def send_message(
     use_case: SendChatMessageUseCaseDep,
 ) -> StreamingResponse:
     async def sse() -> AsyncIterator[str]:
-        async for event in use_case.execute(current_user.id, body.message):
+        async for event in use_case.execute(current_user.id, body.message, body.date):
             if isinstance(event, ChatStreamToken):
                 yield f"event: token\ndata: {json.dumps({'delta': event.delta})}\n\n"
             elif isinstance(event, ChatStreamDone):

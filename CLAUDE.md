@@ -22,6 +22,10 @@ Dependency direction: `domain <- application <- adapters | infrastructure`. Neve
   with one implementation, no config for a value that never changes, no scaffolding "for later" —
   this repo's Clean Architecture layers are already the intended structure, not a license to add
   more layers on top of them.
+- **Model roles.** If you are running as an **Opus** model, your only job is brainstorming and
+  planning (specs, implementation plans, reviews). **Never write or edit code yourself.** Every
+  coding action must be delegated to a subagent on a lower model (`model: "sonnet"` or `"haiku"`
+  on the Agent tool).
 - **Always** invoke the matching `superpowers` skill before starting non-trivial work:
   `brainstorming` before shaping a new feature or slice, `systematic-debugging` before proposing a
   bug fix, `test-driven-development` before implementation code, `verification-before-completion`
@@ -45,7 +49,11 @@ Dependency direction: `domain <- application <- adapters | infrastructure`. Neve
 - **Always** enforce entity invariants in the entity's `__post_init__` (or a factory), not in the use case or schema.
 - **Always** construct new entities via the domain factory (`User.create(...)`), which sets
   timestamps / defaults (and, for `User` specifically, leaves `id=None` — see "Auth" below).
-- **Always** access the DB session through the `get_db_session` dependency (commit-on-success, rollback-on-error per request).
+- **Always** access the DB session through `SessionDep` (`get_db_session`): it commits / rolls back when the
+  endpoint function returns, i.e. before the response is sent and before `BackgroundTasks`. An SSE/streaming
+  endpoint whose use case writes mid-stream must take `StreamSessionDep` in its use-case provider and build its
+  repos from that session (as `get_send_chat_message_use_case` does, the one sanctioned exception to "repository
+  providers go in `di/repositories.py`").
 - **Always** run `uv run lint-imports` after touching imports. It is the architecture's guardrail and CI must stay green.
 - **Always** add an Alembic migration when you change an ORM model. Never edit the DB by hand.
 - **Always** put a new use case's provider in `src/infrastructure/di/use_cases.py` (a `get_*_use_case`
@@ -168,6 +176,12 @@ async def create_user(
   by `GeminiChatProvider` (`infrastructure/ai/gemini_chat_provider.py`) using `google-genai`.
   Gemini's role vocabulary (`user`/`model`) is translated from the domain `ChatRole` enum
   (`user`/`assistant`) only inside that class.
+- **User context** (spec `docs/superpowers/specs/2026-10-05-chat-user-context-design.md`): every
+  turn, `SendChatMessageUseCase._build_context` renders profile, goal in force, today's meals and
+  7-day totals (`application/chat_context.py`, stdlib-only) and passes it as `stream_reply(...,
+  context)`; Gemini appends it after the system prompt. Rebuilt per turn, never persisted.
+  `POST /chat/messages` takes an optional `date` (client-local day; omitted → the Vietnam, UTC+7, day). A new source (food catalog,
+  RAG retriever) adds one section in `_build_context`; the provider doesn't change.
 - **System prompt is config, not code**: `settings.gemini_system_prompt` (default in
   `DEFAULT_GEMINI_SYSTEM_PROMPT`, `infrastructure/config.py`), overridable via
   `GEMINI_SYSTEM_PROMPT` without touching `gemini_chat_provider.py`. `settings.chat_history_limit`

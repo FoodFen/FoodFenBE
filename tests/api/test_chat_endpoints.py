@@ -94,3 +94,94 @@ async def test_chat_is_rate_limited_per_user(client, signed_up, monkeypatch):
     resp = await client.post("/chat/messages", json={"message": "hi"}, headers=headers)
 
     assert resp.status_code == 429
+
+
+_MEAL = {
+    "name": "Pho bo",
+    "inputMethod": "manual",
+    "totalKcal": 450,
+    "carbsG": 60.0,
+    "proteinG": 25.0,
+    "fatG": 12.0,
+    "mealType": "breakfast",
+    "clientId": "meal_1",
+    "loggedOn": "2026-10-04",
+}
+
+
+async def test_chat_context_includes_the_users_own_meals_for_the_client_date(
+    client, signed_up, ai_chat_provider
+):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    assert (await client.post("/food-entries", json=_MEAL, headers=headers)).status_code in (200, 201)
+
+    resp = await client.post(
+        "/chat/messages", json={"message": "am I eating ok?", "date": "2026-10-04"}, headers=headers
+    )
+
+    assert resp.status_code == 200
+    assert "MEALS TODAY (2026-10-04)" in ai_chat_provider.last_context
+    assert "Pho bo" in ai_chat_provider.last_context
+
+
+async def test_chat_context_excludes_other_users_meals(client, signed_up, ai_chat_provider):
+    owner = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    assert (await client.post("/food-entries", json=_MEAL, headers=owner)).status_code in (200, 201)
+
+    other = await client.post(
+        "/auth/sign-up",
+        json={"email": "other@example.com", "password": "another-pass-123", "displayName": "Other"},
+    )
+    assert other.status_code == 200
+    other_headers = {"Authorization": f"Bearer {other.json()['accessToken']}"}
+
+    resp = await client.post(
+        "/chat/messages", json={"message": "hi", "date": "2026-10-04"}, headers=other_headers
+    )
+
+    assert resp.status_code == 200
+    assert "Pho bo" not in ai_chat_provider.last_context
+
+
+async def test_chat_rejects_a_malformed_date(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.post("/chat/messages", json={"message": "hi", "date": "yesterday"}, headers=headers)
+
+    assert resp.status_code == 422
+
+
+async def test_chat_rejects_an_out_of_range_date(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.post("/chat/messages", json={"message": "hi", "date": "0001-01-02"}, headers=headers)
+
+    assert resp.status_code == 422
+
+
+async def test_chat_session_is_committed_after_the_stream_not_before(
+    client, signed_up, ai_chat_provider, monkeypatch
+):
+    """The reply is persisted while streaming, so the session must outlive the endpoint function."""
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    events: list[str] = []
+    real_commit = AsyncSession.commit
+    real_stream = ai_chat_provider.stream_reply
+
+    async def _spy_commit(self):
+        events.append("commit")
+        await real_commit(self)
+
+    async def _spy_stream(*args):
+        async for delta in real_stream(*args):
+            events.append("stream")
+            yield delta
+
+    monkeypatch.setattr(AsyncSession, "commit", _spy_commit)
+    monkeypatch.setattr(ai_chat_provider, "stream_reply", _spy_stream)
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    await client.post("/chat/messages", json={"message": "hi"}, headers=headers)
+
+    assert events[-1] == "commit"

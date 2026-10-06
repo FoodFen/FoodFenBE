@@ -116,8 +116,7 @@ class SmtpEmailVerificationNotifier:
         await self._send(message)
 
     async def _send(self, message: EmailMessage) -> None:
-        # Runs as a background task inside the request's DB-session scope: an exception here would
-        # be thrown into get_db_session and roll back the sign-up that already returned 200.
+        # Background task, after the response: nobody is left to handle an exception, so log it.
         try:
             await asyncio.to_thread(self._deliver, message)
         except Exception:

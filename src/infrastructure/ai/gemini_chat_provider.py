@@ -17,6 +17,7 @@ from src.domain.enums import ChatRole
 from src.infrastructure.ai.usage import log_usage
 
 _GEMINI_ROLE = {ChatRole.USER: "user", ChatRole.ASSISTANT: "model"}
+_CONTEXT_HEADER = "DATA ABOUT THIS USER (from their FoodFen account — real, not hypothetical)"
 
 
 class GeminiChatProvider:
@@ -34,7 +35,7 @@ class GeminiChatProvider:
         self._client = client or genai.Client(api_key=api_key)
 
     async def stream_reply(
-        self, history: list[ChatMessage], user_message: str
+        self, history: list[ChatMessage], user_message: str, context: str
     ) -> AsyncIterator[str]:
         contents = [
             types.Content(role=_GEMINI_ROLE[m.role], parts=[types.Part(text=m.content)])
@@ -42,11 +43,15 @@ class GeminiChatProvider:
         ]
         contents.append(types.Content(role="user", parts=[types.Part(text=user_message)]))
 
+        # Context goes after the fixed prompt so the stable prefix stays identical across turns.
+        system_instruction = (
+            f"{self._system_prompt}\n\n{_CONTEXT_HEADER}\n{context}" if context else self._system_prompt
+        )
         stream = await self._client.aio.models.generate_content_stream(
             model=self._model,
             contents=contents,
             config=types.GenerateContentConfig(
-                system_instruction=self._system_prompt,
+                system_instruction=system_instruction,
                 # No tools are configured here — automatic function calling has
                 # nothing to do, and its default-on state just logs an unrelated
                 # warning ("use AFC in AsyncChat instead") on every call.
