@@ -229,8 +229,8 @@ async def test_auth_endpoints_are_rate_limited_per_ip(client, monkeypatch):
 
 
 async def test_failing_email_delivery_does_not_undo_sign_up(client, monkeypatch):
-    """The mail runs as a background task *inside* the request's DB-session scope; if delivery
-    raises, the sign-up transaction must still commit."""
+    """An SMTP failure in the background task (which runs after the commit) is logged and must
+    not break sign-up."""
     from src.infrastructure.di import get_email_verification_notifier
     from src.infrastructure.notifications.email_verification_notifier import (
         SmtpEmailVerificationNotifier,
@@ -245,7 +245,7 @@ async def test_failing_email_delivery_does_not_undo_sign_up(client, monkeypatch)
         base_url="http://x", sender="a@b.c", host="h", port=25, username="", password="",
         starttls=False,
     )
-    app.dependency_overrides[get_email_verification_notifier] = lambda: smtp
+    monkeypatch.setitem(app.dependency_overrides, get_email_verification_notifier, lambda: smtp)
     creds = {"email": "mail@example.com", "password": "s3cret-pass"}
 
     assert (await client.post("/auth/sign-up", json=creds)).status_code == 200
@@ -274,7 +274,9 @@ async def test_sign_up_commits_before_the_background_email_runs(client, monkeypa
         async def send_password_reset(self, email, name, token): ...
 
     monkeypatch.setattr(AsyncSession, "commit", _spy_commit)
-    app.dependency_overrides[get_email_verification_notifier] = lambda: _OrderNotifier()
+    monkeypatch.setitem(
+        app.dependency_overrides, get_email_verification_notifier, lambda: _OrderNotifier()
+    )
 
     resp = await client.post("/auth/sign-up", json={"email": "o@example.com", "password": "s3cret-pass"})
 

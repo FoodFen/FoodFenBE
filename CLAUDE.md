@@ -49,7 +49,11 @@ Dependency direction: `domain <- application <- adapters | infrastructure`. Neve
 - **Always** enforce entity invariants in the entity's `__post_init__` (or a factory), not in the use case or schema.
 - **Always** construct new entities via the domain factory (`User.create(...)`), which sets
   timestamps / defaults (and, for `User` specifically, leaves `id=None` — see "Auth" below).
-- **Always** access the DB session through the `get_db_session` dependency (commit-on-success, rollback-on-error per request).
+- **Always** access the DB session through `SessionDep` (`get_db_session`): it commits / rolls back when the
+  endpoint function returns, i.e. before the response is sent and before `BackgroundTasks`. An SSE/streaming
+  endpoint whose use case writes mid-stream must take `StreamSessionDep` in its use-case provider and build its
+  repos from that session (as `get_send_chat_message_use_case` does, the one sanctioned exception to "repository
+  providers go in `di/repositories.py`").
 - **Always** run `uv run lint-imports` after touching imports. It is the architecture's guardrail and CI must stay green.
 - **Always** add an Alembic migration when you change an ORM model. Never edit the DB by hand.
 - **Always** put a new use case's provider in `src/infrastructure/di/use_cases.py` (a `get_*_use_case`

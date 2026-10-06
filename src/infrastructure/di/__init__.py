@@ -7,7 +7,7 @@ One package, one place to look: ``database.py`` (session), ``repositories.py``
 callers just do ``from src.infrastructure.di import XyzDep``.
 """
 
-from src.infrastructure.di.database import SessionDep, StreamSessionDep
+from src.infrastructure.di.database import SessionDep
 from src.infrastructure.di.notifications import (
     EmailVerificationNotifierDep,
     get_email_verification_notifier,
@@ -231,7 +231,6 @@ __all__ = [
     "ResetPasswordUseCaseDep",
     "SendChatMessageUseCaseDep",
     "SessionDep",
-    "StreamSessionDep",
     "SocialIdentityRepositoryDep",
     "SocialIdentityVerifierDep",
     "SocialSignInUseCaseDep",
