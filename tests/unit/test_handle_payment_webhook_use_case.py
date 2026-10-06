@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from src.application.ports.payment_provider import WebhookPayload
+from src.application.use_cases.apply_payment_result import apply_payment_result
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
 from src.domain.entities.payment import Payment
 from src.domain.entities.subscription import Subscription
@@ -16,10 +19,12 @@ from src.domain.exceptions import InvalidWebhookSignatureException, PaymentNotFo
 class FakePaymentRepo:
     def __init__(self) -> None:
         self._by_order_code: dict[int, Payment] = {}
+        self._stored_status: dict[int, PaymentStatus] = {}  # what the "DB" holds, apart from live objects
 
     def seed(self, payment: Payment, order_code: int) -> Payment:
         payment.order_code = order_code
         self._by_order_code[order_code] = payment
+        self._stored_status[order_code] = payment.status
         return payment
 
     async def create(self, payment):
@@ -31,6 +36,13 @@ class FakePaymentRepo:
     async def update(self, payment):
         self._by_order_code[payment.order_code] = payment
         return payment
+
+    async def update_if_status(self, payment, allowed):
+        if self._stored_status[payment.order_code] not in allowed:
+            return False
+        self._by_order_code[payment.order_code] = payment
+        self._stored_status[payment.order_code] = payment.status
+        return True
 
 
 class FakeSubscriptionRepo:
@@ -231,3 +243,34 @@ async def test_unknown_order_code_raises_not_found():
 
     with pytest.raises(PaymentNotFoundException):
         await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
+
+
+async def test_stale_second_success_does_not_renew_again():
+    payments = FakePaymentRepo()
+    payment = payments.seed(
+        Payment.create(user_id=1, plan_type=PlanType.MONTHLY, amount="49000"), order_code=42
+    )
+    stale = replace(payment)  # a second request that also read PENDING
+    subscriptions = FakeSubscriptionRepo()
+    users = FakeUserRepo(_user())
+
+    await apply_payment_result(payment, True, payments, subscriptions, users)
+    first_end = (await subscriptions.get_by_user_id(1)).end_date
+    result = await apply_payment_result(stale, True, payments, subscriptions, users)
+
+    assert result.status is PaymentStatus.PAID
+    assert (await subscriptions.get_by_user_id(1)).end_date == first_end
+
+
+async def test_stale_failure_does_not_overwrite_paid():
+    payments = FakePaymentRepo()
+    payment = payments.seed(
+        Payment.create(user_id=1, plan_type=PlanType.MONTHLY, amount="49000"), order_code=42
+    )
+    stale = replace(payment)
+
+    await apply_payment_result(payment, True, payments, FakeSubscriptionRepo(), FakeUserRepo(_user()))
+    result = await apply_payment_result(stale, False, payments, FakeSubscriptionRepo(), FakeUserRepo(_user()))
+
+    assert result.status is PaymentStatus.PAID
+    assert payments._by_order_code[42].status is PaymentStatus.PAID

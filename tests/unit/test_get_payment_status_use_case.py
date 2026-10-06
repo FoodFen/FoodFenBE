@@ -16,10 +16,12 @@ from src.domain.exceptions import PaymentNotFoundException
 class FakePaymentRepo:
     def __init__(self) -> None:
         self._by_order_code: dict[int, Payment] = {}
+        self._stored_status: dict[int, PaymentStatus] = {}  # what the "DB" holds, apart from live objects
 
     def seed(self, payment: Payment, order_code: int) -> Payment:
         payment.order_code = order_code
         self._by_order_code[order_code] = payment
+        self._stored_status[order_code] = payment.status
         return payment
 
     async def create(self, payment):
@@ -31,6 +33,13 @@ class FakePaymentRepo:
     async def update(self, payment):
         self._by_order_code[payment.order_code] = payment
         return payment
+
+    async def update_if_status(self, payment, allowed):
+        if self._stored_status[payment.order_code] not in allowed:
+            return False
+        self._by_order_code[payment.order_code] = payment
+        self._stored_status[payment.order_code] = payment.status
+        return True
 
 
 class FakeSubscriptionRepo:
