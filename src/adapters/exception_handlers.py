@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from src.domain.exceptions import (
+    AdminRequiredException,
     AiTrialExhaustedException,
     AuthenticationException,
     DomainException,
@@ -24,6 +25,7 @@ from src.domain.exceptions import (
     PremiumRequiredException,
     QuizAlreadySubmittedException,
     RateLimitedException,
+    RestaurantAlreadyExistsException,
     UserAlreadyExistsException,
 )
 
@@ -38,6 +40,8 @@ EXCEPTION_STATUS: list[tuple[type[DomainException], int]] = [
     (PremiumRequiredException, 402),
     (RateLimitedException, 429),
     (InsufficientCoinsException, 409),
+    (RestaurantAlreadyExistsException, 409),
+    (AdminRequiredException, 403),
     (PaymentProviderUnavailableException, 422),
     (EntityNotFoundException, 404),  # + UserNotFoundException, PaymentNotFoundException
     (DomainException, 400),  # catch-all

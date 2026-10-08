@@ -165,3 +165,21 @@ class CoinReason(StrEnum):
     ADJUSTMENT = "adjustment"
     QUIZ_DAILY = "quiz_daily"
     QUIZ_PRACTICE = "quiz_practice"
+
+
+class UserRole(StrEnum):
+    """Only `admin` grants anything. Restaurant ownership is data (`restaurants.user_id`), not a role."""
+
+    USER = "user"
+    ADMIN = "admin"
+
+
+class ModerationStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class ReviewDecision(StrEnum):
+    APPROVED = "approved"
+    REJECTED = "rejected"

@@ -116,3 +116,23 @@ class InvalidQuizAnswersException(InvalidAttributeException):
 
 class InvalidQuizDateException(InvalidAttributeException):
     """A quiz date is outside the allowed window around the server's day."""
+
+
+class InvalidRestaurantAttributeException(InvalidAttributeException):
+    """A restaurant or dish attribute violates a domain invariant."""
+
+
+class RestaurantNotFoundException(EntityNotFoundException):
+    """No such restaurant, or the caller owns none."""
+
+
+class DishNotFoundException(EntityNotFoundException):
+    """No such dish, or it belongs to another restaurant."""
+
+
+class RestaurantAlreadyExistsException(DomainException):
+    """The user already owns a restaurant (one per user). Maps to HTTP 409."""
+
+
+class AdminRequiredException(DomainException):
+    """The caller is not an admin. Maps to HTTP 403."""
