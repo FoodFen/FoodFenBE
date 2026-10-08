@@ -225,6 +225,12 @@ Spec: `docs/superpowers/specs/2026-10-03-quiz-design.md`. Wire contract (owned b
 - **Content** is Vietnamese, seeded by migration 0017; add or fix questions with SQL. Deactivate
   (`active = false`), never delete: issued quizzes reference questions by id.
 
+## Restaurants & admin
+
+Business rules (roles, moderation, what is public, open questions) live in `docs/marketplace.md`,
+a **living document**: read it before touching restaurants, dishes, admin or recommendation, and
+update it in the same change as any decision.
+
 ## Commands
 
     make dev            # uvicorn --reload
