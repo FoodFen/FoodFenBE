@@ -103,7 +103,9 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
   `fiberG`, `rejectionReason`, `restaurantId`, `latitude`, `longitude`, ... (snake_case above is DB/Python).
 - Every write returns the full updated row (`POST /restaurants` returns the restaurant with its `id`;
   `PATCH` a dish returns it, already back at `pending`). Owner reads always include `status` +
-  `rejectionReason`.
+  `rejectionReason`. Creates are 201; deleting a dish is 204.
+- `PATCH` is partial (send only what changes). `null` clears `description`, `imageUrl`, `fiberG`; on any
+  required field it is a 422 field error (`errors.<field>`).
 - Latitude/longitude are plain numbers, range-checked (-90..90, -180..180) with a field error
   (`errors.latitude`). The BE never parses Google Maps links; the web client splits the
   `"10.7769, 106.7009"` string Google Maps copies.
