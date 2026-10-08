@@ -16,6 +16,8 @@ class UpdateDishUseCase:
 
     async def execute(self, data: UpdateDishInputDTO) -> DishOutputDTO:
         current = await owned_dish(self.restaurants, data.user_id, data.dish_id)
+        if not data.updates:  # empty PATCH is a no-op: must not hide an approved dish
+            return DishOutputDTO.from_entity(current)
         dish = replace(current, **data.updates)
         dish.mark_edited(datetime.now(UTC))
         await self.restaurants.update_dish(dish)

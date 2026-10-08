@@ -69,3 +69,10 @@ async def test_range_rules():
     with pytest.raises(InvalidAttributeException):
         await use_case.execute(date(2025, 10, 7), date(2026, 10, 8), TODAY)  # 367 days
     assert len((await use_case.execute(date(2025, 10, 8), date(2026, 10, 8), TODAY)).daily) == 366
+
+
+async def test_extreme_dates_are_invalid():
+    use_case = GetAdminDashboardUseCase(FakeStats())
+    for extreme in (date(9999, 12, 31), date(1, 1, 1)):
+        with pytest.raises(InvalidAttributeException):
+            await use_case.execute(extreme, extreme, TODAY)

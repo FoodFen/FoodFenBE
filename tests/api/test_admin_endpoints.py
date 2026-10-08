@@ -31,7 +31,8 @@ async def test_admin_routes_need_a_token(client):
 
 async def test_demoted_admin_is_forbidden_immediately(client, make_user, set_role):
     headers, user_id = await make_user("boss@example.com", admin=True)
-    assert (await client.get("/admin/restaurants", headers=headers)).status_code == 200
+    first = await client.get("/admin/restaurants", headers=headers)
+    assert first.status_code == 200 and first.json() == []
     await set_role(user_id, UserRole.USER)
     assert (await client.get("/admin/restaurants", headers=headers)).status_code == 403
 

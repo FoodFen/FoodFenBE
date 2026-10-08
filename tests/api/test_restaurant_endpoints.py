@@ -146,3 +146,25 @@ async def test_editing_approved_dish_returns_it_to_pending(client, make_user, re
     await client.post(f"/admin/dishes/{dish['id']}/review", json={"decision": "approved"}, headers=admin)
     resp = await client.patch(f"/restaurants/mine/dishes/{dish['id']}", json={"price": 60000}, headers=headers)
     assert resp.json()["status"] == "pending"
+
+
+async def test_empty_patch_does_not_resubmit_rejected_restaurant(client, make_user, restaurant_body):
+    headers, body = await _create(client, make_user, restaurant_body)
+    admin = await _admin(make_user)
+    await client.post(
+        f"/admin/restaurants/{body['id']}/review",
+        json={"decision": "rejected", "reason": "need a real address"}, headers=admin,
+    )
+    resp = await client.patch("/restaurants/mine", json={}, headers=headers)
+    assert resp.status_code == 200
+    assert (resp.json()["status"], resp.json()["rejectionReason"]) == ("rejected", "need a real address")
+
+
+async def test_empty_patch_keeps_approved_dish_approved(client, make_user, restaurant_body, dish_body):
+    headers, _ = await _create(client, make_user, restaurant_body)
+    dish = (await client.post("/restaurants/mine/dishes", json=dish_body, headers=headers)).json()
+    admin = await _admin(make_user)
+    await client.post(f"/admin/dishes/{dish['id']}/review", json={"decision": "approved"}, headers=admin)
+    resp = await client.patch(f"/restaurants/mine/dishes/{dish['id']}", json={}, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "approved"

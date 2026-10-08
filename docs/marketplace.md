@@ -104,6 +104,7 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
 - Every write returns the full updated row (`POST /restaurants` returns the restaurant with its `id`;
   `PATCH` a dish returns it, already back at `pending`). Owner reads always include `status` +
   `rejectionReason`. Creates are 201; deleting a dish is 204.
+- `PATCH` with an empty body is a no-op (no status change).
 - `PATCH` is partial (send only what changes). `null` clears `description`, `imageUrl`, `fiberG`; on any
   required field it is a 422 field error (`errors.<field>`).
 - Latitude/longitude are plain numbers, range-checked (-90..90, -180..180) with a field error
@@ -125,3 +126,5 @@ Not yet: public diner endpoints (with the dish tab spec), bulk review, queue pag
 
 - Recommendation approach (rules over macros vs. AI) and how dishes are fed to it.
 - Paid placement: pricing, duration, how it is paid (PayOS / MoMo already integrated).
+- Approving a version the admin never saw: an owner edit between the admin opening the detail page and clicking approve gets approved unseen. Fix with an optional expectedUpdatedAt precondition (409 on mismatch) before the dish tab makes approvals public; it is a contract change.
+- Approved restaurants can change imageUrl (any https host) without re-review. Decide before the dish tab: restrict to our Cloudinary host, or re-review image changes.

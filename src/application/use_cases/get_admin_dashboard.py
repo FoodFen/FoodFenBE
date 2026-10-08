@@ -43,7 +43,10 @@ class GetAdminDashboardUseCase:
         if span > _MAX_DAYS:
             raise InvalidAttributeException(f"the range must not exceed {_MAX_DAYS} days")
 
-        start, end = _vn_midnight_utc(from_date), _vn_midnight_utc(to_date + timedelta(days=1))
+        try:
+            start, end = _vn_midnight_utc(from_date), _vn_midnight_utc(to_date + timedelta(days=1))
+        except OverflowError as exc:
+            raise InvalidAttributeException("date out of range") from exc
         # ponytail: rows are fetched and bucketed in Python, O(rows in range) and dialect-portable.
         # Move to SQL GROUP BY when a 30-day window holds more than ~100k payments or signups.
         revenue: dict[date, Decimal] = {}

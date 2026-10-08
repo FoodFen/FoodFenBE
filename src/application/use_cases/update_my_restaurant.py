@@ -16,6 +16,8 @@ class UpdateMyRestaurantUseCase:
 
     async def execute(self, data: UpdateRestaurantInputDTO) -> RestaurantOutputDTO:
         current = await owned_restaurant(self.restaurants, data.user_id)
+        if not data.updates:  # empty PATCH is a no-op: must not resubmit a rejected restaurant
+            return RestaurantOutputDTO.from_entity(current)
         restaurant = replace(current, **data.updates)  # re-runs __post_init__: invariants re-checked
         restaurant.mark_edited(datetime.now(UTC))
         await self.restaurants.update(restaurant)
