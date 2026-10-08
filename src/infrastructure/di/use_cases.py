@@ -58,6 +58,10 @@ from src.application.use_cases.update_user_profile import UpdateUserProfileUseCa
 from src.application.use_cases.update_water_log import UpdateWaterLogUseCase
 from src.application.use_cases.upsert_streak import UpsertStreakUseCase
 from src.application.use_cases.verify_email import VerifyEmailUseCase
+from src.application.use_cases.create_restaurant import CreateRestaurantUseCase
+from src.application.use_cases.get_my_restaurant import GetMyRestaurantUseCase
+from src.application.use_cases.update_my_restaurant import UpdateMyRestaurantUseCase
+from src.application.use_cases.upload_restaurant_image import UploadRestaurantImageUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
     AiTrialRepositoryDep,
@@ -541,3 +545,37 @@ def get_submit_quiz_use_case(
 
 
 SubmitQuizUseCaseDep = Annotated[SubmitQuizUseCase, Depends(get_submit_quiz_use_case)]
+
+
+def get_create_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> CreateRestaurantUseCase:
+    return CreateRestaurantUseCase(restaurants=restaurants)
+
+
+CreateRestaurantUseCaseDep = Annotated[CreateRestaurantUseCase, Depends(get_create_restaurant_use_case)]
+
+
+def get_get_my_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> GetMyRestaurantUseCase:
+    return GetMyRestaurantUseCase(restaurants=restaurants)
+
+
+GetMyRestaurantUseCaseDep = Annotated[GetMyRestaurantUseCase, Depends(get_get_my_restaurant_use_case)]
+
+
+def get_update_my_restaurant_use_case(
+    restaurants: RestaurantRepositoryDep,
+) -> UpdateMyRestaurantUseCase:
+    return UpdateMyRestaurantUseCase(restaurants=restaurants)
+
+
+UpdateMyRestaurantUseCaseDep = Annotated[
+    UpdateMyRestaurantUseCase, Depends(get_update_my_restaurant_use_case)
+]
+
+
+def get_upload_restaurant_image_use_case(images: ImageStorageDep) -> UploadRestaurantImageUseCase:
+    return UploadRestaurantImageUseCase(images=images)
+
+
+UploadRestaurantImageUseCaseDep = Annotated[
+    UploadRestaurantImageUseCase, Depends(get_upload_restaurant_image_use_case)
+]
