@@ -58,8 +58,12 @@ from src.application.use_cases.update_user_profile import UpdateUserProfileUseCa
 from src.application.use_cases.update_water_log import UpdateWaterLogUseCase
 from src.application.use_cases.upsert_streak import UpsertStreakUseCase
 from src.application.use_cases.verify_email import VerifyEmailUseCase
+from src.application.use_cases.create_dish import CreateDishUseCase
 from src.application.use_cases.create_restaurant import CreateRestaurantUseCase
+from src.application.use_cases.delete_dish import DeleteDishUseCase
 from src.application.use_cases.get_my_restaurant import GetMyRestaurantUseCase
+from src.application.use_cases.list_my_dishes import ListMyDishesUseCase
+from src.application.use_cases.update_dish import UpdateDishUseCase
 from src.application.use_cases.update_my_restaurant import UpdateMyRestaurantUseCase
 from src.application.use_cases.upload_restaurant_image import UploadRestaurantImageUseCase
 from src.infrastructure.config import settings
@@ -579,3 +583,31 @@ def get_upload_restaurant_image_use_case(images: ImageStorageDep) -> UploadResta
 UploadRestaurantImageUseCaseDep = Annotated[
     UploadRestaurantImageUseCase, Depends(get_upload_restaurant_image_use_case)
 ]
+
+
+def get_list_my_dishes_use_case(restaurants: RestaurantRepositoryDep) -> ListMyDishesUseCase:
+    return ListMyDishesUseCase(restaurants=restaurants)
+
+
+ListMyDishesUseCaseDep = Annotated[ListMyDishesUseCase, Depends(get_list_my_dishes_use_case)]
+
+
+def get_create_dish_use_case(restaurants: RestaurantRepositoryDep) -> CreateDishUseCase:
+    return CreateDishUseCase(restaurants=restaurants)
+
+
+CreateDishUseCaseDep = Annotated[CreateDishUseCase, Depends(get_create_dish_use_case)]
+
+
+def get_update_dish_use_case(restaurants: RestaurantRepositoryDep) -> UpdateDishUseCase:
+    return UpdateDishUseCase(restaurants=restaurants)
+
+
+UpdateDishUseCaseDep = Annotated[UpdateDishUseCase, Depends(get_update_dish_use_case)]
+
+
+def get_delete_dish_use_case(restaurants: RestaurantRepositoryDep) -> DeleteDishUseCase:
+    return DeleteDishUseCase(restaurants=restaurants)
+
+
+DeleteDishUseCaseDep = Annotated[DeleteDishUseCase, Depends(get_delete_dish_use_case)]

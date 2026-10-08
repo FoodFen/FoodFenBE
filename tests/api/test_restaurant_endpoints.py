@@ -89,3 +89,65 @@ async def test_image_upload(client, make_user, image_storage):
         files={"image": ("a.jpg", b"x" * (5 * 1024 * 1024 + 1), "image/jpeg")}, headers=headers,
     )
     assert big.status_code == 400
+
+
+async def test_dish_lifecycle(client, make_user, restaurant_body, dish_body):
+    headers, _ = await _create(client, make_user, restaurant_body)
+    created = await client.post("/restaurants/mine/dishes", json=dish_body, headers=headers)
+    assert created.status_code == 201
+    dish = created.json()
+    assert (dish["status"], dish["servingG"], dish["proteinG"], dish["price"]) == ("pending", 500, 30, 55000)
+    assert dish["fiberG"] is None
+
+    patched = await client.patch(
+        f"/restaurants/mine/dishes/{dish['id']}", json={"kcal": 480, "fiberG": 3.5}, headers=headers
+    )
+    assert patched.status_code == 200
+    assert (patched.json()["kcal"], patched.json()["fiberG"], patched.json()["status"]) == (480, 3.5, "pending")
+
+    listed = (await client.get("/restaurants/mine/dishes", headers=headers)).json()
+    assert [d["id"] for d in listed] == [dish["id"]]
+
+    assert (await client.delete(f"/restaurants/mine/dishes/{dish['id']}", headers=headers)).status_code == 204
+    assert (await client.get("/restaurants/mine/dishes", headers=headers)).json() == []
+
+
+async def test_dish_without_restaurant_is_404(client, make_user, dish_body):
+    headers, _ = await make_user("nobody@example.com")
+    assert (await client.post("/restaurants/mine/dishes", json=dish_body, headers=headers)).status_code == 404
+
+
+async def test_other_owners_dish_is_404(client, make_user, restaurant_body, dish_body):
+    alice, _ = await _create(client, make_user, restaurant_body, "alice@example.com")
+    bob, _ = await _create(client, make_user, restaurant_body, "bob@example.com")
+    dish = (await client.post("/restaurants/mine/dishes", json=dish_body, headers=alice)).json()
+    url = f"/restaurants/mine/dishes/{dish['id']}"
+    assert (await client.patch(url, json={"kcal": 1}, headers=bob)).status_code == 404
+    assert (await client.delete(url, headers=bob)).status_code == 404
+
+
+async def test_patch_null_kcal_is_422(client, make_user, restaurant_body, dish_body):
+    headers, _ = await _create(client, make_user, restaurant_body)
+    dish = (await client.post("/restaurants/mine/dishes", json=dish_body, headers=headers)).json()
+    resp = await client.patch(f"/restaurants/mine/dishes/{dish['id']}", json={"kcal": None}, headers=headers)
+    assert resp.status_code == 422 and "kcal" in resp.json()["errors"]
+    cleared = await client.patch(
+        f"/restaurants/mine/dishes/{dish['id']}", json={"fiberG": None}, headers=headers
+    )
+    assert cleared.status_code == 200 and cleared.json()["fiberG"] is None
+
+
+async def test_negative_kcal_is_a_field_error(client, make_user, restaurant_body, dish_body):
+    headers, _ = await _create(client, make_user, restaurant_body)
+    resp = await client.post("/restaurants/mine/dishes", json={**dish_body, "kcal": -1}, headers=headers)
+    assert resp.status_code == 422 and "kcal" in resp.json()["errors"]
+
+
+@pytest.mark.skip(reason="needs Task 6")
+async def test_editing_approved_dish_returns_it_to_pending(client, make_user, restaurant_body, dish_body):
+    headers, _ = await _create(client, make_user, restaurant_body)
+    dish = (await client.post("/restaurants/mine/dishes", json=dish_body, headers=headers)).json()
+    admin = await _admin(make_user)
+    await client.post(f"/admin/dishes/{dish['id']}/review", json={"decision": "approved"}, headers=admin)
+    resp = await client.patch(f"/restaurants/mine/dishes/{dish['id']}", json={"price": 60000}, headers=headers)
+    assert resp.json()["status"] == "pending"

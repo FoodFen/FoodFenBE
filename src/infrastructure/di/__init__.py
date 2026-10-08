@@ -133,6 +133,10 @@ from src.infrastructure.di.use_cases import (
     GetMyRestaurantUseCaseDep,
     UpdateMyRestaurantUseCaseDep,
     UploadRestaurantImageUseCaseDep,
+    ListMyDishesUseCaseDep,
+    CreateDishUseCaseDep,
+    UpdateDishUseCaseDep,
+    DeleteDishUseCaseDep,
     get_ai_trial_use_case,
     get_analyze_food_image_use_case,
     get_analyze_food_text_use_case,
@@ -184,6 +188,10 @@ from src.infrastructure.di.use_cases import (
     get_get_my_restaurant_use_case,
     get_update_my_restaurant_use_case,
     get_upload_restaurant_image_use_case,
+    get_list_my_dishes_use_case,
+    get_create_dish_use_case,
+    get_update_dish_use_case,
+    get_delete_dish_use_case,
 )
 
 __all__ = [
@@ -269,6 +277,10 @@ __all__ = [
     "GetMyRestaurantUseCaseDep",
     "UpdateMyRestaurantUseCaseDep",
     "UploadRestaurantImageUseCaseDep",
+    "ListMyDishesUseCaseDep",
+    "CreateDishUseCaseDep",
+    "UpdateDishUseCaseDep",
+    "DeleteDishUseCaseDep",
     "WaterLogRepositoryDep",
     "WeightLogRepositoryDep",
     "get_activity_log_repository",
@@ -355,6 +367,10 @@ __all__ = [
     "get_get_my_restaurant_use_case",
     "get_update_my_restaurant_use_case",
     "get_upload_restaurant_image_use_case",
+    "get_list_my_dishes_use_case",
+    "get_create_dish_use_case",
+    "get_update_dish_use_case",
+    "get_delete_dish_use_case",
     "get_water_log_repository",
     "get_weight_log_repository",
 ]

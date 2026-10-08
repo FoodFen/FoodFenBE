@@ -6,21 +6,34 @@
 from __future__ import annotations
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, UploadFile, status
 
 from src.adapters.schemas.restaurant_schemas import (
+    CreateDishRequest,
     CreateRestaurantRequest,
+    DishResponse,
     ImageUploadResponse,
     RestaurantResponse,
+    UpdateDishRequest,
     UpdateRestaurantRequest,
 )
-from src.application.dtos.restaurant import CreateRestaurantInputDTO, UpdateRestaurantInputDTO
+from src.application.dtos.restaurant import (
+    CreateDishInputDTO,
+    CreateRestaurantInputDTO,
+    UpdateDishInputDTO,
+    UpdateRestaurantInputDTO,
+)
 from src.domain.exceptions import UnreadableImageException
 from src.infrastructure.di import (
+    CreateDishUseCaseDep,
     CreateRestaurantUseCaseDep,
     CurrentUserDep,
+    DeleteDishUseCaseDep,
     GetMyRestaurantUseCaseDep,
+    ListMyDishesUseCaseDep,
+    UpdateDishUseCaseDep,
     UpdateMyRestaurantUseCaseDep,
     UploadRestaurantImageUseCaseDep,
     limit_upload_by_user,
@@ -75,3 +88,32 @@ async def upload_image(
     if len(data) > _MAX_IMAGE_BYTES:
         raise UnreadableImageException("image is larger than 5 MB")
     return ImageUploadResponse(url=await use_case.execute(data, image.content_type))
+
+
+@router.get("/mine/dishes", response_model=list[DishResponse])
+async def list_my_dishes(user: CurrentUserDep, use_case: ListMyDishesUseCaseDep) -> list[DishResponse]:
+    return [DishResponse.from_dto(d) for d in await use_case.execute(user.id)]
+
+
+@router.post("/mine/dishes", response_model=DishResponse, status_code=status.HTTP_201_CREATED)
+async def create_dish(
+    body: CreateDishRequest, user: CurrentUserDep, use_case: CreateDishUseCaseDep
+) -> DishResponse:
+    return DishResponse.from_dto(
+        await use_case.execute(CreateDishInputDTO(user_id=user.id, **body.model_dump()))
+    )
+
+
+@router.patch("/mine/dishes/{dish_id}", response_model=DishResponse)
+async def update_dish(
+    dish_id: UUID, body: UpdateDishRequest, user: CurrentUserDep, use_case: UpdateDishUseCaseDep
+) -> DishResponse:
+    result = await use_case.execute(
+        UpdateDishInputDTO(user_id=user.id, dish_id=dish_id, updates=body.model_dump(exclude_unset=True))
+    )
+    return DishResponse.from_dto(result)
+
+
+@router.delete("/mine/dishes/{dish_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_dish(dish_id: UUID, user: CurrentUserDep, use_case: DeleteDishUseCaseDep) -> None:
+    await use_case.execute(user.id, dish_id)
