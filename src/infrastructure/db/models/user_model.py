@@ -19,6 +19,7 @@ from src.domain.enums import (
     Gender,
     SubscriptionTier,
     UnitSystem,
+    UserRole,
 )
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.mixins import IntPrimaryKey
@@ -68,6 +69,9 @@ class UserORM(IntPrimaryKey, Base):
         server_default=SubscriptionTier.FREE.value,
     )
     weekly_rate_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    role: Mapped[UserRole] = mapped_column(
+        enum_column(UserRole, "user_role"), nullable=False, server_default=UserRole.USER.value
+    )
 
     def to_domain(self) -> User:
         return User(
@@ -90,6 +94,7 @@ class UserORM(IntPrimaryKey, Base):
             calorie_left_mode=self.calorie_left_mode,
             subscription_tier=self.subscription_tier,
             weekly_rate_kg=self.weekly_rate_kg,
+            role=self.role,
         )
 
     @staticmethod
@@ -113,6 +118,7 @@ class UserORM(IntPrimaryKey, Base):
             calorie_left_mode=user.calorie_left_mode,
             subscription_tier=user.subscription_tier,
             weekly_rate_kg=user.weekly_rate_kg,
+            role=user.role,
         )
         # Autoincrement PK: only set it when the entity already has one (an
         # update), never on insert — leave it unset so Postgres assigns it.

@@ -11,6 +11,7 @@ from typing import Annotated
 from fastapi import Depends
 
 from src.application.ports.activity_log_repository import ActivityLogRepositoryProtocol
+from src.application.ports.admin_stats_repository import AdminStatsRepositoryProtocol
 from src.application.ports.ai_trial_repository import AiTrialRepositoryProtocol
 from src.application.ports.chat_message_repository import ChatMessageRepositoryProtocol
 from src.application.ports.coin_bundle_repository import CoinBundleRepositoryProtocol
@@ -21,6 +22,7 @@ from src.application.ports.payment_repository import PaymentRepositoryProtocol
 from src.application.ports.quest_repository import QuestRepositoryProtocol
 from src.application.ports.quiz_repository import QuizRepositoryProtocol
 from src.application.ports.refresh_token_repository import RefreshTokenRepositoryProtocol
+from src.application.ports.restaurant_repository import RestaurantRepositoryProtocol
 from src.application.ports.social_identity_repository import SocialIdentityRepositoryProtocol
 from src.application.ports.streak_repository import StreakRepositoryProtocol
 from src.application.ports.subscription_repository import SubscriptionRepositoryProtocol
@@ -29,6 +31,9 @@ from src.application.ports.water_log_repository import WaterLogRepositoryProtoco
 from src.application.ports.weight_log_repository import WeightLogRepositoryProtocol
 from src.infrastructure.db.repositories.activity_log_repository import (
     SQLAlchemyActivityLogRepository,
+)
+from src.infrastructure.db.repositories.admin_stats_repository import (
+    SQLAlchemyAdminStatsRepository,
 )
 from src.infrastructure.db.repositories.ai_trial_repository import SQLAlchemyAiTrialRepository
 from src.infrastructure.db.repositories.chat_message_repository import (
@@ -45,6 +50,9 @@ from src.infrastructure.db.repositories.quest_repository import SQLAlchemyQuestR
 from src.infrastructure.db.repositories.quiz_repository import SQLAlchemyQuizRepository
 from src.infrastructure.db.repositories.refresh_token_repository import (
     SQLAlchemyRefreshTokenRepository,
+)
+from src.infrastructure.db.repositories.restaurant_repository import (
+    SQLAlchemyRestaurantRepository,
 )
 from src.infrastructure.db.repositories.social_identity_repository import (
     SQLAlchemySocialIdentityRepository,
@@ -187,4 +195,22 @@ def get_coin_bundle_repository(session: SessionDep) -> CoinBundleRepositoryProto
 
 CoinBundleRepositoryDep = Annotated[
     CoinBundleRepositoryProtocol, Depends(get_coin_bundle_repository)
+]
+
+
+def get_restaurant_repository(session: SessionDep) -> RestaurantRepositoryProtocol:
+    return SQLAlchemyRestaurantRepository(session)
+
+
+RestaurantRepositoryDep = Annotated[
+    RestaurantRepositoryProtocol, Depends(get_restaurant_repository)
+]
+
+
+def get_admin_stats_repository(session: SessionDep) -> AdminStatsRepositoryProtocol:
+    return SQLAlchemyAdminStatsRepository(session)
+
+
+AdminStatsRepositoryDep = Annotated[
+    AdminStatsRepositoryProtocol, Depends(get_admin_stats_repository)
 ]
