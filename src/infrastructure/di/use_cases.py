@@ -66,12 +66,14 @@ from src.application.use_cases.list_my_dishes import ListMyDishesUseCase
 from src.application.use_cases.update_dish import UpdateDishUseCase
 from src.application.use_cases.update_my_restaurant import UpdateMyRestaurantUseCase
 from src.application.use_cases.upload_restaurant_image import UploadRestaurantImageUseCase
+from src.application.use_cases.get_admin_dashboard import GetAdminDashboardUseCase
 from src.application.use_cases.get_admin_restaurant import GetAdminRestaurantUseCase
 from src.application.use_cases.list_admin_restaurants import ListAdminRestaurantsUseCase
 from src.application.use_cases.review_dish import ReviewDishUseCase
 from src.application.use_cases.review_restaurant import ReviewRestaurantUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
+    AdminStatsRepositoryDep,
     AiTrialRepositoryDep,
     ActivityLogRepositoryDep,
     CoinBundleRepositoryDep,
@@ -643,3 +645,10 @@ def get_review_dish_use_case(restaurants: RestaurantRepositoryDep) -> ReviewDish
 
 
 ReviewDishUseCaseDep = Annotated[ReviewDishUseCase, Depends(get_review_dish_use_case)]
+
+
+def get_get_admin_dashboard_use_case(stats: AdminStatsRepositoryDep) -> GetAdminDashboardUseCase:
+    return GetAdminDashboardUseCase(stats=stats)
+
+
+GetAdminDashboardUseCaseDep = Annotated[GetAdminDashboardUseCase, Depends(get_get_admin_dashboard_use_case)]

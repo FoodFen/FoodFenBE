@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import Field, ValidationInfo, field_validator
 
 from src.adapters.schemas.base import CamelModel
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
-from src.application.dtos.admin import AdminRestaurantDetailDTO, AdminRestaurantRowDTO
+from src.application.dtos.admin import AdminRestaurantDetailDTO, AdminRestaurantRowDTO, DashboardDTO
 from src.domain.enums import ModerationStatus, ReviewDecision
 
 
@@ -51,4 +51,35 @@ class AdminRestaurantDetailResponse(CamelModel):
         return cls(
             restaurant=RestaurantResponse.from_dto(dto.restaurant),
             dishes=[DishResponse.from_dto(d) for d in dto.dishes],
+        )
+
+
+class DashboardTotalsResponse(CamelModel):
+    premium_revenue: int
+    ad_revenue: int
+    new_users: int
+    new_restaurants: int
+
+
+class DashboardDayResponse(DashboardTotalsResponse):
+    date: date
+
+
+class DashboardResponse(CamelModel):
+    # "from" is a Python keyword: declare it as from_date with an explicit alias.
+    from_date: date = Field(alias="from")
+    to_date: date = Field(alias="to")
+    totals: DashboardTotalsResponse
+    daily: list[DashboardDayResponse]
+
+    @classmethod
+    def from_dto(cls, dto: DashboardDTO) -> DashboardResponse:
+        return cls(
+            from_date=dto.from_date,
+            to_date=dto.to_date,
+            totals=DashboardTotalsResponse(
+                premium_revenue=dto.premium_revenue, ad_revenue=dto.ad_revenue,
+                new_users=dto.new_users, new_restaurants=dto.new_restaurants,
+            ),
+            daily=[DashboardDayResponse(**vars(d)) for d in dto.daily],
         )

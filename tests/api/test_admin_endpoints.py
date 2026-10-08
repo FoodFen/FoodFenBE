@@ -108,3 +108,42 @@ async def test_repeat_review_is_idempotent_and_takedown_works(client, make_user,
     assert again.json()["status"] == "approved"
     down = await _review(client, admin, "restaurants", rid, "rejected", "food safety report")
     assert (down.json()["status"], down.json()["rejectionReason"]) == ("rejected", "food safety report")
+
+
+async def test_dashboard_sums_only_paid_payments(client, make_user, restaurant_body):
+    from datetime import UTC, datetime, timedelta, timezone
+    from decimal import Decimal
+    from uuid import uuid4
+
+    from src.domain.enums import PaymentStatus, PlanType
+    from src.infrastructure.db.models.payment_model import PaymentORM
+    from src.infrastructure.db.session import SessionLocal
+
+    admin, admin_id = await make_user("admin@example.com", admin=True)
+    owner, _ = await make_user("owner@example.com")
+    await client.post("/restaurants", json=restaurant_body, headers=owner)
+    now = datetime.now(UTC)
+    async with SessionLocal() as session:
+        session.add_all([
+            PaymentORM(id=uuid4(), user_id=admin_id, plan_type=PlanType.MONTHLY, amount=Decimal("99000"),
+                       status=PaymentStatus.PAID, created_at=now, paid_at=now),
+            PaymentORM(id=uuid4(), user_id=admin_id, plan_type=PlanType.ANNUAL, amount=Decimal("990000"),
+                       status=PaymentStatus.PENDING, created_at=now, paid_at=None),
+        ])
+        await session.commit()
+
+    today = datetime.now(timezone(timedelta(hours=7))).date().isoformat()
+    resp = await client.get(f"/admin/dashboard?from={today}&to={today}", headers=admin)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["totals"] == {"premiumRevenue": 99000, "adRevenue": 0, "newUsers": 2, "newRestaurants": 1}
+    assert body["daily"] == [{
+        "date": today, "premiumRevenue": 99000, "adRevenue": 0, "newUsers": 2, "newRestaurants": 1,
+    }]
+    assert (body["from"], body["to"]) == (today, today)
+
+
+async def test_dashboard_bad_range_is_400(client, make_user):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    resp = await client.get("/admin/dashboard?from=2026-10-09&to=2026-10-08", headers=admin)
+    assert resp.status_code == 400

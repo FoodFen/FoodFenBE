@@ -5,6 +5,7 @@ Every route is admin-only via the router-level dependency.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Annotated
 from uuid import UUID
 
@@ -13,11 +14,13 @@ from fastapi import APIRouter, Depends, Query
 from src.adapters.schemas.admin_schemas import (
     AdminRestaurantDetailResponse,
     AdminRestaurantRowResponse,
+    DashboardResponse,
     ReviewRequest,
 )
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
 from src.domain.enums import ModerationStatus
 from src.infrastructure.di import (
+    GetAdminDashboardUseCaseDep,
     GetAdminRestaurantUseCaseDep,
     ListAdminRestaurantsUseCaseDep,
     ReviewDishUseCaseDep,
@@ -54,3 +57,13 @@ async def review_restaurant(
 @router.post("/dishes/{dish_id}/review", response_model=DishResponse)
 async def review_dish(dish_id: UUID, body: ReviewRequest, use_case: ReviewDishUseCaseDep) -> DishResponse:
     return DishResponse.from_dto(await use_case.execute(dish_id, body.decision, body.reason))
+
+
+@router.get("/dashboard", response_model=DashboardResponse)
+async def dashboard(
+    use_case: GetAdminDashboardUseCaseDep,
+    from_: Annotated[date | None, Query(alias="from")] = None,
+    to: Annotated[date | None, Query()] = None,
+) -> DashboardResponse:
+    """Vietnam days (UTC+7), inclusive, zero-filled. Default: the last 30 days."""
+    return DashboardResponse.from_dto(await use_case.execute(from_, to))
