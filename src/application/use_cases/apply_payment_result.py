@@ -24,11 +24,20 @@ async def apply_payment_result(
     subscriptions: SubscriptionRepositoryProtocol,
     users: UserRepositoryProtocol,
 ) -> Payment:
-    if payment.status is not PaymentStatus.PENDING:
-        return payment  # already processed — webhook retry or double reconciliation
+    # Already processed (webhook retry / double reconciliation) — except a locally CANCELLED
+    # payment the provider confirms as paid: that money must still grant Premium.
+    if payment.status is not PaymentStatus.PENDING and not (
+        payment.status is PaymentStatus.CANCELLED and succeeded
+    ):
+        return payment
 
+    # Conditional write first: only the request that flips the status may renew Premium.
+    # ponytail: two DIFFERENT payments of one user paid concurrently can still race on the
+    # Subscription row; lock the user row (FOR UPDATE) if that ever matters.
     if succeeded:
         payment.mark_paid()
+        if not await payments.update_if_status(payment, (PaymentStatus.PENDING, PaymentStatus.CANCELLED)):
+            return await _stored(payment, payments)
         existing = await subscriptions.get_by_user_id(payment.user_id)
         renewed = Subscription.renew(
             existing, payment.user_id, payment.plan_type, payment.amount, date.today()
@@ -39,7 +48,14 @@ async def apply_payment_result(
         if user is not None:
             user.subscription_tier = SubscriptionTier.PREMIUM
             await users.update(user)
-    else:
-        payment.mark_failed()
+        return payment
 
-    return await payments.update(payment)
+    payment.mark_failed()
+    if not await payments.update_if_status(payment, (PaymentStatus.PENDING,)):
+        return await _stored(payment, payments)
+    return payment
+
+
+async def _stored(payment: Payment, payments: PaymentRepositoryProtocol) -> Payment:
+    """Another request already processed this payment: report what it stored, no side effects."""
+    return await payments.get_by_order_code(payment.order_code) or payment

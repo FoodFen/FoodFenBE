@@ -73,8 +73,8 @@ SocialSignInUseCase:
       return issue_session(user)
 
   # first time we've seen this (provider, subject) pair
-  email = body.email or identity.email
-  if not email:  raise InvalidUserAttributeException     -> HTTP 400
+  email = identity.email                       # never the request body: it is client-controlled
+  if not email or not identity.email_verified:  raise InvalidUserAttributeException  -> HTTP 400
 
   existing = users.get_by_email(email)
   if existing is not None:

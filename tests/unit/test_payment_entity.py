@@ -7,7 +7,7 @@ from decimal import Decimal
 import pytest
 
 from src.domain.entities.payment import Payment
-from src.domain.enums import PaymentStatus, PlanType
+from src.domain.enums import PaymentProvider, PaymentStatus, PlanType
 from src.domain.exceptions import InvalidAttributeException, InvalidPaymentStateException
 
 
@@ -57,6 +57,21 @@ def test_mark_paid_is_idempotent():
     assert payment.paid_at == first_paid_at
 
 
+def test_mark_paid_after_local_cancel_still_counts():
+    payment = _payment()
+    payment.mark_cancelled()
+    payment.mark_paid()
+    assert payment.status is PaymentStatus.PAID
+    assert payment.paid_at is not None
+
+
+def test_mark_paid_does_not_revive_a_failed_payment():
+    payment = _payment()
+    payment.mark_failed()
+    payment.mark_paid()
+    assert payment.status is PaymentStatus.FAILED
+
+
 def test_mark_cancelled_rejects_non_pending():
     payment = _payment()
     payment.mark_paid()
@@ -68,3 +83,20 @@ def test_mark_cancelled_sets_status_while_pending():
     payment = _payment()
     payment.mark_cancelled()
     assert payment.status is PaymentStatus.CANCELLED
+
+
+def test_create_defaults_to_payos():
+    payment = Payment.create(1, PlanType.MONTHLY, 49000)
+    assert payment.provider is PaymentProvider.PAYOS
+
+
+def test_create_records_the_chosen_provider():
+    payment = Payment.create(1, PlanType.MONTHLY, 49000, PaymentProvider.MOMO)
+    assert payment.provider is PaymentProvider.MOMO
+
+
+def test_attach_checkout_accepts_no_qr_code():
+    payment = Payment.create(1, PlanType.MONTHLY, 49000, PaymentProvider.MOMO)
+    payment.attach_checkout("FF1", "https://pay.momo/x", None)
+    assert payment.qr_code is None
+    assert payment.checkout_url == "https://pay.momo/x"

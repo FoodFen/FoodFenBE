@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.payment import Payment
+from src.domain.enums import PaymentStatus
 from src.domain.exceptions import PaymentNotFoundException
 from src.infrastructure.db.models.payment_model import PaymentORM
 
@@ -24,7 +25,9 @@ class SQLAlchemyPaymentRepository:
     async def get_by_order_code(self, order_code: int) -> Payment | None:
         row = (
             await self._session.execute(
-                select(PaymentORM).where(PaymentORM.order_code == order_code)
+                select(PaymentORM)
+                .where(PaymentORM.order_code == order_code)
+                .execution_options(populate_existing=True)  # see a concurrent request's committed flip
             )
         ).scalar_one_or_none()
         return row.to_domain() if row is not None else None
@@ -40,3 +43,12 @@ class SQLAlchemyPaymentRepository:
             setattr(row, column, getattr(fresh, column))
         await self._session.flush()
         return row.to_domain()
+
+    async def update_if_status(self, payment: Payment, allowed: tuple[PaymentStatus, ...]) -> bool:
+        flipped = await self._session.scalar(
+            update(PaymentORM)
+            .where(PaymentORM.id == payment.id, PaymentORM.status.in_(allowed))
+            .values(status=payment.status, paid_at=payment.paid_at)
+            .returning(PaymentORM.id)
+        )
+        return flipped is not None

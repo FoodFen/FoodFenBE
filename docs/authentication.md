@@ -557,7 +557,8 @@ Interactive docs with a green **Authorize** button: `http://127.0.0.1:8000/docs`
 | Replaying a revoked refresh token just fails; it does not revoke the whole token family | MVP; theft detection is a larger feature | Add "on reuse of a revoked `jti`, revoke all of that user's tokens" |
 | Sign-out kills only the refresh token, not the paired access token | The access token lives at most 30 minutes | Add a short-lived denylist cache (Redis) keyed by the access token's id |
 | A verification/reset email lost after the response (app crash before the background task ran) is never retried | The user can resend / re-request | Move sending to a real task queue (arq / Celery) with retries |
-| Old verification/reset tokens stay valid until they naturally expire, even after a resend | Short windows (24h / 1h), low stakes | Track a `jti` per token if single-use matters |
+| Old verification tokens stay valid until they naturally expire, even after a resend | Short window (24h), low stakes | Track a `jti` per token if single-use matters |
+| A reset token is single-use only via the `stamp` claim (a hash of the current password hash), so re-requesting a reset does not invalidate earlier unused links | Each link still dies on first use and after 1h | Track a `jti` per reset token |
 | No account lockout after repeated failed logins | Out of scope for this slice | Its own slice, same pattern as everything else here |
 | Migration `0005` (UUID -> int user ids) truncates all user data | No production data existed yet | N/A — a one-time pre-launch migration, not a pattern to repeat |
 

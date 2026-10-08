@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
@@ -98,6 +99,11 @@ class User:
     @property
     def is_premium(self) -> bool:
         return self.subscription_tier is SubscriptionTier.PREMIUM
+
+    @property
+    def password_stamp(self) -> str:
+        """Changes whenever the password does; a reset token embeds it so it dies once used."""
+        return hashlib.sha256((self.password_hash or "").encode()).hexdigest()[:16]
 
     @property
     def is_email_verified(self) -> bool:

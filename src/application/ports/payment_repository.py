@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from src.domain.entities.payment import Payment
+from src.domain.enums import PaymentStatus
 
 
 class PaymentRepositoryProtocol(Protocol):
@@ -16,4 +17,11 @@ class PaymentRepositoryProtocol(Protocol):
 
     async def update(self, payment: Payment) -> Payment:
         """Raise ``PaymentNotFoundException`` if the row is gone."""
+        ...
+
+    async def update_if_status(self, payment: Payment, allowed: tuple[PaymentStatus, ...]) -> bool:
+        """Persist ``status``/``paid_at`` only if the stored status is still in ``allowed``.
+
+        True only for the one request whose write flipped it (like ``QuestRepository.record``).
+        """
         ...

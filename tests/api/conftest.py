@@ -13,7 +13,7 @@ from src.application.ports.payment_provider import (
     ProviderPaymentStatus,
     WebhookPayload,
 )
-from src.domain.enums import PaymentStatus
+from src.domain.enums import PaymentProvider, PaymentStatus
 from src.domain.exceptions import InvalidTokenException, InvalidWebhookSignatureException
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.session import engine
@@ -23,7 +23,7 @@ from src.infrastructure.di import (
     get_email_verification_notifier,
     get_food_vision_provider,
     get_image_storage,
-    get_payment_provider,
+    get_payment_providers,
     get_social_identity_verifier,
 )
 from src.infrastructure.rate_limiter import SlidingWindowLimiter
@@ -183,9 +183,10 @@ def image_storage():
 
 
 class FakePaymentProvider:
-    """Scripted PayOS provider — no real network call."""
+    """Scripted payment provider — no real network call."""
 
-    def __init__(self) -> None:
+    def __init__(self, momo: bool = False) -> None:
+        self.momo = momo
         self.status_by_order_code: dict[int, ProviderPaymentStatus] = {}
         self.cancelled: list[int] = []
         self.next_webhook: WebhookPayload | None = None
@@ -195,7 +196,8 @@ class FakePaymentProvider:
         return CheckoutLinkResult(
             payment_link_id=f"link-{order_code}",
             checkout_url=f"https://pay.example/{order_code}",
-            qr_code=f"qr-{order_code}",
+            qr_code=None if self.momo else f"qr-{order_code}",
+            deeplink=f"momo://pay/{order_code}" if self.momo else None,
         )
 
     async def get_payment_status(self, order_code):
@@ -215,11 +217,19 @@ class FakePaymentProvider:
 
 
 @pytest_asyncio.fixture
-def payment_provider():
-    fake = FakePaymentProvider()
-    app.dependency_overrides[get_payment_provider] = lambda: fake
-    yield fake
-    app.dependency_overrides.pop(get_payment_provider, None)
+def payment_providers():
+    fakes = {
+        PaymentProvider.PAYOS: FakePaymentProvider(),
+        PaymentProvider.MOMO: FakePaymentProvider(momo=True),
+    }
+    app.dependency_overrides[get_payment_providers] = lambda: fakes
+    yield fakes
+    app.dependency_overrides.pop(get_payment_providers, None)
+
+
+@pytest_asyncio.fixture
+def payment_provider(payment_providers):
+    return payment_providers[PaymentProvider.PAYOS]
 
 
 @pytest_asyncio.fixture

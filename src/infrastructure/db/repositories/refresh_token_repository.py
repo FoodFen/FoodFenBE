@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -34,4 +35,11 @@ class SQLAlchemyRefreshTokenRepository:
             update(RefreshTokenORM)
             .where(RefreshTokenORM.jti == token.jti)
             .values(revoked_at=token.revoked_at)
+        )
+
+    async def revoke_all_for_user(self, user_id: int, now: datetime) -> None:
+        await self._session.execute(
+            update(RefreshTokenORM)
+            .where(RefreshTokenORM.user_id == user_id, RefreshTokenORM.revoked_at.is_(None))
+            .values(revoked_at=now)
         )

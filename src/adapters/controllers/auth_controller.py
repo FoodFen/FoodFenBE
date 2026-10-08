@@ -101,7 +101,6 @@ async def social_sign_in(
             provider=body.provider,
             id_token=body.id_token,
             full_name=body.full_name,
-            email=body.email,
         )
     )
     return AuthSessionResponse.from_dto(session)

@@ -42,8 +42,8 @@ class JwtTokenService:
     def issue_verification_token(self, user_id: int) -> IssuedToken:
         return self._issue(user_id, _VERIFICATION, self._verification_ttl, {})
 
-    def issue_password_reset_token(self, user_id: int) -> IssuedToken:
-        return self._issue(user_id, _PASSWORD_RESET, self._password_reset_ttl, {})
+    def issue_password_reset_token(self, user_id: int, stamp: str) -> IssuedToken:
+        return self._issue(user_id, _PASSWORD_RESET, self._password_reset_ttl, {"stamp": stamp})
 
     def read_access_token(self, token: str) -> int:
         payload = self._decode(token, _ACCESS)
@@ -60,9 +60,9 @@ class JwtTokenService:
         payload = self._decode(token, _VERIFICATION)
         return int(payload["sub"])
 
-    def read_password_reset_token(self, token: str) -> int:
+    def read_password_reset_token(self, token: str) -> tuple[int, str]:
         payload = self._decode(token, _PASSWORD_RESET)
-        return int(payload["sub"])
+        return int(payload["sub"]), str(payload.get("stamp", ""))
 
     def _issue(
         self, user_id: int, token_type: str, ttl: timedelta, extra: dict[str, str]

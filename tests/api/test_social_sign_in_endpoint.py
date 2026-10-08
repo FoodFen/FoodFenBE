@@ -27,25 +27,41 @@ async def test_new_google_sign_in_creates_verified_passwordless_account(client, 
     assert body["user"]["email"] == "new@example.com"
 
 
-async def test_apple_first_sign_in_uses_full_name_and_email_from_body(client, social_verifier):
+async def test_apple_first_sign_in_uses_full_name_from_body_and_email_from_token(
+    client, social_verifier
+):
     social_verifier.stub(
-        "apple-token", VerifiedIdentity(subject="a-1", email=None, email_verified=False)
+        "apple-token",
+        VerifiedIdentity(subject="a-1", email="ada@example.com", email_verified=True),
     )
 
     resp = await client.post(
         "/auth/social",
-        json={
-            "provider": "apple",
-            "idToken": "apple-token",
-            "fullName": "Ada Lovelace",
-            "email": "ada@example.com",
-        },
+        json={"provider": "apple", "idToken": "apple-token", "fullName": "Ada Lovelace"},
     )
 
     assert resp.status_code == 200
     body = resp.json()
     assert body["user"]["email"] == "ada@example.com"
     assert body["user"]["displayName"] == "Ada Lovelace"
+
+
+async def test_body_email_cannot_hijack_another_account(client, social_verifier, signed_up):
+    """Account-takeover guard: a valid token for attacker@ with a body email of the victim's
+    (signed_up: user@example.com) must not sign the attacker into the victim's account."""
+    social_verifier.stub(
+        "attacker-token",
+        VerifiedIdentity(subject="g-evil", email="attacker@example.com", email_verified=True),
+    )
+
+    resp = await client.post(
+        "/auth/social",
+        json={"provider": "google", "idToken": "attacker-token", "email": "user@example.com"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["user"]["id"] != signed_up["user"]["id"]
+    assert resp.json()["user"]["email"] == "attacker@example.com"
 
 
 async def test_returning_social_user_signs_into_same_account(client, social_verifier):

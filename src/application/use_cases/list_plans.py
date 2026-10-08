@@ -4,17 +4,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.application.dtos.payment import PlanOutputDTO
-from src.domain.enums import PlanType
+from src.application.dtos.payment import PlanOutputDTO, PlansOutputDTO
+from src.domain.enums import PaymentProvider, PlanType
 
 
 @dataclass
 class ListPlansUseCase:
     monthly_price_vnd: int
     annual_price_vnd: int
+    providers: list[PaymentProvider]
 
-    def execute(self) -> list[PlanOutputDTO]:
-        return [
-            PlanOutputDTO(PlanType.MONTHLY, self.monthly_price_vnd),
-            PlanOutputDTO(PlanType.ANNUAL, self.annual_price_vnd),
-        ]
+    def execute(self) -> PlansOutputDTO:
+        return PlansOutputDTO(
+            plans=[
+                PlanOutputDTO(PlanType.MONTHLY, self.monthly_price_vnd),
+                PlanOutputDTO(PlanType.ANNUAL, self.annual_price_vnd),
+            ],
+            providers=self.providers,
+        )

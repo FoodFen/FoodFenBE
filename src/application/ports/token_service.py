@@ -15,7 +15,7 @@ class TokenServiceProtocol(Protocol):
 
     def issue_verification_token(self, user_id: int) -> IssuedToken: ...
 
-    def issue_password_reset_token(self, user_id: int) -> IssuedToken: ...
+    def issue_password_reset_token(self, user_id: int, stamp: str) -> IssuedToken: ...
 
     def read_access_token(self, token: str) -> int:
         """Return the subject user id. Raise ``InvalidTokenException`` if unusable."""
@@ -29,6 +29,6 @@ class TokenServiceProtocol(Protocol):
         """Return the subject user id. Raise ``InvalidTokenException`` if unusable."""
         ...
 
-    def read_password_reset_token(self, token: str) -> int:
-        """Return the subject user id. Raise ``InvalidTokenException`` if unusable."""
+    def read_password_reset_token(self, token: str) -> tuple[int, str]:
+        """Return ``(user id, stamp)``. Raise ``InvalidTokenException`` if unusable."""
         ...

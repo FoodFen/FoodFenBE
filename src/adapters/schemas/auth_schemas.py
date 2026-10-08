@@ -47,7 +47,6 @@ class SocialSignInRequest(CamelModel):
     provider: AuthProvider
     id_token: str = Field(min_length=1)
     full_name: str | None = None  # Apple only, first authorization only
-    email: str | None = None
 
 
 class MessageResponse(CamelModel):

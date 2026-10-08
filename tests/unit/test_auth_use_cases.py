@@ -76,6 +76,11 @@ class FakeRefreshRepo:
     async def revoke(self, token):
         self.rows[token.jti].revoked_at = token.revoked_at
 
+    async def revoke_all_for_user(self, user_id, now):
+        for row in self.rows.values():
+            if row.user_id == user_id:
+                row.revoke(now)
+
 
 class FakeHasher:
     def hash(self, plain: str) -> str:
@@ -91,7 +96,7 @@ class FakeTokens:
     def __init__(self) -> None:
         self._refresh: dict[str, RefreshClaims] = {}
         self._verify: dict[str, int] = {}
-        self._reset: dict[str, int] = {}
+        self._reset: dict[str, tuple[int, str]] = {}
         self._n = 0
 
     def issue_access_token(self, user_id):
@@ -110,10 +115,10 @@ class FakeTokens:
         self._verify[tok] = user_id
         return IssuedToken(tok, datetime.now(UTC) + timedelta(hours=24))
 
-    def issue_password_reset_token(self, user_id):
+    def issue_password_reset_token(self, user_id, stamp):
         self._n += 1
         tok = f"reset-{self._n}"
-        self._reset[tok] = user_id
+        self._reset[tok] = (user_id, stamp)
         return IssuedToken(tok, datetime.now(UTC) + timedelta(hours=1))
 
     def read_access_token(self, token):
@@ -289,7 +294,7 @@ async def test_reset_password_changes_hash_and_allows_login_with_new_password():
     request_reset = RequestPasswordResetUseCase(users=users, tokens=tokens)
     dispatch = await request_reset.execute(RequestPasswordResetInputDTO(email="u@ex.com"))
 
-    reset = ResetPasswordUseCase(users=users, hasher=hasher, tokens=tokens)
+    reset = ResetPasswordUseCase(users=users, hasher=hasher, tokens=tokens, refresh_tokens=refresh)
     await reset.execute(ResetPasswordInputDTO(token=dispatch.token, new_password="newpassword1"))
 
     login = LoginUseCase(users=users, refresh_tokens=refresh, hasher=hasher, tokens=tokens)
@@ -300,8 +305,8 @@ async def test_reset_password_changes_hash_and_allows_login_with_new_password():
 
 
 async def test_reset_password_rejects_bad_token():
-    users, _refresh, hasher, tokens = _wire()
-    reset = ResetPasswordUseCase(users=users, hasher=hasher, tokens=tokens)
+    users, refresh, hasher, tokens = _wire()
+    reset = ResetPasswordUseCase(users=users, hasher=hasher, tokens=tokens, refresh_tokens=refresh)
     with pytest.raises(InvalidTokenException):
         await reset.execute(ResetPasswordInputDTO(token="nope", new_password="newpassword1"))
 

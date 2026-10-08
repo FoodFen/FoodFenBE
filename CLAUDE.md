@@ -126,7 +126,11 @@ async def create_user(
 - **Password reset**: `POST /auth/password-reset {email}` always 2xx, enumeration-safe (mirrors
   `resend-verification`'s pattern). `POST /auth/reset-password {token, newPassword}` (extra, not in
   the contract — there is no "confirm" endpoint documented client-side) verifies a fourth JWT type
-  (`password_reset`, short TTL) and updates the hash.
+  (`password_reset`, short TTL) and updates the hash. The token carries a `stamp` claim
+  (`User.password_stamp`) so it works once, and a successful reset revokes all the user's refresh tokens.
+- **Client IP** (rate limits): the Nth entry from the right of `X-Forwarded-For`, N =
+  `TRUSTED_PROXY_HOPS` (default 1, Render). uvicorn runs with `--no-proxy-headers`; never trust
+  leftmost entries, they are client-supplied. Set `TRUSTED_PROXY_HOPS=0` with no proxy in front.
 - **Failure body shape**: `{"message"?: str, "error"?: str, "errors"?: {field: str}}` — **not**
   FastAPI's default `{"detail": ...}`. `src/adapters/exception_handlers.py` overrides both domain
   exceptions and Pydantic's `RequestValidationError` to this shape. `UserAlreadyExistsException`
@@ -224,6 +228,12 @@ Spec: `docs/superpowers/specs/2026-10-03-quiz-design.md`. Wire contract (owned b
   `QUIZ_PRACTICE_DAILY_CAP` (10).
 - **Content** is Vietnamese, seeded by migration 0017; add or fix questions with SQL. Deactivate
   (`active = false`), never delete: issued quizzes reference questions by id.
+
+## Restaurants & admin
+
+Business rules (roles, moderation, what is public, open questions) live in `docs/marketplace.md`,
+a **living document**: read it before touching restaurants, dishes, admin or recommendation, and
+update it in the same change as any decision.
 
 ## Commands
 

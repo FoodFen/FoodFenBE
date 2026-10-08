@@ -23,5 +23,5 @@ class RequestPasswordResetUseCase:
         user = await self.users.get_by_email(data.email.strip().lower())
         if user is None:
             return None
-        token = self.tokens.issue_password_reset_token(user.id)
+        token = self.tokens.issue_password_reset_token(user.id, user.password_stamp)
         return VerificationDispatchDTO(email=user.email, name=user.name, token=token.token)

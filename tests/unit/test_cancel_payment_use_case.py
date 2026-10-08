@@ -6,7 +6,7 @@ import pytest
 
 from src.application.use_cases.cancel_payment import CancelPaymentUseCase
 from src.domain.entities.payment import Payment
-from src.domain.enums import PaymentStatus, PlanType
+from src.domain.enums import PaymentProvider, PaymentStatus, PlanType
 from src.domain.exceptions import InvalidPaymentStateException, PaymentNotFoundException
 
 
@@ -51,7 +51,7 @@ async def test_cancels_a_pending_payment():
     payments = FakePaymentRepo()
     payments.seed(Payment.create(user_id=1, plan_type=PlanType.MONTHLY, amount="49000"), order_code=1)
     provider = FakeProvider()
-    use_case = CancelPaymentUseCase(payments=payments, provider=provider)
+    use_case = CancelPaymentUseCase(payments=payments, providers={PaymentProvider.PAYOS: provider})
 
     result = await use_case.execute(user_id=1, order_code=1, reason="changed my mind")
 
@@ -65,7 +65,7 @@ async def test_rejects_cancelling_an_already_paid_payment():
         Payment.create(user_id=1, plan_type=PlanType.MONTHLY, amount="49000"), order_code=1
     )
     payment.mark_paid()
-    use_case = CancelPaymentUseCase(payments=payments, provider=FakeProvider())
+    use_case = CancelPaymentUseCase(payments=payments, providers={PaymentProvider.PAYOS: FakeProvider()})
 
     with pytest.raises(InvalidPaymentStateException):
         await use_case.execute(user_id=1, order_code=1, reason=None)
@@ -74,7 +74,7 @@ async def test_rejects_cancelling_an_already_paid_payment():
 async def test_raises_not_found_for_another_users_payment():
     payments = FakePaymentRepo()
     payments.seed(Payment.create(user_id=2, plan_type=PlanType.MONTHLY, amount="49000"), order_code=1)
-    use_case = CancelPaymentUseCase(payments=payments, provider=FakeProvider())
+    use_case = CancelPaymentUseCase(payments=payments, providers={PaymentProvider.PAYOS: FakeProvider()})
 
     with pytest.raises(PaymentNotFoundException):
         await use_case.execute(user_id=1, order_code=1, reason=None)

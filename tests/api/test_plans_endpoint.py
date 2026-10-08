@@ -13,7 +13,8 @@ async def test_plans_are_public_and_list_the_configured_prices(client):
         "plans": [
             {"planType": "monthly", "priceVnd": settings.payos_monthly_price_vnd},
             {"planType": "annual", "priceVnd": settings.payos_annual_price_vnd},
-        ]
+        ],
+        "providers": ["payos", "momo"],
     }
 
 

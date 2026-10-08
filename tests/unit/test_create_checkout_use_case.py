@@ -10,7 +10,7 @@ from src.application.dtos.payment import CreateCheckoutInputDTO
 from src.application.ports.payment_provider import CheckoutLinkResult
 from src.application.use_cases.create_checkout import CreateCheckoutUseCase
 from src.domain.entities.payment import Payment
-from src.domain.enums import PaymentStatus, PlanType
+from src.domain.enums import PaymentProvider, PaymentStatus, PlanType
 from src.domain.exceptions import PaymentNotFoundException
 
 
@@ -67,7 +67,7 @@ class FakePaymentProvider:
 def use_case() -> CreateCheckoutUseCase:
     return CreateCheckoutUseCase(
         payments=FakePaymentRepo(),
-        provider=FakePaymentProvider(),
+        providers={PaymentProvider.PAYOS: FakePaymentProvider()},
         monthly_price_vnd=49_000,
         annual_price_vnd=499_000,
         return_url="https://app.example/return",
@@ -90,5 +90,5 @@ async def test_execute_prices_annual_plan_separately(use_case):
 
 async def test_execute_passes_order_code_and_amount_to_provider(use_case):
     result = await use_case.execute(CreateCheckoutInputDTO(user_id=1, plan_type=PlanType.MONTHLY))
-    assert use_case.provider.created_with["order_code"] == result.order_code
-    assert use_case.provider.created_with["amount"] == Decimal("49000")
+    assert use_case.providers[PaymentProvider.PAYOS].created_with["order_code"] == result.order_code
+    assert use_case.providers[PaymentProvider.PAYOS].created_with["amount"] == Decimal("49000")
