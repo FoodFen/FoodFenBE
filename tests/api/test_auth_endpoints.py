@@ -183,6 +183,36 @@ async def test_reset_password_then_sign_in_with_new_password(client, signed_up, 
     assert new.status_code == 200
 
 
+async def test_reset_token_is_single_use(client, signed_up, notifier):
+    await client.post("/auth/password-reset", json={"email": "user@example.com"})
+    token = notifier.last_reset_token
+
+    first = await client.post(
+        "/auth/reset-password", json={"token": token, "newPassword": "newpassword1"}
+    )
+    assert first.status_code == 200
+    replay = await client.post(
+        "/auth/reset-password", json={"token": token, "newPassword": "attacker-pass1"}
+    )
+    assert replay.status_code == 401
+
+    still_new = await client.post(
+        "/auth/sign-in", json={"email": "user@example.com", "password": "newpassword1"}
+    )
+    assert still_new.status_code == 200
+
+
+async def test_reset_password_revokes_existing_sessions(client, signed_up, notifier):
+    await client.post("/auth/password-reset", json={"email": "user@example.com"})
+    await client.post(
+        "/auth/reset-password",
+        json={"token": notifier.last_reset_token, "newPassword": "newpassword1"},
+    )
+
+    resp = await client.post("/auth/refresh", json={"refreshToken": signed_up["refreshToken"]})
+    assert resp.status_code == 401
+
+
 # --- extras: not part of the front-end contract -----------------------------
 
 
@@ -226,6 +256,25 @@ async def test_auth_endpoints_are_rate_limited_per_ip(client, monkeypatch):
 
     assert resp.status_code == 429
     assert resp.json()["message"] == "too many requests, try again later"
+
+
+async def test_rate_limit_ignores_client_supplied_forwarded_for(client, monkeypatch):
+    """Only the last hop (appended by our own proxy) is trusted; a client can't dodge the limit
+    by prepending fake X-Forwarded-For entries."""
+    from src.infrastructure.di import security
+
+    monkeypatch.setattr(security._auth_ip_limiter, "limit", 2)
+    body = {"email": "nobody@example.com", "password": "wrong-pass-1"}
+
+    chains = ["6.6.6.1, 10.0.0.1", "6.6.6.2, 10.0.0.1", "6.6.6.3, 10.0.0.1", "6.6.6.4, 10.0.0.2"]
+    statuses = [
+        (await client.post("/auth/sign-in", json=body, headers={"X-Forwarded-For": chain})).status_code
+        for chain in chains
+    ]
+
+    # Spoofed leading entries don't help the same real client (3rd -> 429); a different real
+    # client (10.0.0.2) still has its own budget.
+    assert statuses == [401, 401, 429, 401]
 
 
 async def test_failing_email_delivery_does_not_undo_sign_up(client, monkeypatch):

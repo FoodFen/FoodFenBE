@@ -138,26 +138,37 @@ async def test_new_google_user_is_created_and_verified():
     assert linked.user_id == stored.id
 
 
-async def test_apple_first_time_uses_body_email_and_full_name():
+async def test_apple_first_time_uses_token_email_and_body_full_name():
     users, socials, refresh, verifier, tokens = _wire()
-    # Apple's identity token itself carries no email in this stub — the
-    # request body is the only source, exactly as the contract describes.
     verifier.stub(
-        "apple-token", VerifiedIdentity(subject="apple-sub-1", email=None, email_verified=False)
+        "apple-token",
+        VerifiedIdentity(subject="apple-sub-1", email="ada@example.com", email_verified=True),
     )
     uc = _use_case(users, socials, refresh, verifier, tokens)
 
     session = await uc.execute(
         SocialSignInInputDTO(
-            provider=AuthProvider.APPLE,
-            id_token="apple-token",
-            full_name="Ada Lovelace",
-            email="ada@example.com",
+            provider=AuthProvider.APPLE, id_token="apple-token", full_name="Ada Lovelace"
         )
     )
 
     assert session.user.email == "ada@example.com"
     assert session.user.name == "Ada Lovelace"
+
+
+async def test_unverified_token_email_is_rejected():
+    users, socials, refresh, verifier, tokens = _wire()
+    users.seed(User.create(email="victim@example.com", name="Victim", password_hash="h"))
+    verifier.stub(
+        "unverified-token",
+        VerifiedIdentity(subject="g-x", email="victim@example.com", email_verified=False),
+    )
+    uc = _use_case(users, socials, refresh, verifier, tokens)
+
+    with pytest.raises(InvalidUserAttributeException):
+        await uc.execute(
+            SocialSignInInputDTO(provider=AuthProvider.GOOGLE, id_token="unverified-token")
+        )
 
 
 async def test_returning_user_reuses_linked_account_without_new_email():

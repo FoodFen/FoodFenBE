@@ -49,7 +49,6 @@ class SocialSignInInputDTO:
     provider: AuthProvider
     id_token: str
     full_name: str | None = None  # Apple only, first authorization only
-    email: str | None = None
 
 
 @dataclass(frozen=True)

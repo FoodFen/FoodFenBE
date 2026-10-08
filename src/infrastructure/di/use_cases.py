@@ -154,9 +154,14 @@ def get_request_password_reset_use_case(
 
 
 def get_reset_password_use_case(
-    users: UserRepositoryDep, hasher: PasswordHasherDep, tokens: TokenServiceDep
+    users: UserRepositoryDep,
+    hasher: PasswordHasherDep,
+    tokens: TokenServiceDep,
+    refresh_tokens: RefreshTokenRepositoryDep,
 ) -> ResetPasswordUseCase:
-    return ResetPasswordUseCase(users=users, hasher=hasher, tokens=tokens)
+    return ResetPasswordUseCase(
+        users=users, hasher=hasher, tokens=tokens, refresh_tokens=refresh_tokens
+    )
 
 
 def get_social_sign_in_use_case(

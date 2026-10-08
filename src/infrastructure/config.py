@@ -119,6 +119,11 @@ class Settings(BaseSettings):
 
     app_base_url: str = "http://localhost:8000"
 
+    # Reverse proxies in front of the app that each append to X-Forwarded-For (Render: 1).
+    # The client IP is the Nth entry from the right; anything left of it is client-controlled.
+    # 0 = no proxy, use the socket peer.
+    trusted_proxy_hops: int = 1
+
     # Comma-separated allowed origins for browser clients, or "*" for any origin
     # (safe here since auth is a Bearer header, not cookies, so allow_credentials
     # stays False).

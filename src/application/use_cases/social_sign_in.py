@@ -47,10 +47,12 @@ class SocialSignInUseCase:
                 raise UserNotFoundException(f"user {linked.user_id} not found")
             return await issue_session(user, self.tokens, self.refresh_tokens)
 
-        email = (data.email or identity.email or "").strip().lower()
-        if not email:
+        # Only the provider-verified email counts: a client-supplied one would let any valid
+        # token be pointed at someone else's account (auto-link below).
+        email = (identity.email or "").strip().lower()
+        if not email or not identity.email_verified:
             raise InvalidUserAttributeException(
-                "social sign-in did not provide an email address"
+                "social sign-in did not provide a verified email address"
             )
 
         user = await self.users.get_by_email(email)

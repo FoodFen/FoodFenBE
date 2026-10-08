@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -15,4 +16,8 @@ class RefreshTokenRepositoryProtocol(Protocol):
 
     async def revoke(self, token: RefreshToken) -> None:
         """Persist ``token.revoked_at`` for the row with this ``jti``."""
+        ...
+
+    async def revoke_all_for_user(self, user_id: int, now: datetime) -> None:
+        """Revoke every still-active token of ``user_id``."""
         ...

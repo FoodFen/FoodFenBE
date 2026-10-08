@@ -249,6 +249,10 @@ def _enforce(limiter: SlidingWindowLimiter, key: str) -> None:
 
 
 def _client_ip(request: Request) -> str:
+    hops = settings.trusted_proxy_hops
+    chain = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    if hops and len(chain) >= hops:
+        return chain[-hops]
     return request.client.host if request.client else "unknown"
 
 
