@@ -235,6 +235,15 @@ Business rules (roles, moderation, what is public, open questions) live in `docs
 a **living document**: read it before touching restaurants, dishes, admin or recommendation, and
 update it in the same change as any decision.
 
+- **Admin** = `users.role = 'admin'`, set with SQL. `CurrentAdminDep` / router-level
+  `Depends(get_current_admin)` (403); the role is read from the DB per request, never from the JWT.
+- **Owner** is not a role: `restaurants.user_id` (unique). Owner routes are `/restaurants/mine/...`;
+  ownership is implied, and another owner's dish is a 404 (`use_cases/restaurant_support.py`).
+- Moderation transitions live only in `Restaurant`/`Dish` `.review()` / `.mark_edited()`; a use case
+  never assigns `status`. Public = approved dish of an approved restaurant (no public endpoint yet).
+- Dashboard buckets rows into Vietnam days in `get_admin_dashboard.py` (Python, not SQL; see its
+  `ponytail:` note).
+
 ## Commands
 
     make dev            # uvicorn --reload

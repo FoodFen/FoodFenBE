@@ -3,7 +3,7 @@
 > **Living document.** The single source of truth for *what* the restaurant/admin/recommendation
 > side of FoodFen does and *why*. Update it in the same change as any decision or behaviour change.
 > Design specs (`docs/superpowers/specs/`) record *how* one slice was built; this file records the
-> rules that hold across slices. Status: **designed, not implemented**. Spec for pieces 1–2:
+> rules that hold across slices. Status: **pieces 1–2 implemented** (branch feat/restaurants-admin). Spec for pieces 1–2:
 > `docs/superpowers/specs/2026-10-08-restaurants-admin-design.md`.
 
 ## Vision
@@ -13,8 +13,8 @@ Five pieces, built in this order:
 
 | # | Piece | Status |
 |---|-------|--------|
-| 1 | **Restaurants**: owners register for free, submit their profile and menu with nutrition | designing |
-| 2 | **Admin**: approves restaurants and dishes, sees basic platform data (transactions, users) | designing |
+| 1 | **Restaurants**: owners register for free, submit their profile and menu with nutrition | implemented |
+| 2 | **Admin**: approves restaurants and dishes, sees basic platform data (transactions, users) | implemented |
 | 3 | **Dish tab** (mobile): dishes that fit the user first, then the rest; tap a dish to see the restaurant and Google Maps | later |
 | 4 | **Recommendation**: AI or rules over the user's stats pick suitable dishes | later, approach undecided |
 | 5 | **Paid placement**: restaurants pay to appear in a separate "featured" section | later, needs research |
@@ -74,7 +74,7 @@ Only the latest review is kept (status columns on each row); there is no review 
 - Owners delete dishes outright (nothing references a dish yet).
 - **Public** = an `approved` dish of an `approved` restaurant. Nothing else is ever shown to diners.
 
-## API (planned)
+## API
 
 Admin = `CurrentAdminDep` (403 otherwise). Role is read from the DB on every request, not from the
 JWT, so promoting/demoting an admin with SQL takes effect immediately.
