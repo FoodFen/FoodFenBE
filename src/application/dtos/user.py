@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from uuid import UUID
 
 from src.domain.entities.user import User
 from src.domain.enums import (
@@ -14,6 +15,7 @@ from src.domain.enums import (
     Gender,
     SubscriptionTier,
     UnitSystem,
+    UserRole,
 )
 
 
@@ -35,6 +37,7 @@ class UserOutputDTO:
     calorie_calc_mode: CalorieCalcMode
     calorie_left_mode: CalorieLeftMode | None
     subscription_tier: SubscriptionTier
+    role: UserRole
     weekly_rate_kg: float | None
     created_at: datetime
 
@@ -56,6 +59,13 @@ class UserOutputDTO:
             calorie_calc_mode=user.calorie_calc_mode,
             calorie_left_mode=user.calorie_left_mode,
             subscription_tier=user.subscription_tier,
+            role=user.role,
             weekly_rate_kg=user.weekly_rate_kg,
             created_at=user.created_at,
         )
+
+
+@dataclass(frozen=True)
+class MeOutputDTO:
+    user: UserOutputDTO
+    restaurant_id: UUID | None

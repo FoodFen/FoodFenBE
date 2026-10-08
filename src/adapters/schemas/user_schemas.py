@@ -9,12 +9,13 @@ relying on ``from_attributes``.
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import ConfigDict
 from pydantic.alias_generators import to_camel
 
 from src.adapters.schemas.base import CamelModel
-from src.application.dtos.user import UserOutputDTO
+from src.application.dtos.user import MeOutputDTO, UserOutputDTO
 from src.domain.enums import (
     ActivityLevel,
     CalorieCalcMode,
@@ -23,6 +24,7 @@ from src.domain.enums import (
     Gender,
     SubscriptionTier,
     UnitSystem,
+    UserRole,
 )
 
 
@@ -41,6 +43,7 @@ class UserResponse(CamelModel):
     calorie_calc_mode: CalorieCalcMode
     calorie_left_mode: CalorieLeftMode | None
     subscription_tier: SubscriptionTier
+    role: UserRole
     weekly_rate_kg: float | None
     created_at: datetime
 
@@ -61,9 +64,20 @@ class UserResponse(CamelModel):
             calorie_calc_mode=dto.calorie_calc_mode,
             calorie_left_mode=dto.calorie_left_mode,
             subscription_tier=dto.subscription_tier,
+            role=dto.role,
             weekly_rate_kg=dto.weekly_rate_kg,
             created_at=dto.created_at,
         )
+
+
+class MeResponse(UserResponse):
+    """``GET /auth/me`` only: ``restaurantId`` costs a lookup the session payloads don't need."""
+
+    restaurant_id: UUID | None
+
+    @classmethod
+    def from_me(cls, dto: MeOutputDTO) -> MeResponse:
+        return cls(**UserResponse.from_dto(dto.user).model_dump(), restaurant_id=dto.restaurant_id)
 
 
 class UpdateUserProfileRequest(CamelModel):

@@ -30,6 +30,7 @@ from src.application.use_cases.quiz_support import QuizRewards
 from src.application.use_cases.start_practice_quiz import StartPracticeQuizUseCase
 from src.application.use_cases.submit_quiz import SubmitQuizUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
+from src.application.use_cases.get_me import GetMeUseCase
 from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCase
 from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
@@ -65,6 +66,7 @@ from src.infrastructure.di.repositories import (
     CoinRepositoryDep,
     QuestRepositoryDep,
     QuizRepositoryDep,
+    RestaurantRepositoryDep,
     ChatMessageRepositoryDep,
     DailyGoalRepositoryDep,
     FoodEntryRepositoryDep,
@@ -294,6 +296,13 @@ def get_get_my_subscription_use_case(
     subscriptions: SubscriptionRepositoryDep,
 ) -> GetMySubscriptionUseCase:
     return GetMySubscriptionUseCase(subscriptions=subscriptions)
+
+
+def get_get_me_use_case(restaurants: RestaurantRepositoryDep) -> GetMeUseCase:
+    return GetMeUseCase(restaurants=restaurants)
+
+
+GetMeUseCaseDep = Annotated[GetMeUseCase, Depends(get_get_me_use_case)]
 
 
 CreateCheckoutUseCaseDep = Annotated[CreateCheckoutUseCase, Depends(get_create_checkout_use_case)]

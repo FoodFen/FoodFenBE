@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from src.adapters.controllers.activity_log_controller import router as activity_log_router
+from src.adapters.controllers.admin_controller import router as admin_router
 from src.adapters.controllers.auth_controller import router as auth_router
 from src.adapters.controllers.chat_controller import router as chat_router
 from src.adapters.controllers.coin_controller import router as coin_router
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(streak_router)
     app.include_router(coin_router)
     app.include_router(quiz_router)
+    app.include_router(admin_router)
     register_exception_handlers(app)
     return app
 

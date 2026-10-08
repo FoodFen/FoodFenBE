@@ -26,6 +26,7 @@ from src.application.ports.token_service import TokenServiceProtocol
 from src.domain.entities.user import User
 from src.domain.enums import PaymentProvider, SubscriptionStatus, SubscriptionTier
 from src.domain.exceptions import (
+    AdminRequiredException,
     InvalidTokenException,
     PremiumRequiredException,
     RateLimitedException,
@@ -206,6 +207,17 @@ async def get_current_user(
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 
+async def get_current_admin(user: CurrentUserDep) -> User:
+    """Role is read from the user row loaded per request, never from the JWT: promoting or
+    demoting an admin with SQL takes effect on the next request."""
+    if not user.is_admin:
+        raise AdminRequiredException("admin access required")
+    return user
+
+
+CurrentAdminDep = Annotated[User, Depends(get_current_admin)]
+
+
 async def _reconcile_premium(user: User, subscriptions, users) -> bool:
     """Whether ``user`` is entitled to Premium right now — reconciling a lapsed
     subscription first. There is no cron (manual-renewal model), so this is the
@@ -262,6 +274,7 @@ def _client_ip(request: Request) -> str:
 _auth_ip_limiter = SlidingWindowLimiter(limit=30, window_seconds=60)
 _chat_user_limiter = SlidingWindowLimiter(limit=10, window_seconds=60)
 _ai_user_limiter = SlidingWindowLimiter(limit=20, window_seconds=60)
+_upload_user_limiter = SlidingWindowLimiter(limit=20, window_seconds=60)  # Cloudinary costs money
 
 
 async def limit_auth_by_ip(request: Request) -> None:
@@ -270,6 +283,10 @@ async def limit_auth_by_ip(request: Request) -> None:
 
 async def limit_chat_by_user(user: CurrentUserDep) -> None:
     _enforce(_chat_user_limiter, str(user.id))
+
+
+async def limit_upload_by_user(user: CurrentUserDep) -> None:
+    _enforce(_upload_user_limiter, str(user.id))
 
 
 # Anonymous AI calls per client IP. The device id is client-supplied and spoofable, so this is
