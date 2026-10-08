@@ -66,6 +66,10 @@ from src.application.use_cases.list_my_dishes import ListMyDishesUseCase
 from src.application.use_cases.update_dish import UpdateDishUseCase
 from src.application.use_cases.update_my_restaurant import UpdateMyRestaurantUseCase
 from src.application.use_cases.upload_restaurant_image import UploadRestaurantImageUseCase
+from src.application.use_cases.get_admin_restaurant import GetAdminRestaurantUseCase
+from src.application.use_cases.list_admin_restaurants import ListAdminRestaurantsUseCase
+from src.application.use_cases.review_dish import ReviewDishUseCase
+from src.application.use_cases.review_restaurant import ReviewRestaurantUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
     AiTrialRepositoryDep,
@@ -611,3 +615,31 @@ def get_delete_dish_use_case(restaurants: RestaurantRepositoryDep) -> DeleteDish
 
 
 DeleteDishUseCaseDep = Annotated[DeleteDishUseCase, Depends(get_delete_dish_use_case)]
+
+
+def get_list_admin_restaurants_use_case(restaurants: RestaurantRepositoryDep) -> ListAdminRestaurantsUseCase:
+    return ListAdminRestaurantsUseCase(restaurants=restaurants)
+
+
+ListAdminRestaurantsUseCaseDep = Annotated[ListAdminRestaurantsUseCase, Depends(get_list_admin_restaurants_use_case)]
+
+
+def get_get_admin_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> GetAdminRestaurantUseCase:
+    return GetAdminRestaurantUseCase(restaurants=restaurants)
+
+
+GetAdminRestaurantUseCaseDep = Annotated[GetAdminRestaurantUseCase, Depends(get_get_admin_restaurant_use_case)]
+
+
+def get_review_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> ReviewRestaurantUseCase:
+    return ReviewRestaurantUseCase(restaurants=restaurants)
+
+
+ReviewRestaurantUseCaseDep = Annotated[ReviewRestaurantUseCase, Depends(get_review_restaurant_use_case)]
+
+
+def get_review_dish_use_case(restaurants: RestaurantRepositoryDep) -> ReviewDishUseCase:
+    return ReviewDishUseCase(restaurants=restaurants)
+
+
+ReviewDishUseCaseDep = Annotated[ReviewDishUseCase, Depends(get_review_dish_use_case)]

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 async def _admin(make_user):
     headers, _ = await make_user("admin@example.com", admin=True)
@@ -50,7 +48,6 @@ async def test_patch_null_required_field_is_422(client, make_user, restaurant_bo
     assert (await client.get("/restaurants/mine", headers=headers)).json()["name"] == "Quán Ngon"
 
 
-@pytest.mark.skip(reason="needs Task 6")
 async def test_editing_approved_restaurant_stays_live(client, make_user, restaurant_body):
     headers, body = await _create(client, make_user, restaurant_body)
     admin = await _admin(make_user)
@@ -60,7 +57,6 @@ async def test_editing_approved_restaurant_stays_live(client, make_user, restaur
     assert (resp.json()["phone"], resp.json()["status"]) == ("0911111111", "approved")
 
 
-@pytest.mark.skip(reason="needs Task 6")
 async def test_editing_rejected_restaurant_resubmits_it(client, make_user, restaurant_body):
     headers, body = await _create(client, make_user, restaurant_body)
     admin = await _admin(make_user)
@@ -143,7 +139,6 @@ async def test_negative_kcal_is_a_field_error(client, make_user, restaurant_body
     assert resp.status_code == 422 and "kcal" in resp.json()["errors"]
 
 
-@pytest.mark.skip(reason="needs Task 6")
 async def test_editing_approved_dish_returns_it_to_pending(client, make_user, restaurant_body, dish_body):
     headers, _ = await _create(client, make_user, restaurant_body)
     dish = (await client.post("/restaurants/mine/dishes", json=dish_body, headers=headers)).json()
