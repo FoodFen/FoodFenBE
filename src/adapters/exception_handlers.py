@@ -26,6 +26,7 @@ from src.domain.exceptions import (
     QuizAlreadySubmittedException,
     RateLimitedException,
     RestaurantAlreadyExistsException,
+    StaleReviewException,
     UserAlreadyExistsException,
 )
 
@@ -41,6 +42,7 @@ EXCEPTION_STATUS: list[tuple[type[DomainException], int]] = [
     (RateLimitedException, 429),
     (InsufficientCoinsException, 409),
     (RestaurantAlreadyExistsException, 409),
+    (StaleReviewException, 409),
     (AdminRequiredException, 403),
     (PaymentProviderUnavailableException, 422),
     (EntityNotFoundException, 404),  # + UserNotFoundException, PaymentNotFoundException

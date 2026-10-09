@@ -15,6 +15,8 @@ from src.domain.enums import ModerationStatus, ReviewDecision
 
 class ReviewRequest(CamelModel):
     decision: ReviewDecision
+    # The updatedAt the reviewer saw; a mismatch is a 409 (the owner edited meanwhile). Absent: no check.
+    expected_updated_at: datetime | None = None
     # validate_default so an omitted reason is still checked; the error lands on errors.reason.
     reason: str | None = Field(default=None, max_length=1000, validate_default=True)
 

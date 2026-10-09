@@ -51,12 +51,14 @@ async def get_restaurant(
 async def review_restaurant(
     restaurant_id: UUID, body: ReviewRequest, use_case: ReviewRestaurantUseCaseDep
 ) -> RestaurantResponse:
-    return RestaurantResponse.from_dto(await use_case.execute(restaurant_id, body.decision, body.reason))
+    result = await use_case.execute(restaurant_id, body.decision, body.reason, body.expected_updated_at)
+    return RestaurantResponse.from_dto(result)
 
 
 @router.post("/dishes/{dish_id}/review", response_model=DishResponse)
 async def review_dish(dish_id: UUID, body: ReviewRequest, use_case: ReviewDishUseCaseDep) -> DishResponse:
-    return DishResponse.from_dto(await use_case.execute(dish_id, body.decision, body.reason))
+    result = await use_case.execute(dish_id, body.decision, body.reason, body.expected_updated_at)
+    return DishResponse.from_dto(result)
 
 
 @router.get("/dashboard", response_model=DashboardResponse)

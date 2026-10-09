@@ -121,3 +121,26 @@ async def test_pending_rejected_and_unknown_restaurants_are_404(client, make_use
     for rid in (pending, rejected, _MISSING):
         assert (await client.get(f"/restaurants/{rid}", headers=reader)).status_code == 404
     assert (await client.get(f"/restaurants/{pending}")).status_code == 401
+
+
+async def test_review_with_stale_expected_updated_at_is_409_and_current_is_200(
+    client, make_user, restaurant_body, dish_body
+):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    owner, rid = await _restaurant(client, make_user, restaurant_body, "a@x.co")
+    dish = (await client.post("/restaurants/mine/dishes", json=dish_body, headers=owner)).json()
+    seen = (await client.get("/restaurants/mine", headers=owner)).json()["updatedAt"]
+    # The owner edits after the admin loaded the page, so the admin's copy is stale.
+    await client.patch("/restaurants/mine", json={"phone": "0911111111"}, headers=owner)
+    await client.patch(f"/restaurants/mine/dishes/{dish['id']}", json={"kcal": 480}, headers=owner)
+
+    for url, stale in ((f"/admin/restaurants/{rid}/review", seen), (f"/admin/dishes/{dish['id']}/review", dish["updatedAt"])):
+        resp = await client.post(url, json={"decision": "approved", "expectedUpdatedAt": stale}, headers=admin)
+        assert resp.status_code == 409 and "message" in resp.json()
+    assert (await client.get("/restaurants/mine", headers=owner)).json()["status"] == "pending"
+
+    current_r = (await client.get("/restaurants/mine", headers=owner)).json()["updatedAt"]
+    current_d = (await client.get("/restaurants/mine/dishes", headers=owner)).json()[0]["updatedAt"]
+    for url, current in ((f"/admin/restaurants/{rid}/review", current_r), (f"/admin/dishes/{dish['id']}/review", current_d)):
+        resp = await client.post(url, json={"decision": "approved", "expectedUpdatedAt": current}, headers=admin)
+        assert resp.status_code == 200 and resp.json()["status"] == "approved"

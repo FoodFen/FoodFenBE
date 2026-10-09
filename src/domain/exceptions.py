@@ -136,3 +136,7 @@ class RestaurantAlreadyExistsException(DomainException):
 
 class AdminRequiredException(DomainException):
     """The caller is not an admin. Maps to HTTP 403."""
+
+
+class StaleReviewException(DomainException):
+    """The row changed since the reviewer loaded it (its updated_at moved). Maps to HTTP 409."""
