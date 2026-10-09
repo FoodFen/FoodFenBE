@@ -22,10 +22,15 @@ Dependency direction: `domain <- application <- adapters | infrastructure`. Neve
   with one implementation, no config for a value that never changes, no scaffolding "for later" —
   this repo's Clean Architecture layers are already the intended structure, not a license to add
   more layers on top of them.
-- **Model roles.** If you are running as an **Opus** model, your only job is brainstorming and
-  planning (specs, implementation plans, reviews). **Never write or edit code yourself.** Every
-  coding action must be delegated to a subagent on a lower model (`model: "sonnet"` or `"haiku"`
-  on the Agent tool).
+- **Model roles.** If you are running as an **Opus** model, you decide and review: brainstorming,
+  specs, reviews (docs are fine to edit). **Never write or edit code yourself.** Every coding action
+  is delegated to a subagent on a lower model (`model: "sonnet"`, or `"haiku"` for mechanical edits),
+  which writes its own tests and code from the spec (TDD); then you review the diff.
+- **Spec → code, no plan by default.** A slice gets a written spec (decisions, contract, files to
+  touch, tests) and goes straight to the subagent. Write an implementation plan only when the work is
+  split across several subagents, and then as a short task list (task, files, dependencies) —
+  **never code in a plan**: a plan with full code is the implementation written twice, in Opus
+  tokens. This overrides the `brainstorming` → `writing-plans` handoff.
 - **Always** invoke the matching `superpowers` skill before starting non-trivial work:
   `brainstorming` before shaping a new feature or slice, `systematic-debugging` before proposing a
   bug fix, `test-driven-development` before implementation code, `verification-before-completion`
