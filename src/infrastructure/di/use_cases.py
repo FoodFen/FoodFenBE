@@ -30,6 +30,7 @@ from src.application.use_cases.quiz_support import QuizRewards
 from src.application.use_cases.start_practice_quiz import StartPracticeQuizUseCase
 from src.application.use_cases.submit_quiz import SubmitQuizUseCase
 from src.application.use_cases.get_food_entry import GetFoodEntryUseCase
+from src.application.use_cases.get_me import GetMeUseCase
 from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCase
 from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
@@ -57,14 +58,31 @@ from src.application.use_cases.update_user_profile import UpdateUserProfileUseCa
 from src.application.use_cases.update_water_log import UpdateWaterLogUseCase
 from src.application.use_cases.upsert_streak import UpsertStreakUseCase
 from src.application.use_cases.verify_email import VerifyEmailUseCase
+from src.application.use_cases.create_dish import CreateDishUseCase
+from src.application.use_cases.create_restaurant import CreateRestaurantUseCase
+from src.application.use_cases.delete_dish import DeleteDishUseCase
+from src.application.use_cases.get_my_restaurant import GetMyRestaurantUseCase
+from src.application.use_cases.get_public_restaurant import GetPublicRestaurantUseCase
+from src.application.use_cases.list_my_dishes import ListMyDishesUseCase
+from src.application.use_cases.list_public_dishes import ListPublicDishesUseCase
+from src.application.use_cases.update_dish import UpdateDishUseCase
+from src.application.use_cases.update_my_restaurant import UpdateMyRestaurantUseCase
+from src.application.use_cases.upload_restaurant_image import UploadRestaurantImageUseCase
+from src.application.use_cases.get_admin_dashboard import GetAdminDashboardUseCase
+from src.application.use_cases.get_admin_restaurant import GetAdminRestaurantUseCase
+from src.application.use_cases.list_admin_restaurants import ListAdminRestaurantsUseCase
+from src.application.use_cases.review_dish import ReviewDishUseCase
+from src.application.use_cases.review_restaurant import ReviewRestaurantUseCase
 from src.infrastructure.config import settings
 from src.infrastructure.di.repositories import (
+    AdminStatsRepositoryDep,
     AiTrialRepositoryDep,
     ActivityLogRepositoryDep,
     CoinBundleRepositoryDep,
     CoinRepositoryDep,
     QuestRepositoryDep,
     QuizRepositoryDep,
+    RestaurantRepositoryDep,
     ChatMessageRepositoryDep,
     DailyGoalRepositoryDep,
     FoodEntryRepositoryDep,
@@ -294,6 +312,13 @@ def get_get_my_subscription_use_case(
     subscriptions: SubscriptionRepositoryDep,
 ) -> GetMySubscriptionUseCase:
     return GetMySubscriptionUseCase(subscriptions=subscriptions)
+
+
+def get_get_me_use_case(restaurants: RestaurantRepositoryDep) -> GetMeUseCase:
+    return GetMeUseCase(restaurants=restaurants)
+
+
+GetMeUseCaseDep = Annotated[GetMeUseCase, Depends(get_get_me_use_case)]
 
 
 CreateCheckoutUseCaseDep = Annotated[CreateCheckoutUseCase, Depends(get_create_checkout_use_case)]
@@ -532,3 +557,122 @@ def get_submit_quiz_use_case(
 
 
 SubmitQuizUseCaseDep = Annotated[SubmitQuizUseCase, Depends(get_submit_quiz_use_case)]
+
+
+def get_create_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> CreateRestaurantUseCase:
+    return CreateRestaurantUseCase(restaurants=restaurants)
+
+
+CreateRestaurantUseCaseDep = Annotated[CreateRestaurantUseCase, Depends(get_create_restaurant_use_case)]
+
+
+def get_get_my_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> GetMyRestaurantUseCase:
+    return GetMyRestaurantUseCase(restaurants=restaurants)
+
+
+GetMyRestaurantUseCaseDep = Annotated[GetMyRestaurantUseCase, Depends(get_get_my_restaurant_use_case)]
+
+
+def get_update_my_restaurant_use_case(
+    restaurants: RestaurantRepositoryDep,
+) -> UpdateMyRestaurantUseCase:
+    return UpdateMyRestaurantUseCase(restaurants=restaurants)
+
+
+UpdateMyRestaurantUseCaseDep = Annotated[
+    UpdateMyRestaurantUseCase, Depends(get_update_my_restaurant_use_case)
+]
+
+
+def get_upload_restaurant_image_use_case(images: ImageStorageDep) -> UploadRestaurantImageUseCase:
+    return UploadRestaurantImageUseCase(images=images)
+
+
+UploadRestaurantImageUseCaseDep = Annotated[
+    UploadRestaurantImageUseCase, Depends(get_upload_restaurant_image_use_case)
+]
+
+
+def get_list_my_dishes_use_case(restaurants: RestaurantRepositoryDep) -> ListMyDishesUseCase:
+    return ListMyDishesUseCase(restaurants=restaurants)
+
+
+ListMyDishesUseCaseDep = Annotated[ListMyDishesUseCase, Depends(get_list_my_dishes_use_case)]
+
+
+def get_create_dish_use_case(restaurants: RestaurantRepositoryDep) -> CreateDishUseCase:
+    return CreateDishUseCase(restaurants=restaurants)
+
+
+CreateDishUseCaseDep = Annotated[CreateDishUseCase, Depends(get_create_dish_use_case)]
+
+
+def get_update_dish_use_case(restaurants: RestaurantRepositoryDep) -> UpdateDishUseCase:
+    return UpdateDishUseCase(restaurants=restaurants)
+
+
+UpdateDishUseCaseDep = Annotated[UpdateDishUseCase, Depends(get_update_dish_use_case)]
+
+
+def get_delete_dish_use_case(restaurants: RestaurantRepositoryDep) -> DeleteDishUseCase:
+    return DeleteDishUseCase(restaurants=restaurants)
+
+
+DeleteDishUseCaseDep = Annotated[DeleteDishUseCase, Depends(get_delete_dish_use_case)]
+
+
+def get_list_admin_restaurants_use_case(restaurants: RestaurantRepositoryDep) -> ListAdminRestaurantsUseCase:
+    return ListAdminRestaurantsUseCase(restaurants=restaurants)
+
+
+ListAdminRestaurantsUseCaseDep = Annotated[ListAdminRestaurantsUseCase, Depends(get_list_admin_restaurants_use_case)]
+
+
+def get_get_admin_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> GetAdminRestaurantUseCase:
+    return GetAdminRestaurantUseCase(restaurants=restaurants)
+
+
+GetAdminRestaurantUseCaseDep = Annotated[GetAdminRestaurantUseCase, Depends(get_get_admin_restaurant_use_case)]
+
+
+def get_review_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> ReviewRestaurantUseCase:
+    return ReviewRestaurantUseCase(restaurants=restaurants)
+
+
+ReviewRestaurantUseCaseDep = Annotated[ReviewRestaurantUseCase, Depends(get_review_restaurant_use_case)]
+
+
+def get_review_dish_use_case(restaurants: RestaurantRepositoryDep) -> ReviewDishUseCase:
+    return ReviewDishUseCase(restaurants=restaurants)
+
+
+ReviewDishUseCaseDep = Annotated[ReviewDishUseCase, Depends(get_review_dish_use_case)]
+
+
+def get_get_admin_dashboard_use_case(stats: AdminStatsRepositoryDep) -> GetAdminDashboardUseCase:
+    return GetAdminDashboardUseCase(stats=stats)
+
+
+GetAdminDashboardUseCaseDep = Annotated[GetAdminDashboardUseCase, Depends(get_get_admin_dashboard_use_case)]
+
+
+def get_list_public_dishes_use_case(
+    restaurants: RestaurantRepositoryDep,
+    daily_goals: DailyGoalRepositoryDep,
+    food_entries: FoodEntryRepositoryDep,
+) -> ListPublicDishesUseCase:
+    return ListPublicDishesUseCase(
+        restaurants=restaurants, daily_goals=daily_goals, food_entries=food_entries
+    )
+
+
+ListPublicDishesUseCaseDep = Annotated[ListPublicDishesUseCase, Depends(get_list_public_dishes_use_case)]
+
+
+def get_get_public_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> GetPublicRestaurantUseCase:
+    return GetPublicRestaurantUseCase(restaurants=restaurants)
+
+
+GetPublicRestaurantUseCaseDep = Annotated[
+    GetPublicRestaurantUseCase, Depends(get_get_public_restaurant_use_case)
+]

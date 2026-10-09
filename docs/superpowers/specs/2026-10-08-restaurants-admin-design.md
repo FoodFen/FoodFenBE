@@ -164,7 +164,7 @@ Endpoint list and per-field contract: `docs/marketplace.md` → "API" and "Contr
     carries `role` and `restaurantId`.
   - Image upload: bad type → 400; oversized → 400; OK → `{url}`, with `ImageStorage` overridden like the
     analyze-image tests.
-  - Admins in tests: create a user, then set `role` through the repository.
+  - Admins in tests: sign up a user, then set `role` with SQL (`set_role` fixture), as in production.
 - Before commit: `uv run lint-imports`, `make test`, and the migration-vs-metadata DDL comparison.
 
 ## Follow-ups (not in this slice)

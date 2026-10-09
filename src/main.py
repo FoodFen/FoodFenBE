@@ -13,14 +13,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from src.adapters.controllers.activity_log_controller import router as activity_log_router
+from src.adapters.controllers.admin_controller import router as admin_router
 from src.adapters.controllers.auth_controller import router as auth_router
 from src.adapters.controllers.chat_controller import router as chat_router
 from src.adapters.controllers.coin_controller import router as coin_router
 from src.adapters.controllers.daily_goal_controller import router as daily_goal_router
+from src.adapters.controllers.dish_controller import router as dish_router
 from src.adapters.controllers.food_analysis_controller import router as food_analysis_router
 from src.adapters.controllers.food_entry_controller import router as food_entry_router
 from src.adapters.controllers.payment_controller import router as payment_router
 from src.adapters.controllers.quiz_controller import router as quiz_router
+from src.adapters.controllers.restaurant_controller import router as restaurant_router
 from src.adapters.controllers.streak_controller import router as streak_router
 from src.adapters.controllers.subscription_controller import router as subscription_router
 from src.adapters.controllers.user_controller import router as user_router
@@ -71,6 +74,9 @@ def create_app() -> FastAPI:
     app.include_router(streak_router)
     app.include_router(coin_router)
     app.include_router(quiz_router)
+    app.include_router(dish_router)
+    app.include_router(restaurant_router)
+    app.include_router(admin_router)
     register_exception_handlers(app)
     return app
 

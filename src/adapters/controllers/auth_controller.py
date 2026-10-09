@@ -31,7 +31,7 @@ from src.adapters.schemas.auth_schemas import (
     SocialSignInRequest,
     SwaggerTokenResponse,
 )
-from src.adapters.schemas.user_schemas import UserResponse
+from src.adapters.schemas.user_schemas import MeResponse
 from src.application.dtos.auth import (
     LoginInputDTO,
     RefreshInputDTO,
@@ -41,10 +41,10 @@ from src.application.dtos.auth import (
     ResetPasswordInputDTO,
     SocialSignInInputDTO,
 )
-from src.application.dtos.user import UserOutputDTO
 from src.infrastructure.di import (
     CurrentUserDep,
     EmailVerificationNotifierDep,
+    GetMeUseCaseDep,
     LoginUseCaseDep,
     LogoutUseCaseDep,
     RefreshUseCaseDep,
@@ -131,9 +131,9 @@ async def password_reset(
     return MessageResponse(message="If that address has an account, a reset link is on its way.")
 
 
-@router.get("/me", response_model=UserResponse)
-async def me(current_user: CurrentUserDep) -> UserResponse:
-    return UserResponse.from_dto(UserOutputDTO.from_entity(current_user))
+@router.get("/me", response_model=MeResponse)
+async def me(current_user: CurrentUserDep, use_case: GetMeUseCaseDep) -> MeResponse:
+    return MeResponse.from_me(await use_case.execute(current_user))
 
 
 @router.get("/verify-email", response_model=MessageResponse)

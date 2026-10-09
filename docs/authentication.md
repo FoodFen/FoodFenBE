@@ -180,12 +180,14 @@ Response 200:
               "birthYear": null, "unitSystem": "metric", "height": null,
               "weightCurrent": null, "weightGoal": null, "activityLevel": null,
               "dietType": null, "calorieCalcMode": "auto", "calorieLeftMode": null,
-              "subscriptionTier": "free", "weeklyRateKg": null,
+              "subscriptionTier": "free", "role": "user", "weeklyRateKg": null,
               "createdAt": "2026-09-19T11:49:13Z" } }
 ```
 
 `expiresAt` is **epoch milliseconds** (not seconds, not ISO) — the contract's
 type, and what `Date.now()` compares against directly.
+
+`role` is `user` | `admin`; `GET /auth/me` additionally returns `restaurantId` (null when the user owns no restaurant) — see `docs/marketplace.md`.
 
 ```
 client                 RegisterUserUseCase                bcrypt / PyJWT       DB

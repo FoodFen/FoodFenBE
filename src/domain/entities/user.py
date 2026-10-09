@@ -15,6 +15,7 @@ from src.domain.enums import (
     Gender,
     SubscriptionTier,
     UnitSystem,
+    UserRole,
 )
 from src.domain.exceptions import InvalidUserAttributeException, WeakPasswordException
 from src.domain.validation import require_non_negative, require_positive
@@ -64,6 +65,7 @@ class User:
     calorie_left_mode: CalorieLeftMode | None = None
     subscription_tier: SubscriptionTier = SubscriptionTier.FREE
     weekly_rate_kg: float | None = None
+    role: UserRole = UserRole.USER
 
     def __post_init__(self) -> None:
         email = (self.email or "").strip().lower()
@@ -99,6 +101,10 @@ class User:
     @property
     def is_premium(self) -> bool:
         return self.subscription_tier is SubscriptionTier.PREMIUM
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == UserRole.ADMIN
 
     @property
     def password_stamp(self) -> str:

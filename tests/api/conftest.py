@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import update
 
 import src.infrastructure.db.models  # noqa: F401 — register every table on Base.metadata
 from src.application.dtos.auth import VerifiedIdentity
@@ -13,10 +14,11 @@ from src.application.ports.payment_provider import (
     ProviderPaymentStatus,
     WebhookPayload,
 )
-from src.domain.enums import PaymentProvider, PaymentStatus
+from src.domain.enums import PaymentProvider, PaymentStatus, UserRole
 from src.domain.exceptions import InvalidTokenException, InvalidWebhookSignatureException
 from src.infrastructure.db.base import Base
-from src.infrastructure.db.session import engine
+from src.infrastructure.db.models.user_model import UserORM
+from src.infrastructure.db.session import SessionLocal, engine
 from src.infrastructure.di import security
 from src.infrastructure.di import (
     get_ai_chat_provider,
@@ -249,3 +251,48 @@ async def signed_up(client, notifier):
     assert resp.status_code == 200
     body = resp.json()
     return {**_CREDENTIALS, **body, "verificationToken": notifier.last_token}
+
+
+async def _set_role(user_id: int, role: UserRole) -> None:
+    async with SessionLocal() as session:
+        await session.execute(update(UserORM).where(UserORM.id == user_id).values(role=role))
+        await session.commit()
+
+
+@pytest_asyncio.fixture
+def set_role():
+    return _set_role
+
+
+@pytest_asyncio.fixture
+def make_user(client):
+    """Sign up a fresh user; returns ``(auth headers, user id)``. ``admin=True`` promotes it with SQL,
+    exactly as production does."""
+
+    async def _make(email: str, *, admin: bool = False) -> tuple[dict[str, str], int]:
+        resp = await client.post(
+            "/auth/sign-up", json={"email": email, "password": "s3cret-pass", "displayName": "U"}
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        if admin:
+            await _set_role(body["user"]["id"], UserRole.ADMIN)
+        return {"Authorization": f"Bearer {body['accessToken']}"}, body["user"]["id"]
+
+    return _make
+
+
+@pytest_asyncio.fixture
+def restaurant_body() -> dict:
+    return {
+        "name": "Quán Ngon", "address": "1 Lê Lợi, Q1", "phone": "0901234567",
+        "openingHours": "7:00-21:00", "latitude": 10.7769, "longitude": 106.7009,
+    }
+
+
+@pytest_asyncio.fixture
+def dish_body() -> dict:
+    return {
+        "name": "Phở bò", "price": 55000, "servingG": 500,
+        "kcal": 450, "proteinG": 30, "carbsG": 55, "fatG": 12,
+    }

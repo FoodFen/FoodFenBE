@@ -22,10 +22,15 @@ Dependency direction: `domain <- application <- adapters | infrastructure`. Neve
   with one implementation, no config for a value that never changes, no scaffolding "for later" —
   this repo's Clean Architecture layers are already the intended structure, not a license to add
   more layers on top of them.
-- **Model roles.** If you are running as an **Opus** model, your only job is brainstorming and
-  planning (specs, implementation plans, reviews). **Never write or edit code yourself.** Every
-  coding action must be delegated to a subagent on a lower model (`model: "sonnet"` or `"haiku"`
-  on the Agent tool).
+- **Model roles.** If you are running as an **Opus** model, you decide and review: brainstorming,
+  specs, reviews (docs are fine to edit). **Never write or edit code yourself.** Every coding action
+  is delegated to a subagent on a lower model (`model: "sonnet"`, or `"haiku"` for mechanical edits),
+  which writes its own tests and code from the spec (TDD); then you review the diff.
+- **Spec → code, no plan by default.** A slice gets a written spec (decisions, contract, files to
+  touch, tests) and goes straight to the subagent. Write an implementation plan only when the work is
+  split across several subagents, and then as a short task list (task, files, dependencies) —
+  **never code in a plan**: a plan with full code is the implementation written twice, in Opus
+  tokens. This overrides the `brainstorming` → `writing-plans` handoff.
 - **Always** invoke the matching `superpowers` skill before starting non-trivial work:
   `brainstorming` before shaping a new feature or slice, `systematic-debugging` before proposing a
   bug fix, `test-driven-development` before implementation code, `verification-before-completion`
@@ -234,6 +239,19 @@ Spec: `docs/superpowers/specs/2026-10-03-quiz-design.md`. Wire contract (owned b
 Business rules (roles, moderation, what is public, open questions) live in `docs/marketplace.md`,
 a **living document**: read it before touching restaurants, dishes, admin or recommendation, and
 update it in the same change as any decision.
+
+- **Admin** = `users.role = 'admin'`, set with SQL. `CurrentAdminDep` / router-level
+  `Depends(get_current_admin)` (403); the role is read from the DB per request, never from the JWT.
+- **Owner** is not a role: `restaurants.user_id` (unique). Owner routes are `/restaurants/mine/...`;
+  ownership is implied, and another owner's dish is a 404 (`use_cases/restaurant_support.py`).
+- Moderation transitions live only in `Restaurant`/`Dish` `.review()` / `.mark_edited()`; a use case
+  never assigns `status`. Public = approved dish of an approved restaurant.
+- **Diner endpoints** (`CurrentUserDep`, free): `GET /dishes?date=` (fits-first by remaining kcal, ordering in
+  `application/dish_fit.py`) and `GET /restaurants/{id}` (404 unless approved). Spec:
+  `docs/superpowers/specs/2026-10-09-dish-tab-design.md`. Reviews take an optional `expectedUpdatedAt`
+  (stale → 409); `imageUrl` must be a Cloudinary upload on our cloud (`restaurant_schemas.py`).
+- Dashboard buckets rows into Vietnam days in `get_admin_dashboard.py` (Python, not SQL; see its
+  `ponytail:` note).
 
 ## Commands
 
