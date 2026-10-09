@@ -41,7 +41,7 @@ Five pieces, built in this order:
 - **owner**: not a role. A user *is* the owner of a restaurant when `restaurants.user_id` (unique) points at them.
   Owner endpoints check ownership of the specific restaurant, never a role.
 - **admin**: `users.role = 'admin'`. Moderates restaurants and dishes, sees platform data. The first
-  admin is set with SQL; there is no self-service way to become one.
+  admin is set with `uv run python -m scripts.make_admin EMAIL`; there is no self-service way to become one.
 
 ## Admin scope
 

@@ -240,7 +240,7 @@ Business rules (roles, moderation, what is public, open questions) live in `docs
 a **living document**: read it before touching restaurants, dishes, admin or recommendation, and
 update it in the same change as any decision.
 
-- **Admin** = `users.role = 'admin'`, set with SQL. `CurrentAdminDep` / router-level
+- **Admin** = `users.role = 'admin'`, set with `scripts.make_admin` (existing accounts only). `CurrentAdminDep` / router-level
   `Depends(get_current_admin)` (403); the role is read from the DB per request, never from the JWT.
 - **Owner** is not a role: `restaurants.user_id` (unique). Owner routes are `/restaurants/mine/...`;
   ownership is implied, and another owner's dish is a 404 (`use_cases/restaurant_support.py`).
@@ -260,9 +260,14 @@ update it in the same change as any decision.
     make lint-imports   # import-linter contracts
     make migrate        # alembic upgrade head
     make docker-up      # local postgres:16
+    uv run python -m scripts.make_admin you@example.com --env-file .env.prod   # --revoke to demote
+    uv run python -m scripts.seed_demo --env-file .env.prod                    # --remove to delete
+
+`.env` is the local dev DB (docker postgres on localhost:5433). Prod's URL lives only on Render (and
+optionally in a gitignored `.env.prod`); the scripts take it via `--env-file` and never print it.
 
 `unit` tests use an in-memory repo. `integration` and `api` tests run on in-memory SQLite — `tests/conftest.py`
-forces `DATABASE_URL`, so `.env` (prod) is never touched, and shims the Postgres gaps (tz-aware datetimes,
+forces `DATABASE_URL`, so `.env` is never touched, and shims the Postgres gaps (tz-aware datetimes,
 the non-PK `payments.order_code` identity). No Docker needed; SQLite ignores `FOR UPDATE`, so row-lock
 behaviour (e.g. coin redeem) is not exercised by tests.
 
