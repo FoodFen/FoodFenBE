@@ -76,3 +76,5 @@ async def test_extreme_dates_are_invalid():
     for extreme in (date(9999, 12, 31), date(1, 1, 1)):
         with pytest.raises(InvalidAttributeException):
             await use_case.execute(extreme, extreme, TODAY)
+    with pytest.raises(InvalidAttributeException):  # default from-date underflows
+        await use_case.execute(None, date(1, 1, 10), TODAY)

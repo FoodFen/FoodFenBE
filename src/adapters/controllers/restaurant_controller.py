@@ -87,6 +87,11 @@ async def upload_image(
     data = await image.read(_MAX_IMAGE_BYTES + 1)
     if len(data) > _MAX_IMAGE_BYTES:
         raise UnreadableImageException("image is larger than 5 MB")
+    if not (
+        data.startswith((b"\xff\xd8\xff", b"\x89PNG"))
+        or (data[:4] == b"RIFF" and data[8:12] == b"WEBP")
+    ):
+        raise UnreadableImageException("file is not a JPEG, PNG or WebP image")
     return ImageUploadResponse(url=await use_case.execute(data, image.content_type))
 
 

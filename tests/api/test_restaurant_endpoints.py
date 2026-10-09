@@ -73,16 +73,20 @@ async def test_editing_rejected_restaurant_resubmits_it(client, make_user, resta
 async def test_image_upload(client, make_user, image_storage):
     headers, _ = await make_user("owner@example.com")
     ok = await client.post(
-        "/restaurants/mine/images", files={"image": ("a.webp", b"x" * 10, "image/webp")}, headers=headers
+        "/restaurants/mine/images", files={"image": ("a.webp", b"RIFF\x00\x00\x00\x00WEBP", "image/webp")}, headers=headers
     )
     assert ok.status_code == 200 and ok.json() == {"url": image_storage.url}
+    fake = await client.post(
+        "/restaurants/mine/images", files={"image": ("a.png", b"not an image", "image/png")}, headers=headers
+    )
+    assert fake.status_code == 400 and len(image_storage.uploads) == 1
     heic = await client.post(
         "/restaurants/mine/images", files={"image": ("a.heic", b"x", "image/heic")}, headers=headers
     )
     assert heic.status_code == 400 and "message" in heic.json()
     big = await client.post(
         "/restaurants/mine/images",
-        files={"image": ("a.jpg", b"x" * (5 * 1024 * 1024 + 1), "image/jpeg")}, headers=headers,
+        files={"image": ("a.jpg", b"\xff\xd8\xff" + b"x" * (5 * 1024 * 1024), "image/jpeg")}, headers=headers,
     )
     assert big.status_code == 400
 
@@ -168,3 +172,20 @@ async def test_empty_patch_keeps_approved_dish_approved(client, make_user, resta
     resp = await client.patch(f"/restaurants/mine/dishes/{dish['id']}", json={}, headers=headers)
     assert resp.status_code == 200
     assert resp.json()["status"] == "approved"
+
+
+async def test_unchanged_dish_patch_keeps_approved(client, make_user, restaurant_body, dish_body):
+    headers, _ = await _create(client, make_user, restaurant_body)
+    dish = (await client.post("/restaurants/mine/dishes", json=dish_body, headers=headers)).json()
+    admin = await _admin(make_user)
+    await client.post(f"/admin/dishes/{dish['id']}/review", json={"decision": "approved"}, headers=admin)
+    resp = await client.patch(
+        f"/restaurants/mine/dishes/{dish['id']}", json={"name": dish["name"]}, headers=headers
+    )
+    assert resp.status_code == 200 and resp.json()["status"] == "approved"
+
+
+async def test_whitespace_only_name_is_a_field_error(client, make_user, restaurant_body):
+    headers, _ = await make_user("owner@example.com")
+    resp = await client.post("/restaurants", json={**restaurant_body, "name": "   "}, headers=headers)
+    assert resp.status_code == 422 and "name" in resp.json()["errors"]

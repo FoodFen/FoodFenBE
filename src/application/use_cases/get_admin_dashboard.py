@@ -36,7 +36,10 @@ class GetAdminDashboardUseCase:
         self, from_date: date | None, to_date: date | None, today: date | None = None
     ) -> DashboardDTO:
         to_date = to_date or today or datetime.now(VIETNAM).date()
-        from_date = from_date or to_date - timedelta(days=_DEFAULT_DAYS - 1)
+        try:
+            from_date = from_date or to_date - timedelta(days=_DEFAULT_DAYS - 1)
+        except OverflowError as exc:
+            raise InvalidAttributeException("date out of range") from exc
         if from_date > to_date:
             raise InvalidAttributeException("'from' must not be after 'to'")
         span = (to_date - from_date).days + 1

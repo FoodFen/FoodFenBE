@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from src.adapters.schemas.base import CamelModel, MoneyField
 from src.application.dtos.restaurant import DishOutputDTO, RestaurantOutputDTO
@@ -69,6 +69,8 @@ class DishResponse(CamelModel):
 
 
 class CreateRestaurantRequest(CamelModel):
+    model_config = ConfigDict(str_strip_whitespace=True)  # merges with CamelModel's
+
     name: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=2000)
     address: str = Field(min_length=1, max_length=500)
@@ -82,6 +84,8 @@ class CreateRestaurantRequest(CamelModel):
 class UpdateRestaurantRequest(CamelModel):
     """Partial: only sent fields apply (controller uses ``exclude_unset``). ``description`` and
     ``imageUrl`` may be cleared with ``null``; the rest may not."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)  # merges with CamelModel's
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=2000)
@@ -99,6 +103,8 @@ class UpdateRestaurantRequest(CamelModel):
 
 
 class CreateDishRequest(CamelModel):
+    model_config = ConfigDict(str_strip_whitespace=True)  # merges with CamelModel's
+
     name: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=2000)
     image_url: str | None = Field(default=None, max_length=2048, pattern=_HTTPS)
@@ -112,6 +118,8 @@ class CreateDishRequest(CamelModel):
 
 
 class UpdateDishRequest(CamelModel):
+    model_config = ConfigDict(str_strip_whitespace=True)  # merges with CamelModel's
+
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=2000)
     image_url: str | None = Field(default=None, max_length=2048, pattern=_HTTPS)
