@@ -9,7 +9,14 @@ from uuid import UUID
 from pydantic import ConfigDict, Field, field_validator
 
 from src.adapters.schemas.base import CamelModel, MoneyField
-from src.application.dtos.restaurant import DishOutputDTO, RestaurantOutputDTO
+from src.application.dtos.restaurant import (
+    DishOutputDTO,
+    PublicDishDTO,
+    PublicDishListDTO,
+    PublicRestaurantDTO,
+    PublicRestaurantSummaryDTO,
+    RestaurantOutputDTO,
+)
 from src.domain.enums import ModerationStatus
 
 _HTTPS = r"^https://"
@@ -66,6 +73,78 @@ class DishResponse(CamelModel):
     @classmethod
     def from_dto(cls, dto: DishOutputDTO) -> DishResponse:
         return cls(**vars(dto))
+
+
+class PublicDishResponse(CamelModel):
+    id: UUID
+    name: str
+    description: str | None
+    image_url: str | None
+    price: MoneyField
+    serving_g: int
+    kcal: int
+    protein_g: float
+    carbs_g: float
+    fat_g: float
+    fiber_g: float | None
+
+    @classmethod
+    def from_dto(cls, dto: PublicDishDTO) -> PublicDishResponse:
+        return cls(**vars(dto))
+
+
+class PublicRestaurantSummaryResponse(CamelModel):
+    id: UUID
+    name: str
+    address: str
+    latitude: float
+    longitude: float
+
+    @classmethod
+    def from_dto(cls, dto: PublicRestaurantSummaryDTO) -> PublicRestaurantSummaryResponse:
+        return cls(**vars(dto))
+
+
+class PublicFitDishResponse(PublicDishResponse):
+    fits: bool
+    restaurant: PublicRestaurantSummaryResponse
+
+
+class PublicDishListResponse(CamelModel):
+    remaining_kcal: int | None
+    dishes: list[PublicFitDishResponse]
+
+    @classmethod
+    def from_dto(cls, dto: PublicDishListDTO) -> PublicDishListResponse:
+        return cls(
+            remaining_kcal=dto.remaining_kcal,
+            dishes=[
+                PublicFitDishResponse(
+                    **vars(d.dish), fits=d.fits, restaurant=PublicRestaurantSummaryResponse.from_dto(d.restaurant)
+                )
+                for d in dto.dishes
+            ],
+        )
+
+
+class PublicRestaurantResponse(CamelModel):
+    id: UUID
+    name: str
+    description: str | None
+    address: str
+    phone: str
+    opening_hours: str
+    latitude: float
+    longitude: float
+    image_url: str | None
+    dishes: list[PublicDishResponse]
+
+    @classmethod
+    def from_dto(cls, dto: PublicRestaurantDTO) -> PublicRestaurantResponse:
+        return cls(
+            **{k: v for k, v in vars(dto).items() if k != "dishes"},
+            dishes=[PublicDishResponse.from_dto(d) for d in dto.dishes],
+        )
 
 
 class CreateRestaurantRequest(CamelModel):

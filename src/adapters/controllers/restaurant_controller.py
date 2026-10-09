@@ -15,6 +15,7 @@ from src.adapters.schemas.restaurant_schemas import (
     CreateRestaurantRequest,
     DishResponse,
     ImageUploadResponse,
+    PublicRestaurantResponse,
     RestaurantResponse,
     UpdateDishRequest,
     UpdateRestaurantRequest,
@@ -32,6 +33,7 @@ from src.infrastructure.di import (
     CurrentUserDep,
     DeleteDishUseCaseDep,
     GetMyRestaurantUseCaseDep,
+    GetPublicRestaurantUseCaseDep,
     ListMyDishesUseCaseDep,
     UpdateDishUseCaseDep,
     UpdateMyRestaurantUseCaseDep,
@@ -122,3 +124,11 @@ async def update_dish(
 @router.delete("/mine/dishes/{dish_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_dish(dish_id: UUID, user: CurrentUserDep, use_case: DeleteDishUseCaseDep) -> None:
     await use_case.execute(user.id, dish_id)
+
+
+# Declared last so "/mine" is never read as an id (the path param is a UUID, so it could only 422).
+@router.get("/{restaurant_id}", response_model=PublicRestaurantResponse)
+async def get_public_restaurant(
+    restaurant_id: UUID, _: CurrentUserDep, use_case: GetPublicRestaurantUseCaseDep
+) -> PublicRestaurantResponse:
+    return PublicRestaurantResponse.from_dto(await use_case.execute(restaurant_id))

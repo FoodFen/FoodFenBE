@@ -62,7 +62,9 @@ from src.application.use_cases.create_dish import CreateDishUseCase
 from src.application.use_cases.create_restaurant import CreateRestaurantUseCase
 from src.application.use_cases.delete_dish import DeleteDishUseCase
 from src.application.use_cases.get_my_restaurant import GetMyRestaurantUseCase
+from src.application.use_cases.get_public_restaurant import GetPublicRestaurantUseCase
 from src.application.use_cases.list_my_dishes import ListMyDishesUseCase
+from src.application.use_cases.list_public_dishes import ListPublicDishesUseCase
 from src.application.use_cases.update_dish import UpdateDishUseCase
 from src.application.use_cases.update_my_restaurant import UpdateMyRestaurantUseCase
 from src.application.use_cases.upload_restaurant_image import UploadRestaurantImageUseCase
@@ -652,3 +654,25 @@ def get_get_admin_dashboard_use_case(stats: AdminStatsRepositoryDep) -> GetAdmin
 
 
 GetAdminDashboardUseCaseDep = Annotated[GetAdminDashboardUseCase, Depends(get_get_admin_dashboard_use_case)]
+
+
+def get_list_public_dishes_use_case(
+    restaurants: RestaurantRepositoryDep,
+    daily_goals: DailyGoalRepositoryDep,
+    food_entries: FoodEntryRepositoryDep,
+) -> ListPublicDishesUseCase:
+    return ListPublicDishesUseCase(
+        restaurants=restaurants, daily_goals=daily_goals, food_entries=food_entries
+    )
+
+
+ListPublicDishesUseCaseDep = Annotated[ListPublicDishesUseCase, Depends(get_list_public_dishes_use_case)]
+
+
+def get_get_public_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> GetPublicRestaurantUseCase:
+    return GetPublicRestaurantUseCase(restaurants=restaurants)
+
+
+GetPublicRestaurantUseCaseDep = Annotated[
+    GetPublicRestaurantUseCase, Depends(get_get_public_restaurant_use_case)
+]

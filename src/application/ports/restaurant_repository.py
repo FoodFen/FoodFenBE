@@ -40,3 +40,7 @@ class RestaurantRepositoryProtocol(Protocol):
     async def list_dishes(self, restaurant_id: UUID) -> list[Dish]:
         """Every status, oldest first."""
         ...
+
+    async def list_public_dishes(self) -> list[tuple[Dish, Restaurant]]:
+        """Approved dishes of approved restaurants, with their restaurant. No particular order."""
+        ...

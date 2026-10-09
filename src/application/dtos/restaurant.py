@@ -110,3 +110,69 @@ class UpdateDishInputDTO:
     user_id: int
     dish_id: UUID
     updates: dict[str, Any]
+
+
+# Diner-facing (public) views: no status, timestamps or owner data.
+@dataclass(frozen=True)
+class PublicRestaurantSummaryDTO:
+    id: UUID
+    name: str
+    address: str
+    latitude: float
+    longitude: float
+
+    @classmethod
+    def from_entity(cls, r: Restaurant) -> PublicRestaurantSummaryDTO:
+        return cls(id=r.id, name=r.name, address=r.address, latitude=r.latitude, longitude=r.longitude)
+
+
+@dataclass(frozen=True)
+class PublicDishDTO:
+    id: UUID
+    name: str
+    description: str | None
+    image_url: str | None
+    price: Decimal
+    serving_g: int
+    kcal: int
+    protein_g: float
+    carbs_g: float
+    fat_g: float
+    fiber_g: float | None
+
+    @classmethod
+    def from_entity(cls, d: Dish) -> PublicDishDTO:
+        return cls(
+            id=d.id, name=d.name, description=d.description, image_url=d.image_url, price=d.price,
+            serving_g=d.serving_g, kcal=d.kcal, protein_g=d.protein_g, carbs_g=d.carbs_g,
+            fat_g=d.fat_g, fiber_g=d.fiber_g,
+        )
+
+
+@dataclass(frozen=True)
+class PublicFitDishDTO:
+    """A dish in the diner tab: the dish, whether it fits the caller's remaining kcal, its restaurant."""
+
+    dish: PublicDishDTO
+    fits: bool
+    restaurant: PublicRestaurantSummaryDTO
+
+
+@dataclass(frozen=True)
+class PublicDishListDTO:
+    remaining_kcal: int | None
+    dishes: list[PublicFitDishDTO]
+
+
+@dataclass(frozen=True)
+class PublicRestaurantDTO:
+    id: UUID
+    name: str
+    description: str | None
+    address: str
+    phone: str
+    opening_hours: str
+    latitude: float
+    longitude: float
+    image_url: str | None
+    dishes: list[PublicDishDTO]

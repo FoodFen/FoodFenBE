@@ -108,3 +108,16 @@ class SQLAlchemyRestaurantRepository:
             )
         ).scalars().all()
         return [row.to_domain() for row in rows]
+
+    async def list_public_dishes(self) -> list[tuple[Dish, Restaurant]]:
+        rows = (
+            await self._session.execute(
+                select(DishORM, RestaurantORM)
+                .join(RestaurantORM, RestaurantORM.id == DishORM.restaurant_id)
+                .where(
+                    DishORM.status == ModerationStatus.APPROVED,
+                    RestaurantORM.status == ModerationStatus.APPROVED,
+                )
+            )
+        ).all()
+        return [(d.to_domain(), r.to_domain()) for d, r in rows]
