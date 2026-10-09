@@ -3,8 +3,8 @@
 > **Living document.** The single source of truth for *what* the restaurant/admin/recommendation
 > side of FoodFen does and *why*. Update it in the same change as any decision or behaviour change.
 > Design specs (`docs/superpowers/specs/`) record *how* one slice was built; this file records the
-> rules that hold across slices. Status: **pieces 1–2 implemented** (branch feat/restaurants-admin). Spec for pieces 1–2:
-> `docs/superpowers/specs/2026-10-08-restaurants-admin-design.md`.
+> rules that hold across slices. Status: **pieces 1–3 implemented** (branch feat/dish-tab). Specs: pieces 1–2
+> `docs/superpowers/specs/2026-10-08-restaurants-admin-design.md`, piece 3 `docs/superpowers/specs/2026-10-09-dish-tab-design.md`.
 
 ## Vision
 
@@ -15,7 +15,7 @@ Five pieces, built in this order:
 |---|-------|--------|
 | 1 | **Restaurants**: owners register for free, submit their profile and menu with nutrition | implemented |
 | 2 | **Admin**: approves restaurants and dishes, sees basic platform data (transactions, users) | implemented |
-| 3 | **Dish tab** (mobile): dishes that fit the user first, then the rest; tap a dish to see the restaurant and Google Maps | later |
+| 3 | **Dish tab** (mobile): dishes that fit the user first, then the rest; tap a dish to see the restaurant and Google Maps | implemented |
 | 4 | **Recommendation**: AI or rules over the user's stats pick suitable dishes | later, approach undecided |
 | 5 | **Paid placement**: restaurants pay to appear in a separate "featured" section | later, needs research |
 
@@ -54,6 +54,15 @@ KPIs, users table, quiz/quest content) stays on mock data until someone asks for
    - **Growth**: new users and new restaurants per day.
 3. **Ad packages**: manage the paid-placement packages restaurants can buy. *Deferred* (see Decisions).
 
+## Dish tab (diner view)
+
+Free for every signed-in user (restaurants need views before they have a reason to join). "Fits first" is
+a remaining-kcal rule, not AI: the goal in force on the day minus the diary's kcal that day; a dish fits
+when its `kcal` is at most what is left. Fitting dishes come first, highest kcal first; then the rest,
+lowest kcal first; with no goal, newest first and nothing fits. No distance: coordinates are returned only
+so the app can open Google Maps. Logging a dish to the diary has no endpoint: the app copies the dish's
+nutrition into a local food entry and the existing sync uploads it.
+
 ## Data
 
 - **Restaurant**: one per owner. Name, description, address, latitude/longitude (Google Maps, later
@@ -88,12 +97,24 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
   for a dish of another restaurant)
 - `POST /restaurants/mine/images` (multipart) → `{url}`, for both profile and dish images
 
+**Diner** (any signed-in user, no Premium gate; public = approved dish of an approved restaurant):
+
+- `GET /dishes?date=YYYY-MM-DD` → `{remainingKcal, dishes}`; `date` is the client's local day (omitted:
+  Vietnam day). `remainingKcal` is `null` with no goal in force. Each dish: `id, name, description,
+  imageUrl, price, servingG, kcal, proteinG, carbsG, fatG, fiberG, fits` + `restaurant {id, name,
+  address, latitude, longitude}`. No status, timestamps or owner data. Not paginated yet.
+- `GET /restaurants/{id}`: public profile (`id, name, description, address, phone, openingHours,
+  latitude, longitude, imageUrl`) + `dishes` (its approved dishes, oldest first). 404 when the
+  restaurant does not exist or is not approved.
+
 **Admin**:
 
 - `GET /admin/restaurants?needsReview=true|status=` · `GET /admin/restaurants/{id}` (profile + full menu)
 - `POST /admin/restaurants/{id}/review` and `POST /admin/dishes/{id}/review`:
   `{decision: approved|rejected, reason?}` (reason required to reject; also used for takedowns).
   The review queue = `pending` restaurants **or** approved ones with `pending` dishes.
+  Optional `expectedUpdatedAt` (the `updatedAt` the admin saw, sent back verbatim): if the row has
+  changed since, 409 `{message}` and nothing is reviewed. Absent: no check.
 - `GET /admin/dashboard?from=&to=`: totals `premiumRevenue`, `adRevenue` (0 until ads exist),
   `newUsers`, `newRestaurants` + a daily series. Days are Vietnam days (UTC+7); default last 30 days.
 
@@ -115,14 +136,17 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
 - Admin list rows: `id`, `name`, `status`, `ownerName`, `ownerEmail`, `dishCount`, `pendingDishCount`,
   `updatedAt`, `rejectionReason`.
 - Reviews are idempotent: reviewing again just sets the decision (and reason) again; 200 with the
-  updated row, never 409.
+  updated row. The only 409 is a stale `expectedUpdatedAt`.
 - Images: JPEG/PNG/WebP (browser-renderable; no HEIC), max 5 MB, else 400 `{message}` like
   `/ai/food/analyze-image`. The returned `url` is absolute (Cloudinary `secure_url`).
+- `imageUrl` on create/patch (restaurant and dish) must start with
+  `https://res.cloudinary.com/<our cloud>/image/upload/`, else 422 `errors.imageUrl`; `null` still
+  clears. With no `CLOUDINARY_URL` configured every non-null `imageUrl` is rejected.
 - Dashboard: `daily` is zero-filled for every Vietnam day in `[from, to]` inclusive; dates are
   `YYYY-MM-DD`, money is integer VND, and each row also carries `adRevenue`. Range capped at 366 days.
 - Role and status enums are exposed in the OpenAPI schema (the web client is generated from it).
 
-Not yet: public diner endpoints (with the dish tab spec), bulk review, queue pagination.
+Not yet: diner pagination/search/distance, bulk review, queue pagination.
 
 ## Open questions
 

@@ -245,7 +245,11 @@ update it in the same change as any decision.
 - **Owner** is not a role: `restaurants.user_id` (unique). Owner routes are `/restaurants/mine/...`;
   ownership is implied, and another owner's dish is a 404 (`use_cases/restaurant_support.py`).
 - Moderation transitions live only in `Restaurant`/`Dish` `.review()` / `.mark_edited()`; a use case
-  never assigns `status`. Public = approved dish of an approved restaurant (no public endpoint yet).
+  never assigns `status`. Public = approved dish of an approved restaurant.
+- **Diner endpoints** (`CurrentUserDep`, free): `GET /dishes?date=` (fits-first by remaining kcal, ordering in
+  `application/dish_fit.py`) and `GET /restaurants/{id}` (404 unless approved). Spec:
+  `docs/superpowers/specs/2026-10-09-dish-tab-design.md`. Reviews take an optional `expectedUpdatedAt`
+  (stale → 409); `imageUrl` must be a Cloudinary upload on our cloud (`restaurant_schemas.py`).
 - Dashboard buckets rows into Vietnam days in `get_admin_dashboard.py` (Python, not SQL; see its
   `ponytail:` note).
 
