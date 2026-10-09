@@ -32,6 +32,8 @@ Five pieces, built in this order:
 | 2026-10-08 | Approved restaurant profile edits go live without re-review; admin can take a restaurant down any time | A profile carries no nutrition, so the risk is low; re-review would hide the whole restaurant over a phone-number change |
 | 2026-10-08 | Moderation is status columns on each row, no review-history table | Nobody needs an audit trail yet; add a `moderation_reviews` table when someone does |
 | 2026-10-08 | No separate restaurant account type. Any user can create a restaurant and becomes its owner; `role` is only `user` \| `admin` | One account system, one sign-up flow; an owner can still use the app as a diner; a role can never disagree with ownership data |
+| 2026-10-09 | Both review endpoints take an optional `expectedUpdatedAt`; if it differs from the row's `updated_at` → 409 `{message}`. Absent = no check. Ships with the dish tab | An owner edit between the admin opening a row and approving it would otherwise be approved unseen. Optional so old clients keep working; web sends the on-screen `updatedAt` and asks for a reload on 409 |
+| 2026-10-09 | `imageUrl` (restaurant and dish, create and patch) only accepts our own Cloudinary delivery URLs; image changes are not re-reviewed. Ships with the dish tab | Any https host lets an owner swap the file behind an already-approved URL and lets a third party see every viewer's IP. The upload endpoint already returns Cloudinary URLs. A bad image is handled by the admin takedown; revisit re-review only if abuse shows up |
 
 ## Roles and permissions
 
@@ -126,5 +128,3 @@ Not yet: public diner endpoints (with the dish tab spec), bulk review, queue pag
 
 - Recommendation approach (rules over macros vs. AI) and how dishes are fed to it.
 - Paid placement: pricing, duration, how it is paid (PayOS / MoMo already integrated).
-- Approving a version the admin never saw: an owner edit between the admin opening the detail page and clicking approve gets approved unseen. Fix with an optional expectedUpdatedAt precondition (409 on mismatch) before the dish tab makes approvals public; it is a contract change.
-- Approved restaurants can change imageUrl (any https host) without re-review. Decide before the dish tab: restrict to our Cloudinary host, or re-review image changes.
