@@ -9,6 +9,8 @@ import os
 from datetime import timezone
 
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+# A fake cloud: restaurant/dish imageUrl is only accepted from it (fails closed when unset).
+os.environ["CLOUDINARY_URL"] = "cloudinary://k:s@testcloud"
 
 from sqlalchemy import event, types  # noqa: E402
 from sqlalchemy.dialects.sqlite import DATETIME  # noqa: E402

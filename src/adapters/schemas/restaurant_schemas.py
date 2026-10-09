@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Annotated
+from urllib.parse import urlparse
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import AfterValidator, ConfigDict, Field, field_validator
 
 from src.adapters.schemas.base import CamelModel, MoneyField
 from src.application.dtos.restaurant import (
@@ -18,8 +20,19 @@ from src.application.dtos.restaurant import (
     RestaurantOutputDTO,
 )
 from src.domain.enums import ModerationStatus
+from src.infrastructure.config import settings  # a leaf module: just the cloud name, no wiring
 
-_HTTPS = r"^https://"
+
+def _cloudinary_only(url: str) -> str:
+    """Only images uploaded through this app: ``POST /restaurants/mine/images`` hands out these URLs.
+    Fails closed: no ``CLOUDINARY_URL`` configured means no ``imageUrl`` is accepted (``null`` still is)."""
+    cloud = urlparse(settings.cloudinary_url).hostname  # same parse as CloudinaryImageStorage
+    if not cloud or not url.startswith(f"https://res.cloudinary.com/{cloud}/image/upload/"):
+        raise ValueError("must be an image uploaded through POST /restaurants/mine/images")
+    return url
+
+
+CloudinaryImageUrl = Annotated[str, AfterValidator(_cloudinary_only)]
 
 
 def _not_null(value):
@@ -157,7 +170,7 @@ class CreateRestaurantRequest(CamelModel):
     opening_hours: str = Field(min_length=1, max_length=255)
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
-    image_url: str | None = Field(default=None, max_length=2048, pattern=_HTTPS)
+    image_url: CloudinaryImageUrl | None = Field(default=None, max_length=2048)
 
 
 class UpdateRestaurantRequest(CamelModel):
@@ -173,7 +186,7 @@ class UpdateRestaurantRequest(CamelModel):
     opening_hours: str | None = Field(default=None, min_length=1, max_length=255)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
-    image_url: str | None = Field(default=None, max_length=2048, pattern=_HTTPS)
+    image_url: CloudinaryImageUrl | None = Field(default=None, max_length=2048)
 
     @field_validator("name", "address", "phone", "opening_hours", "latitude", "longitude")
     @classmethod
@@ -186,7 +199,7 @@ class CreateDishRequest(CamelModel):
 
     name: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=2000)
-    image_url: str | None = Field(default=None, max_length=2048, pattern=_HTTPS)
+    image_url: CloudinaryImageUrl | None = Field(default=None, max_length=2048)
     price: Decimal = Field(ge=0, max_digits=12, decimal_places=0)
     serving_g: int = Field(gt=0, le=10_000)
     kcal: int = Field(ge=0, le=20_000)
@@ -201,7 +214,7 @@ class UpdateDishRequest(CamelModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=2000)
-    image_url: str | None = Field(default=None, max_length=2048, pattern=_HTTPS)
+    image_url: CloudinaryImageUrl | None = Field(default=None, max_length=2048)
     price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=0)
     serving_g: int | None = Field(default=None, gt=0, le=10_000)
     kcal: int | None = Field(default=None, ge=0, le=20_000)

@@ -144,3 +144,39 @@ async def test_review_with_stale_expected_updated_at_is_409_and_current_is_200(
     for url, current in ((f"/admin/restaurants/{rid}/review", current_r), (f"/admin/dishes/{dish['id']}/review", current_d)):
         resp = await client.post(url, json={"decision": "approved", "expectedUpdatedAt": current}, headers=admin)
         assert resp.status_code == 200 and resp.json()["status"] == "approved"
+
+
+_OK_URL = "https://res.cloudinary.com/testcloud/image/upload/v1/a.jpg"
+_BAD_URLS = [
+    "https://cdn.example/a.jpg",
+    "http://res.cloudinary.com/testcloud/image/upload/a.jpg",
+    "https://res.cloudinary.com/othercloud/image/upload/a.jpg",
+    "https://res.cloudinary.com/testcloud/video/upload/a.mp4",
+]
+
+
+async def test_image_url_must_be_a_cloudinary_upload_on_our_cloud(
+    client, make_user, restaurant_body, dish_body
+):
+    headers, _ = await make_user("owner@example.com")
+    for bad in _BAD_URLS:
+        resp = await client.post("/restaurants", json={**restaurant_body, "imageUrl": bad}, headers=headers)
+        assert resp.status_code == 422 and "imageUrl" in resp.json()["errors"], bad
+    created = await client.post("/restaurants", json={**restaurant_body, "imageUrl": _OK_URL}, headers=headers)
+    assert created.status_code == 201 and created.json()["imageUrl"] == _OK_URL
+
+    bad_patch = await client.patch("/restaurants/mine", json={"imageUrl": _BAD_URLS[0]}, headers=headers)
+    assert bad_patch.status_code == 422 and "imageUrl" in bad_patch.json()["errors"]
+    cleared = await client.patch("/restaurants/mine", json={"imageUrl": None}, headers=headers)
+    assert cleared.status_code == 200 and cleared.json()["imageUrl"] is None
+
+    bad_dish = await client.post(
+        "/restaurants/mine/dishes", json={**dish_body, "imageUrl": _BAD_URLS[0]}, headers=headers
+    )
+    assert bad_dish.status_code == 422 and "imageUrl" in bad_dish.json()["errors"]
+    dish = await client.post("/restaurants/mine/dishes", json={**dish_body, "imageUrl": _OK_URL}, headers=headers)
+    assert dish.status_code == 201 and dish.json()["imageUrl"] == _OK_URL
+    url = f"/restaurants/mine/dishes/{dish.json()['id']}"
+    bad_dish_patch = await client.patch(url, json={"imageUrl": _BAD_URLS[0]}, headers=headers)
+    assert bad_dish_patch.status_code == 422 and "imageUrl" in bad_dish_patch.json()["errors"]
+    assert (await client.patch(url, json={"imageUrl": None}, headers=headers)).json()["imageUrl"] is None
