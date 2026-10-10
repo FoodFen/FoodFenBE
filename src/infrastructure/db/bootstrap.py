@@ -1,16 +1,24 @@
-"""Fictional HCMC restaurants + dishes so the dish tab and admin screens have content.
-
-    uv run python -m scripts.seed_demo [--remove] [--env-file .env.prod]
-"""
+"""Startup bootstrap: admin account from env, optional fictional demo data. Idempotent."""
 
 from __future__ import annotations
 
-import argparse
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.domain.entities.dish import Dish
+from src.domain.entities.restaurant import Restaurant
+from src.domain.entities.user import User
+from src.domain.enums import ReviewDecision, UserRole
+from src.infrastructure.config import settings
+from src.infrastructure.db.repositories.restaurant_repository import SQLAlchemyRestaurantRepository
+from src.infrastructure.db.repositories.user_repository import SQLAlchemyUserRepository
+from src.infrastructure.db.session import SessionLocal
+from src.infrastructure.logging import configure_logging
+from src.infrastructure.security.password_hasher import BcryptPasswordHasher
+
+_log = configure_logging()
 
 SUFFIX = "@foodfen.invalid"
 
@@ -41,32 +49,29 @@ DEMO = [
 ]
 
 
-async def run(session: AsyncSession, remove: bool = False) -> list[str]:
-    from src.domain.entities.dish import Dish
-    from src.domain.entities.restaurant import Restaurant
-    from src.domain.entities.user import User
-    from src.domain.enums import ReviewDecision
-    from src.infrastructure.db.models.dish_model import DishORM
-    from src.infrastructure.db.models.restaurant_model import RestaurantORM
-    from src.infrastructure.db.models.user_model import UserORM
-    from src.infrastructure.db.repositories.restaurant_repository import SQLAlchemyRestaurantRepository
-    from src.infrastructure.db.repositories.user_repository import SQLAlchemyUserRepository
+async def ensure_admin(session: AsyncSession, email: str, password: str) -> None:
+    """Create the admin, or promote the existing account. Never touches an existing password."""
+    users = SQLAlchemyUserRepository(session)
+    email = email.strip().lower()
+    user = await users.get_by_email(email)
+    if user is None:
+        User.validate_password_strength(password)
+        user = User.create(email=email, password_hash=BcryptPasswordHasher().hash(password))
+        user.role = UserRole.ADMIN
+        await users.create(user)
+        _log.info("bootstrap: created admin %s", email)
+    elif not user.is_admin:
+        user.role = UserRole.ADMIN
+        await users.update(user)
+        _log.info("bootstrap: promoted %s to admin", email)
 
-    if remove:
-        demo = select(UserORM.id).where(UserORM.email.like(f"%{SUFFIX}"))
-        restaurants = select(RestaurantORM.id).where(RestaurantORM.user_id.in_(demo))
-        n_dishes = await session.scalar(select(func.count(DishORM.id)).where(DishORM.restaurant_id.in_(restaurants)))
-        n_restaurants = await session.scalar(select(func.count(RestaurantORM.id)).where(RestaurantORM.user_id.in_(demo)))
-        n_users = (await session.execute(delete(UserORM).where(UserORM.email.like(f"%{SUFFIX}")))).rowcount
-        return [f"removed {n_users} demo users, {n_restaurants} restaurants, {n_dishes} dishes"]
 
+async def seed_demo(session: AsyncSession) -> None:
     users, restaurants = SQLAlchemyUserRepository(session), SQLAlchemyRestaurantRepository(session)
     now = datetime.now(UTC)
-    lines = []
     for i, (name, address, lat, lng, hours, dishes) in enumerate(DEMO, start=1):
         email = f"demo-owner-{i}{SUFFIX}"
         if await users.get_by_email(email):
-            lines.append(f"{name}: exists")
             continue
         owner = await users.create(User.create(email=email, name=f"Demo Owner {i}"))
         restaurant = Restaurant.create(
@@ -82,13 +87,17 @@ async def run(session: AsyncSession, remove: bool = False) -> list[str]:
             )
             dish.review(ReviewDecision.APPROVED, None, now)
             await restaurants.add_dish(dish)
-        lines.append(f"{name}: created with {len(dishes)} dishes")
-    return lines
+        _log.info("bootstrap: seeded demo restaurant %s", name)
 
 
-if __name__ == "__main__":
-    from scripts._cli import main
-
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    p.add_argument("--remove", action="store_true", help="delete the demo owners (and their restaurants/dishes)")
-    main(p, lambda s, a: run(s, a.remove))
+async def bootstrap(session_factory=SessionLocal) -> None:
+    """Run from ``main.lifespan`` on every start. Both steps are no-ops when already applied."""
+    admin = settings.admin_email and settings.admin_password
+    if not (admin or settings.seed_demo):
+        return
+    async with session_factory() as session:
+        if admin:
+            await ensure_admin(session, settings.admin_email, settings.admin_password)
+        if settings.seed_demo:
+            await seed_demo(session)
+        await session.commit()

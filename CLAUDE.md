@@ -240,7 +240,7 @@ Business rules (roles, moderation, what is public, open questions) live in `docs
 a **living document**: read it before touching restaurants, dishes, admin or recommendation, and
 update it in the same change as any decision.
 
-- **Admin** = `users.role = 'admin'`, set with `scripts.make_admin` (existing accounts only). `CurrentAdminDep` / router-level
+- **Admin** = `users.role = 'admin'`, bootstrapped at startup from `ADMIN_EMAIL`/`ADMIN_PASSWORD` (creates or promotes, never resets a password; `src/infrastructure/db/bootstrap.py`). `CurrentAdminDep` / router-level
   `Depends(get_current_admin)` (403); the role is read from the DB per request, never from the JWT.
 - **Owner** is not a role: `restaurants.user_id` (unique). Owner routes are `/restaurants/mine/...`;
   ownership is implied, and another owner's dish is a 404 (`use_cases/restaurant_support.py`).
@@ -260,11 +260,10 @@ update it in the same change as any decision.
     make lint-imports   # import-linter contracts
     make migrate        # alembic upgrade head
     make docker-up      # local postgres:16
-    uv run python -m scripts.make_admin you@example.com --env-file .env.prod   # --revoke to demote
-    uv run python -m scripts.seed_demo --env-file .env.prod                    # --remove to delete
 
-`.env` is the local dev DB (docker postgres on localhost:5433). Prod's URL lives only on Render (and
-optionally in a gitignored `.env.prod`); the scripts take it via `--env-file` and never print it.
+`.env` is the local dev DB (docker postgres on localhost:5433). Prod's URL lives only on Render.
+Startup (`main.lifespan` → `db/bootstrap.py`) ensures the `ADMIN_EMAIL` admin and, only with
+`SEED_DEMO=true` (default off, keep it off on prod), seeds 3 demo restaurants (idempotent).
 
 `unit` tests use an in-memory repo. `integration` and `api` tests run on in-memory SQLite — `tests/conftest.py`
 forces `DATABASE_URL`, so `.env` is never touched, and shims the Postgres gaps (tz-aware datetimes,

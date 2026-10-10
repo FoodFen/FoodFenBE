@@ -40,8 +40,8 @@ Five pieces, built in this order:
 - **user** (default): every account. Uses the app as a diner.
 - **owner**: not a role. A user *is* the owner of a restaurant when `restaurants.user_id` (unique) points at them.
   Owner endpoints check ownership of the specific restaurant, never a role.
-- **admin**: `users.role = 'admin'`. Moderates restaurants and dishes, sees platform data. The first
-  admin is set with `uv run python -m scripts.make_admin EMAIL`; there is no self-service way to become one.
+- **admin**: `users.role = 'admin'`. Moderates restaurants and dishes, sees platform data. The admin
+  account comes from `ADMIN_EMAIL`/`ADMIN_PASSWORD`, ensured at every startup; there is no self-service way to become one.
 
 ## Admin scope
 

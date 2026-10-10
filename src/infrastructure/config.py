@@ -137,6 +137,12 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_starttls: bool = True
 
+    # Startup bootstrap (db/bootstrap.py): with both set, that account is created / promoted to admin
+    # (an existing account keeps its password). SEED_DEMO adds fictional restaurants; keep it off in prod.
+    admin_email: str = ""
+    admin_password: str = ""
+    seed_demo: bool = False
+
     # Comma-separated (an app usually has more than one client id). Empty
     # fails that provider's sign-in closed rather than accepting any audience.
     google_oauth_client_ids: str = ""

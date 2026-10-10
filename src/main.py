@@ -31,6 +31,7 @@ from src.adapters.controllers.water_log_controller import router as water_log_ro
 from src.adapters.controllers.weight_log_controller import router as weight_log_router
 from src.adapters.exception_handlers import register_exception_handlers
 from src.infrastructure.config import DEV_JWT_SECRET, settings
+from src.infrastructure.db.bootstrap import bootstrap
 from src.infrastructure.db.session import engine
 from src.infrastructure.expiry_job import run_expiry_loop
 from src.infrastructure.logging import configure_logging
@@ -46,6 +47,7 @@ async def lifespan(_: FastAPI):
         )
     async with engine.connect() as conn:
         await conn.execute(text("SELECT 1"))
+    await bootstrap()
     sweep = asyncio.create_task(run_expiry_loop())
     yield
     sweep.cancel()
