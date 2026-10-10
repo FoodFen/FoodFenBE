@@ -8,14 +8,18 @@ from decimal import Decimal
 import pytest
 
 from src.application.use_cases.get_admin_dashboard import GetAdminDashboardUseCase
+from src.domain.entities.subscription import Subscription
+from src.domain.entities.user import User
+from src.domain.enums import PlanType, SubscriptionTier
 from src.domain.exceptions import InvalidAttributeException
 
 TODAY = date(2026, 10, 8)
 
 
 class FakeStats:
-    def __init__(self, payments=(), users=(), restaurants=()):
+    def __init__(self, payments=(), users=(), restaurants=(), food_days=(), accounts=()):
         self.payments, self.users, self.restaurants = list(payments), list(users), list(restaurants)
+        self.food_days, self._accounts = list(food_days), list(accounts)
         self.ranges: list[tuple[datetime, datetime]] = []
 
     async def paid_payments(self, start, end):
@@ -27,6 +31,12 @@ class FakeStats:
 
     async def restaurant_signups(self, start, end):
         return [t for t in self.restaurants if start <= t < end]
+
+    async def food_entry_days(self, first, last):
+        return [d for d in self.food_days if first <= d <= last]
+
+    async def accounts(self):
+        return self._accounts
 
 
 async def test_bucketing_uses_vietnam_day_boundary():
@@ -78,3 +88,30 @@ async def test_extreme_dates_are_invalid():
             await use_case.execute(extreme, extreme, TODAY)
     with pytest.raises(InvalidAttributeException):  # default from-date underflows
         await use_case.execute(None, date(1, 1, 10), TODAY)
+
+
+async def test_food_entries_are_bucketed_by_logged_on_and_summed():
+    stats = FakeStats(food_days=[date(2026, 10, 1)] * 3 + [date(2026, 10, 3), date(2026, 9, 30)])
+    result = await GetAdminDashboardUseCase(stats).execute(date(2026, 10, 1), date(2026, 10, 3), TODAY)
+    assert [d.food_entries for d in result.daily] == [3, 0, 1]
+    assert result.food_entries == 4
+
+
+async def test_premium_users_counts_effective_premium_today():
+    def user(id_, premium):
+        return User(
+            id=id_, email=f"u{id_}@x.co",
+            subscription_tier=SubscriptionTier.PREMIUM if premium else SubscriptionTier.FREE,
+        )
+
+    def sub(end):
+        return Subscription.create(1, PlanType.MONTHLY, date(2026, 9, 1), end, 99000)
+
+    stats = FakeStats(accounts=[
+        (user(1, True), sub(date(2026, 10, 8)), None),   # covers today
+        (user(2, True), sub(date(2026, 10, 7)), None),   # lapsed
+        (user(3, True), None, None),                     # flag only
+        (user(4, False), None, None),
+    ])
+    result = await GetAdminDashboardUseCase(stats).execute(date(2026, 10, 1), date(2026, 10, 3), TODAY)
+    assert result.premium_users == 2  # current count, not tied to the requested range

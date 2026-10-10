@@ -15,6 +15,7 @@ import httpx
 from fastapi import Depends, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 
+from src.application.account_status import is_premium_today
 from src.application.dtos.ai_trial import AiCallerDTO
 from src.application.ports.ai_chat_provider import AiChatProviderProtocol
 from src.application.ports.food_vision_provider import FoodVisionProviderProtocol
@@ -226,7 +227,7 @@ async def _reconcile_premium(user: User, subscriptions, users) -> bool:
     instead of denying the whole request.
     """
     subscription = await subscriptions.get_by_user_id(user.id)
-    if user.is_premium and subscription is not None and not subscription.covers(date.today()):
+    if user.is_premium and not is_premium_today(user, subscription, date.today()):
         subscription.status = SubscriptionStatus.EXPIRED
         await subscriptions.save(subscription)
         user.subscription_tier = SubscriptionTier.FREE

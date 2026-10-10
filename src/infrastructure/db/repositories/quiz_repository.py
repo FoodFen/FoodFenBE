@@ -9,6 +9,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.application.dtos.admin import AdminQuizQuestionDTO
 from src.domain.entities.quiz import Quiz, QuizQuestion, QuizTopic
 from src.domain.enums import QuizKind
 from src.infrastructure.db.models.quiz_model import QuizORM
@@ -39,6 +40,13 @@ class SQLAlchemyQuizRepository:
         if topic_id is not None:
             stmt = stmt.where(QuizQuestionORM.topic_id == topic_id)
         return [row.to_domain() for row in (await self._session.execute(stmt)).scalars()]
+
+    async def all_questions(self) -> list[AdminQuizQuestionDTO]:
+        rows = await self._session.execute(
+            select(QuizQuestionORM.id, QuizQuestionORM.text, QuizTopicORM.label, QuizQuestionORM.active)
+            .join(QuizTopicORM, QuizTopicORM.id == QuizQuestionORM.topic_id)
+        )
+        return [AdminQuizQuestionDTO(*row) for row in rows.all()]
 
     async def seen_question_ids(self, user_id: int) -> set[UUID]:
         # ponytail: only the latest 200 quizzes count as "seen"; a heavier player re-sees old

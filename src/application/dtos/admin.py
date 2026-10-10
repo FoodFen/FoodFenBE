@@ -7,7 +7,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from src.application.dtos.restaurant import DishOutputDTO, RestaurantOutputDTO
-from src.domain.enums import ModerationStatus
+from src.domain.enums import ModerationStatus, QuestCadence, SubscriptionTier, UserRole
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,7 @@ class DashboardDayDTO:
     ad_revenue: int
     new_users: int
     new_restaurants: int
+    food_entries: int
 
 
 @dataclass(frozen=True)
@@ -46,4 +47,43 @@ class DashboardDTO:
     ad_revenue: int
     new_users: int
     new_restaurants: int
+    food_entries: int
+    premium_users: int  # current count, not per day: there is no history of tier
     daily: list[DashboardDayDTO]
+
+
+@dataclass(frozen=True)
+class AdminUserRowDTO:
+    id: int
+    display_name: str | None
+    email: str
+    role: UserRole
+    tier: SubscriptionTier
+    streak: int
+    created_at: datetime
+    is_active: bool
+
+
+@dataclass(frozen=True)
+class AdminUserListDTO:
+    users: list[AdminUserRowDTO]
+    total: int
+    next_cursor: str | None
+
+
+@dataclass(frozen=True)
+class AdminQuizQuestionDTO:
+    id: UUID
+    question: str
+    topic: str
+    active: bool
+
+
+@dataclass(frozen=True)
+class AdminQuestDTO:
+    id: UUID
+    title: str
+    target: int
+    reward_coins: int
+    cadence: QuestCadence
+    active: bool

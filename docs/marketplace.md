@@ -35,6 +35,7 @@ Five pieces, built in this order:
 | 2026-10-09 | Both review endpoints take an optional `expectedUpdatedAt`; if it differs from the row's `updated_at` → 409 `{message}`. Absent = no check. Ships with the dish tab | An owner edit between the admin opening a row and approving it would otherwise be approved unseen. Optional so old clients keep working; web sends the on-screen `updatedAt` and asks for a reload on 409 |
 | 2026-10-09 | `imageUrl` (restaurant and dish, create and patch) only accepts our own Cloudinary delivery URLs; image changes are not re-reviewed. Ships with the dish tab | Any https host lets an owner swap the file behind an already-approved URL and lets a third party see every viewer's IP. The upload endpoint already returns Cloudinary URLs. A bad image is handled by the admin takedown; revisit re-review only if abuse shows up |
 | 2026-10-10 | `GET /dishes` gets search (`q`), filters and a cursor; filters apply after ranking and never change `remainingKcal` | The diner needs to find a dish by name or budget without losing the fits-first order. In memory and offset-based until the dish count makes it slow |
+| 2026-10-10 | Admin gets read-only users (`GET /admin/users`), quiz questions and quest definitions; the dashboard gains `foodEntries` and `premiumUsers`. No overview endpoint, no AI-scan count | The web admin's mock screens needed real data. The dashboard already had the daily series, so KPIs reuse it; Premium AI scans are not recorded anywhere, so the number would be invented |
 
 ## Roles and permissions
 
@@ -46,13 +47,16 @@ Five pieces, built in this order:
 
 ## Admin scope
 
-The admin only needs these three things. Everything else in FoodFenWeb's `/admin` (old overview
-KPIs, users table, quiz/quest content) stays on mock data until someone asks for it.
+The admin needs these three things, plus read-only views of users and quiz/quest content
+(asked for on 2026-10-10, spec `docs/superpowers/specs/2026-10-10-admin-content-design.md`). Nothing
+in the admin edits users or content: no ban, toggle, export or edit actions.
 
 1. **Moderation**: approve or reject restaurants and dishes, checking the nutrition data.
 2. **Dashboard**:
    - **Cash flow**: Premium revenue (real, from `payments` with status `paid`) + ad revenue.
    - **Growth**: new users and new restaurants per day.
+   - **Activity**: meals logged per day (`foodEntries`) and the current Premium user count. Today vs
+     yesterday is the same endpoint with `from=<yesterday>&to=<today>`, not a separate overview.
 3. **Ad packages**: manage the paid-placement packages restaurants can buy. *Deferred* (see Decisions).
 
 ## Dish tab (diner view)

@@ -137,9 +137,13 @@ async def test_dashboard_sums_only_paid_payments(client, make_user, restaurant_b
     resp = await client.get(f"/admin/dashboard?from={today}&to={today}", headers=admin)
     assert resp.status_code == 200
     body = resp.json()
-    assert body["totals"] == {"premiumRevenue": 99000, "adRevenue": 0, "newUsers": 2, "newRestaurants": 1}
+    assert body["totals"] == {
+        "premiumRevenue": 99000, "adRevenue": 0, "newUsers": 2, "newRestaurants": 1,
+        "foodEntries": 0, "premiumUsers": 0,
+    }
     assert body["daily"] == [{
         "date": today, "premiumRevenue": 99000, "adRevenue": 0, "newUsers": 2, "newRestaurants": 1,
+        "foodEntries": 0,
     }]
     assert (body["from"], body["to"]) == (today, today)
 

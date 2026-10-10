@@ -13,6 +13,10 @@ from src.domain.enums import QuestType
 class QuestRepositoryProtocol(Protocol):
     async def active_definitions(self) -> list[QuestDefinition]: ...
 
+    async def all_definitions(self) -> list[QuestDefinition]:
+        """Every definition, active or not, in no particular order."""
+        ...
+
     async def get_or_issue(self, quest: Quest) -> Quest:
         """Insert ``quest`` unless its ``(user, type, date)`` already exists; return the stored row."""
         ...

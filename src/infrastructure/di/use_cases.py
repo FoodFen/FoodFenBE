@@ -70,7 +70,10 @@ from src.application.use_cases.update_my_restaurant import UpdateMyRestaurantUse
 from src.application.use_cases.upload_restaurant_image import UploadRestaurantImageUseCase
 from src.application.use_cases.get_admin_dashboard import GetAdminDashboardUseCase
 from src.application.use_cases.get_admin_restaurant import GetAdminRestaurantUseCase
+from src.application.use_cases.list_admin_quest_definitions import ListAdminQuestDefinitionsUseCase
+from src.application.use_cases.list_admin_quiz_questions import ListAdminQuizQuestionsUseCase
 from src.application.use_cases.list_admin_restaurants import ListAdminRestaurantsUseCase
+from src.application.use_cases.list_admin_users import ListAdminUsersUseCase
 from src.application.use_cases.review_dish import ReviewDishUseCase
 from src.application.use_cases.review_restaurant import ReviewRestaurantUseCase
 from src.infrastructure.config import settings
@@ -658,6 +661,31 @@ def get_get_admin_dashboard_use_case(stats: AdminStatsRepositoryDep) -> GetAdmin
 
 
 GetAdminDashboardUseCaseDep = Annotated[GetAdminDashboardUseCase, Depends(get_get_admin_dashboard_use_case)]
+
+
+def get_list_admin_users_use_case(stats: AdminStatsRepositoryDep) -> ListAdminUsersUseCase:
+    return ListAdminUsersUseCase(stats=stats)
+
+
+ListAdminUsersUseCaseDep = Annotated[ListAdminUsersUseCase, Depends(get_list_admin_users_use_case)]
+
+
+def get_list_admin_quiz_questions_use_case(quizzes: QuizRepositoryDep) -> ListAdminQuizQuestionsUseCase:
+    return ListAdminQuizQuestionsUseCase(quizzes=quizzes)
+
+
+ListAdminQuizQuestionsUseCaseDep = Annotated[
+    ListAdminQuizQuestionsUseCase, Depends(get_list_admin_quiz_questions_use_case)
+]
+
+
+def get_list_admin_quest_definitions_use_case(quests: QuestRepositoryDep) -> ListAdminQuestDefinitionsUseCase:
+    return ListAdminQuestDefinitionsUseCase(quests=quests)
+
+
+ListAdminQuestDefinitionsUseCaseDep = Annotated[
+    ListAdminQuestDefinitionsUseCase, Depends(get_list_admin_quest_definitions_use_case)
+]
 
 
 def get_list_public_dishes_use_case(

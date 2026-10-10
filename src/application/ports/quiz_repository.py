@@ -6,6 +6,7 @@ from datetime import date
 from typing import Protocol
 from uuid import UUID
 
+from src.application.dtos.admin import AdminQuizQuestionDTO
 from src.domain.entities.quiz import Quiz, QuizQuestion, QuizTopic
 
 
@@ -16,6 +17,10 @@ class QuizRepositoryProtocol(Protocol):
 
     async def active_questions(self, topic_id: UUID | None) -> list[QuizQuestion]:
         """Active questions of one topic, or of every topic when ``topic_id`` is None."""
+        ...
+
+    async def all_questions(self) -> list[AdminQuizQuestionDTO]:
+        """Every question, active or not, in no particular order."""
         ...
 
     async def seen_question_ids(self, user_id: int) -> set[UUID]: ...

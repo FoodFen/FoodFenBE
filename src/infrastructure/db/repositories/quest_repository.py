@@ -44,6 +44,10 @@ class SQLAlchemyQuestRepository:
         ).scalars()
         return [row.to_domain() for row in rows]
 
+    async def all_definitions(self) -> list[QuestDefinition]:
+        rows = (await self._session.execute(select(QuestDefinitionORM))).scalars()
+        return [row.to_domain() for row in rows]
+
     async def get_or_issue(self, quest: Quest) -> Quest:
         row = QuestORM.from_domain(quest)
         await self._session.execute(
