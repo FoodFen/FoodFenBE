@@ -14,9 +14,11 @@ SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """One session (= one unit of work) per request: commit on success, roll back on error.
+    """One session (= one unit of work) per endpoint call: commit on success, roll back on error.
 
-    ponytail: request-scoped transaction boundary. If a use case ever needs finer
+    Commits when the endpoint function returns (see ``SessionDep``), not after the response.
+
+    ponytail: per-endpoint transaction boundary. If a use case ever needs finer
     control (nested transactions, savepoints), give it an explicit UoW object instead.
     """
     async with SessionLocal() as session:

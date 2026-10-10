@@ -54,7 +54,11 @@ Dependency direction: `domain <- application <- adapters | infrastructure`. Neve
 - **Always** enforce entity invariants in the entity's `__post_init__` (or a factory), not in the use case or schema.
 - **Always** construct new entities via the domain factory (`User.create(...)`), which sets
   timestamps / defaults (and, for `User` specifically, leaves `id=None` — see "Auth" below).
-- **Always** access the DB session through the `get_db_session` dependency (commit-on-success, rollback-on-error per request).
+- **Always** access the DB session through `SessionDep` (`get_db_session`, commit-on-success, rollback-on-error).
+  It is `scope="function"`: the commit runs when the endpoint returns, *before* the response and
+  BackgroundTasks (FastAPI's default yield scope would commit after both, so a slow email left a
+  signed-up user invisible for seconds). Only a `StreamingResponse` whose generator writes after the
+  endpoint returns (chat SSE) uses `StreamSessionDep` (`scope="request"`).
 - **Always** run `uv run lint-imports` after touching imports. It is the architecture's guardrail and CI must stay green.
 - **Always** add an Alembic migration when you change an ORM model. Never edit the DB by hand.
 - **Always** put a new use case's provider in `src/infrastructure/di/use_cases.py` (a `get_*_use_case`

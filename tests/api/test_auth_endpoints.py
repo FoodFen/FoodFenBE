@@ -30,6 +30,32 @@ async def test_sign_up_returns_live_session_immediately(client, notifier):
     assert notifier.sent[-1]["email"] == "new@example.com"
 
 
+async def test_sign_up_is_committed_before_the_background_email_runs(client, notifier):
+    # In-memory SQLite shares one connection, so a second session would see uncommitted rows;
+    # record the order of COMMIT vs. send instead.
+    from sqlalchemy import event
+
+    from src.infrastructure.db.session import engine
+
+    order: list[str] = []
+    record_commit = lambda _conn: order.append("commit")  # noqa: E731
+    event.listen(engine.sync_engine, "commit", record_commit)
+    original_send = notifier.send_verification
+
+    async def send(email, name, token):
+        order.append("send")
+        await original_send(email, name, token)
+
+    notifier.send_verification = send
+    try:
+        resp = await client.post("/auth/sign-up", json=_CREDS)
+    finally:
+        event.remove(engine.sync_engine, "commit", record_commit)
+
+    assert resp.status_code == 200
+    assert order == ["commit", "send"]
+
+
 async def test_sign_up_without_display_name(client):
     resp = await client.post(
         "/auth/sign-up", json={"email": "noname@example.com", "password": "s3cret-pass"}
