@@ -10,7 +10,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: APP_BASE_URL
-        sync: false # the https://*.onrender.com URL Render assigns this service
+        sync: false # the web client (FoodFenWeb) origin: email links land on its /auth/* pages
       - key: CORS_ALLOW_ORIGINS
         value: "*"
       # Optional, only needed if the client exercises that feature — add in the

@@ -481,7 +481,7 @@ from `src.infrastructure.di`.
 | `refresh_token_expire_days` | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | |
 | `verification_token_expire_hours` | `VERIFICATION_TOKEN_EXPIRE_HOURS` | `24` | |
 | `password_reset_token_expire_minutes` | `PASSWORD_RESET_TOKEN_EXPIRE_MINUTES` | `60` | shorter than verification — a leaked reset link is more damaging |
-| `app_base_url` | `APP_BASE_URL` | `http://localhost:8000` | origin used to build links in emails |
+| `app_base_url` | `APP_BASE_URL` | `http://localhost:8000` (set it to the web client, e.g. `http://localhost:5173`) | origin of the web client (FoodFenWeb); email links land on its `/auth/verify-email` and `/auth/reset-password` pages |
 | `email_backend` | `EMAIL_BACKEND` | `console` | `console` logs the link; `smtp` sends it |
 | `email_from` | `EMAIL_FROM` | `no-reply@foodfen.local` | |
 | `smtp_host` / `smtp_port` | `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` | |
