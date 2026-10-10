@@ -259,7 +259,7 @@ update it in the same change as any decision.
 
 ## Commands
 
-    make dev            # uvicorn --reload
+    make dev            # uvicorn, restarted by watchfiles on src/ changes
     make test           # pytest (unit + integration + api)
     make lint-imports   # import-linter contracts
     make migrate        # alembic upgrade head
