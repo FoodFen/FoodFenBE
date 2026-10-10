@@ -126,11 +126,13 @@ class PublicFitDishResponse(PublicDishResponse):
 class PublicDishListResponse(CamelModel):
     remaining_kcal: int | None
     dishes: list[PublicFitDishResponse]
+    next_cursor: str | None
 
     @classmethod
     def from_dto(cls, dto: PublicDishListDTO) -> PublicDishListResponse:
         return cls(
             remaining_kcal=dto.remaining_kcal,
+            next_cursor=dto.next_cursor,
             dishes=[
                 PublicFitDishResponse(
                     **vars(d.dish), fits=d.fits, restaurant=PublicRestaurantSummaryResponse.from_dto(d.restaurant)

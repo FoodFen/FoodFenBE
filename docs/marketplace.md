@@ -34,6 +34,7 @@ Five pieces, built in this order:
 | 2026-10-08 | No separate restaurant account type. Any user can create a restaurant and becomes its owner; `role` is only `user` \| `admin` | One account system, one sign-up flow; an owner can still use the app as a diner; a role can never disagree with ownership data |
 | 2026-10-09 | Both review endpoints take an optional `expectedUpdatedAt`; if it differs from the row's `updated_at` → 409 `{message}`. Absent = no check. Ships with the dish tab | An owner edit between the admin opening a row and approving it would otherwise be approved unseen. Optional so old clients keep working; web sends the on-screen `updatedAt` and asks for a reload on 409 |
 | 2026-10-09 | `imageUrl` (restaurant and dish, create and patch) only accepts our own Cloudinary delivery URLs; image changes are not re-reviewed. Ships with the dish tab | Any https host lets an owner swap the file behind an already-approved URL and lets a third party see every viewer's IP. The upload endpoint already returns Cloudinary URLs. A bad image is handled by the admin takedown; revisit re-review only if abuse shows up |
+| 2026-10-10 | `GET /dishes` gets search (`q`), filters and a cursor; filters apply after ranking and never change `remainingKcal` | The diner needs to find a dish by name or budget without losing the fits-first order. In memory and offset-based until the dish count makes it slow |
 
 ## Roles and permissions
 
@@ -62,6 +63,11 @@ when its `kcal` is at most what is left. Fitting dishes come first, highest kcal
 lowest kcal first; with no goal, newest first and nothing fits. No distance: coordinates are returned only
 so the app can open Google Maps. Logging a dish to the diary has no endpoint: the app copies the dish's
 nutrition into a local food entry and the existing sync uploads it.
+
+Search and filters (2026-10-10) narrow the ranked list, they never reorder it: rank first, then filter, then
+page. `q` matches the dish **or** restaurant name, case- and Vietnamese-diacritic-insensitive ("pho" finds
+"Phở", "dong" finds "Đông"). `remainingKcal` ignores filters. All filtering and paging happen in memory over
+every public dish (`application/dish_fit.py`); move to SQL with a keyset cursor once that gets slow.
 
 ## Data
 
@@ -102,7 +108,12 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
 - `GET /dishes?date=YYYY-MM-DD` → `{remainingKcal, dishes}`; `date` is the client's local day (omitted:
   Vietnam day). `remainingKcal` is `null` with no goal in force. Each dish: `id, name, description,
   imageUrl, price, servingG, kcal, proteinG, carbsG, fatG, fiberG, fits` + `restaurant {id, name,
-  address, latitude, longitude}`. No status, timestamps or owner data. Not paginated yet.
+  address, latitude, longitude}`. No status, timestamps or owner data.
+  Optional query params, all combinable: `q` (≤100 chars, blank = none), `fits` (`true` = only fitting
+  dishes, `false` = only non-fitting; omit for both), `kcalMin`/`kcalMax`, `priceMin`/`priceMax` (VND),
+  `proteinMin` (g), bounds inclusive and ≥ 0; `limit` 1..50 (default 20), `cursor`. Response adds
+  `nextCursor: string | null`: pass it back as `cursor` for the next page; `null` = last page. The cursor
+  is opaque (today an offset, so a diary change mid-scroll can shift rows: dedupe by `id`). Bad values → 422.
 - `GET /restaurants/{id}`: public profile (`id, name, description, address, phone, openingHours,
   latitude, longitude, imageUrl`) + `dishes` (its approved dishes, oldest first). 404 when the
   restaurant does not exist or is not approved.

@@ -162,6 +162,7 @@ class PublicFitDishDTO:
 class PublicDishListDTO:
     remaining_kcal: int | None
     dishes: list[PublicFitDishDTO]
+    next_cursor: str | None = None
 
 
 @dataclass(frozen=True)

@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from src.application.dish_fit import rank_dishes
+from src.application.dish_fit import DishFilter, fold, rank_dishes
 from src.domain.entities.dish import Dish
 
 _T0 = datetime(2026, 10, 9, tzinfo=UTC)
@@ -52,3 +52,20 @@ def test_ties_keep_a_stable_order_by_id():
     assert [d.id.int for d, _ in rank_dishes([a, b, c], 100)] == [1, 2, 3]
     same_age = [_dish(1, id_=2), _dish(2, id_=1)]
     assert [d.id.int for d, _ in rank_dishes(same_age, None)] == [1, 2]
+
+
+def test_fold_strips_case_and_vietnamese_diacritics():
+    assert fold("Phở Bò ĐẶC BIỆT") == "pho bo dac biet"
+
+
+def test_dish_filter_bounds_are_inclusive_and_q_matches_restaurant_too():
+    d = _dish(500)
+    d.name, d.price, d.protein_g = "Bún chả", Decimal(40000), 25
+    assert DishFilter().matches(d, "Quán", fits=False)
+    assert DishFilter(q="  bun CHA ", kcal_min=500, kcal_max=500, price_min=40000, price_max=40000,
+                      protein_min=25, fits=True).matches(d, "Quán", fits=True)
+    assert DishFilter(q="quan").matches(d, "Quán Ngon", fits=False)
+    assert DishFilter(q="   ").matches(d, "x", fits=False)
+    for f in (DishFilter(q="pho"), DishFilter(fits=True), DishFilter(kcal_min=501), DishFilter(kcal_max=499),
+              DishFilter(price_min=40001), DishFilter(price_max=39999), DishFilter(protein_min=25.5)):
+        assert not f.matches(d, "Quán", fits=False), f

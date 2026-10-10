@@ -87,6 +87,37 @@ async def test_remaining_kcal_reflects_goal_and_diary_on_the_date(
     assert before_goal["remainingKcal"] is None
 
 
+async def test_search_filters_and_cursor_pages(client, make_user, restaurant_body, dish_body):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    owner, _ = await _restaurant(client, make_user, restaurant_body, "a@x.co", approve=admin, name="Quán Đông")
+    ids = [
+        await _dish(client, owner, dish_body, approve=admin, name=name, kcal=kcal, price=price)
+        for name, kcal, price in (("Phở bò", 400, 50000), ("Bún chả", 600, 40000), ("Cơm tấm", 800, 60000))
+    ]
+    reader, _ = await make_user("reader@example.com")
+
+    async def get(qs):
+        return (await client.get(f"/dishes?{qs}", headers=reader)).json()
+
+    assert [d["id"] for d in (await get("q=PHO"))["dishes"]] == [ids[0]]
+    assert len((await get("q=dong"))["dishes"]) == 3  # restaurant name, đ -> d
+    assert [d["id"] for d in (await get("kcalMin=500&priceMax=50000"))["dishes"]] == [ids[1]]
+
+    # No goal -> newest first; walk the pages with the opaque cursor.
+    seen, cursor = [], None
+    while True:
+        body = await get("limit=2" + (f"&cursor={cursor}" if cursor else ""))
+        assert body["remainingKcal"] is None
+        seen += [d["id"] for d in body["dishes"]]
+        if (cursor := body["nextCursor"]) is None:
+            break
+    assert seen == ids[::-1]
+    assert (await get("limit=3"))["nextCursor"] is None
+
+    for bad in ("limit=0", "limit=51", "cursor=abc", "kcalMin=x", "priceMin=-1"):
+        assert (await client.get(f"/dishes?{bad}", headers=reader)).status_code == 422, bad
+
+
 async def test_public_restaurant_profile_lists_only_approved_dishes(
     client, make_user, restaurant_body, dish_body
 ):

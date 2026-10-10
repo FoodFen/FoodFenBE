@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
-from src.application.dish_fit import rank_dishes
+from src.application.dish_fit import DishFilter, rank_dishes
 from src.application.dtos.restaurant import (
     PublicDishDTO,
     PublicDishListDTO,
@@ -25,7 +25,10 @@ class ListPublicDishesUseCase:
     daily_goals: DailyGoalRepositoryProtocol
     food_entries: FoodEntryRepositoryProtocol
 
-    async def execute(self, user_id: int, day: date | None) -> PublicDishListDTO:
+    async def execute(
+        self, user_id: int, day: date | None, filters: DishFilter = DishFilter(), offset: int = 0, limit: int = 20
+    ) -> PublicDishListDTO:
+        """Rank, then filter, then slice ``[offset, offset + limit)``. ``remaining_kcal`` ignores filters."""
         day = day or datetime.now(_VN).date()
         in_force = [g for g in await self.daily_goals.list_by_user(user_id) if g.effective_date <= day]
         remaining = None
@@ -36,6 +39,13 @@ class ListPublicDishesUseCase:
 
         pairs = await self.restaurants.list_public_dishes()
         restaurant_of = {d.id: r for d, r in pairs}
+        shown = [
+            (d, fits) for d, fits in rank_dishes((d for d, _ in pairs), remaining)
+            if filters.matches(d, restaurant_of[d.id].name, fits)
+        ]
+        # ponytail: offset cursor over the in-memory list; rows shift if the diary changes mid-scroll
+        # (the app dedupes by id). Switch to a keyset cursor when ordering moves into SQL.
+        end = offset + limit
         return PublicDishListDTO(
             remaining_kcal=remaining,
             dishes=[
@@ -44,6 +54,7 @@ class ListPublicDishesUseCase:
                     fits=fits,
                     restaurant=PublicRestaurantSummaryDTO.from_entity(restaurant_of[d.id]),
                 )
-                for d, fits in rank_dishes((d for d, _ in pairs), remaining)
+                for d, fits in shown[offset:end]
             ],
+            next_cursor=str(end) if end < len(shown) else None,
         )
