@@ -692,9 +692,10 @@ def get_list_public_dishes_use_case(
     restaurants: RestaurantRepositoryDep,
     daily_goals: DailyGoalRepositoryDep,
     food_entries: FoodEntryRepositoryDep,
+    users: UserRepositoryDep,
 ) -> ListPublicDishesUseCase:
     return ListPublicDishesUseCase(
-        restaurants=restaurants, daily_goals=daily_goals, food_entries=food_entries
+        restaurants=restaurants, daily_goals=daily_goals, food_entries=food_entries, users=users
     )
 
 

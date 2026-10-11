@@ -152,6 +152,27 @@ async def test_editing_approved_dish_returns_it_to_pending(client, make_user, re
     assert resp.json()["status"] == "pending"
 
 
+async def test_diet_tag_defaults_to_none_and_changing_it_returns_an_approved_dish_to_pending(
+    client, make_user, restaurant_body, dish_body
+):
+    headers, _ = await _create(client, make_user, restaurant_body)
+    dish = (await client.post("/restaurants/mine/dishes", json=dish_body, headers=headers)).json()
+    assert dish["dietTag"] == "none"
+    veggie = await client.post("/restaurants/mine/dishes", json={**dish_body, "dietTag": "vegetarian"}, headers=headers)
+    assert veggie.status_code == 201 and veggie.json()["dietTag"] == "vegetarian"
+    bad = await client.post("/restaurants/mine/dishes", json={**dish_body, "dietTag": "pescatarian"}, headers=headers)
+    assert bad.status_code == 422 and "dietTag" in bad.json()["errors"]
+
+    admin = await _admin(make_user)
+    await client.post(f"/admin/dishes/{dish['id']}/review", json={"decision": "approved"}, headers=admin)
+    url = f"/restaurants/mine/dishes/{dish['id']}"
+    resp = await client.patch(url, json={"dietTag": "vegan"}, headers=headers)
+    assert (resp.json()["dietTag"], resp.json()["status"]) == ("vegan", "pending")
+    assert (await client.patch(url, json={"dietTag": None}, headers=headers)).status_code == 422
+    listed = (await client.get("/restaurants/mine/dishes", headers=headers)).json()
+    assert {d["id"]: d["dietTag"] for d in listed}[dish["id"]] == "vegan"
+
+
 async def test_empty_patch_does_not_resubmit_rejected_restaurant(client, make_user, restaurant_body):
     headers, body = await _create(client, make_user, restaurant_body)
     admin = await _admin(make_user)

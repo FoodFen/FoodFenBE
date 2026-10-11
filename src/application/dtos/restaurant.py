@@ -10,7 +10,7 @@ from uuid import UUID
 
 from src.domain.entities.dish import Dish
 from src.domain.entities.restaurant import Restaurant
-from src.domain.enums import ModerationStatus
+from src.domain.enums import DishDiet, ModerationStatus
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,7 @@ class DishOutputDTO:
     carbs_g: float
     fat_g: float
     fiber_g: float | None
+    diet_tag: DishDiet
     status: ModerationStatus
     rejection_reason: str | None
     created_at: datetime
@@ -66,7 +67,7 @@ class DishOutputDTO:
             id=d.id, restaurant_id=d.restaurant_id, name=d.name, description=d.description,
             image_url=d.image_url, price=d.price, serving_g=d.serving_g, kcal=d.kcal,
             protein_g=d.protein_g, carbs_g=d.carbs_g, fat_g=d.fat_g, fiber_g=d.fiber_g,
-            status=d.status, rejection_reason=d.rejection_reason, created_at=d.created_at,
+            diet_tag=d.diet_tag, status=d.status, rejection_reason=d.rejection_reason, created_at=d.created_at,
             updated_at=d.updated_at, reviewed_at=d.reviewed_at,
         )
 
@@ -103,6 +104,7 @@ class CreateDishInputDTO:
     fiber_g: float | None = None
     description: str | None = None
     image_url: str | None = None
+    diet_tag: DishDiet = DishDiet.NONE
 
 
 @dataclass(frozen=True)
@@ -139,22 +141,25 @@ class PublicDishDTO:
     carbs_g: float
     fat_g: float
     fiber_g: float | None
+    diet_tag: DishDiet
 
     @classmethod
     def from_entity(cls, d: Dish) -> PublicDishDTO:
         return cls(
             id=d.id, name=d.name, description=d.description, image_url=d.image_url, price=d.price,
             serving_g=d.serving_g, kcal=d.kcal, protein_g=d.protein_g, carbs_g=d.carbs_g,
-            fat_g=d.fat_g, fiber_g=d.fiber_g,
+            fat_g=d.fat_g, fiber_g=d.fiber_g, diet_tag=d.diet_tag,
         )
 
 
 @dataclass(frozen=True)
 class PublicFitDishDTO:
-    """A dish in the diner tab: the dish, whether it fits the caller's remaining kcal, its restaurant."""
+    """A dish in the diner tab: the dish, whether it is suggested for the caller's rest of the day
+    (``fits``), why (``reasons``), its restaurant."""
 
     dish: PublicDishDTO
     fits: bool
+    reasons: list[str]
     restaurant: PublicRestaurantSummaryDTO
 
 

@@ -1,4 +1,4 @@
-"""Order the public dish list by what the caller can still eat today. Standard library only.
+"""Order the public dish list by what the caller can still eat today (kcal and macro mix). Standard library only.
 
 Pure so it is tested without fakes; the use case reads the goal and diary.
 """
@@ -10,21 +10,101 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from src.domain.entities.dish import Dish
+from src.domain.enums import DietType, DishDiet
 
 # ponytail: every public dish is loaded, sorted and filtered in Python, then sliced per page; push
 # ordering + filters into SQL (keyset cursor) when the dish count makes one page's load slow.
 
 
-def rank_dishes(dishes: Iterable[Dish], remaining_kcal: int | None) -> list[tuple[Dish, bool]]:
-    """``(dish, fits)`` pairs. Fitting dishes first, highest kcal first (closest to filling what is
-    left); then the rest, lowest kcal first. No goal (``None``): nothing fits, newest first.
-    The id pre-sort makes ties stable (sorted() is stable)."""
+KCAL_TOLERANCE = 1.1  # a dish up to 10% over what is left still counts as a suggestion
+MIN_SUGGESTED = 3  # a day nearly or fully eaten still gets this many (the least-over dishes)
+
+
+@dataclass(frozen=True)
+class Remaining:
+    """What is left of today's goal, each clamped at 0."""
+
+    kcal: int
+    protein_g: float
+    carbs_g: float
+    fat_g: float
+
+
+@dataclass(frozen=True)
+class RankedDish:
+    dish: Dish
+    fits: bool  # suggested: tiers 1-2 plus the top-up
+    reasons: list[str]
+
+
+def _diet_ok(dish: Dish, diet: DietType | None) -> bool:
+    if diet == DietType.VEGAN:
+        return dish.diet_tag == DishDiet.VEGAN
+    if diet == DietType.VEGETARIAN:
+        return dish.diet_tag != DishDiet.NONE
+    return True
+
+
+def _energy_shares(protein_g: float, carbs_g: float, fat_g: float) -> tuple[float, float, float] | None:
+    p, c, f = protein_g * 4, carbs_g * 4, fat_g * 9
+    total = p + c + f
+    return (p / total, c / total, f / total) if total else None
+
+
+def _score(dish: Dish, left: Remaining) -> float:
+    """Lower is better: how far the dish's energy split is from the split of what is left."""
+    want = _energy_shares(left.protein_g, left.carbs_g, left.fat_g)
+    got = _energy_shares(dish.protein_g, dish.carbs_g, dish.fat_g)
+    if want is None or got is None:
+        return 0.0
+    return max(want[0] - got[0], 0) + max(got[1] - want[1], 0) + max(got[2] - want[2], 0)
+
+
+def _reasons(dish: Dish, left: Remaining) -> list[str]:
+    reasons = []
+    if (
+        left.protein_g > 0 and left.kcal > 0 and dish.protein_g > 0
+        and dish.protein_g * left.kcal >= left.protein_g * dish.kcal  # protein per kcal, no division
+    ):
+        reasons.append("fills_protein")
+    for code, got, rest in (
+        ("exceeds_kcal", dish.kcal, left.kcal),
+        ("exceeds_carbs", dish.carbs_g, left.carbs_g),
+        ("exceeds_fat", dish.fat_g, left.fat_g),
+    ):
+        if got > rest:
+            reasons.append(code)
+    return reasons
+
+
+def rank_dishes(dishes: Iterable[Dish], remaining: Remaining | None, diet: DietType | None) -> list[RankedDish]:
+    """Suggested dishes first: those that fit the kcal left (best macro match first), then those within
+    ``KCAL_TOLERANCE``, topped up with the lowest-kcal rest to ``MIN_SUGGESTED``. Then the other diet-ok
+    dishes by kcal, then diet-incompatible ones by kcal. No goal (``None``): newest first, diet-ok before
+    the rest, nothing suggested. The id pre-sort makes ties stable (sorted() is stable)."""
     by_id = sorted(dishes, key=lambda d: d.id)
-    if remaining_kcal is None:
-        return [(d, False) for d in sorted(by_id, key=lambda d: d.created_at, reverse=True)]
-    fits = sorted((d for d in by_id if d.kcal <= remaining_kcal), key=lambda d: -d.kcal)
-    rest = sorted((d for d in by_id if d.kcal > remaining_kcal), key=lambda d: d.kcal)
-    return [(d, True) for d in fits] + [(d, False) for d in rest]
+    ok = [d for d in by_id if _diet_ok(d, diet)]
+    bad = [d for d in by_id if not _diet_ok(d, diet)]
+    if remaining is None:
+        return [
+            RankedDish(d, False, [])
+            for group in (ok, bad)
+            for d in sorted(group, key=lambda d: d.created_at, reverse=True)
+        ]
+
+    def by_score(ds: Iterable[Dish]) -> list[Dish]:
+        return sorted(ds, key=lambda d: (_score(d, remaining), d.kcal))
+
+    limit = remaining.kcal * KCAL_TOLERANCE
+    suggested = by_score(d for d in ok if d.kcal <= remaining.kcal) + by_score(
+        d for d in ok if remaining.kcal < d.kcal <= limit
+    )
+    over = sorted((d for d in ok if d.kcal > limit), key=lambda d: d.kcal)
+    top_up = max(MIN_SUGGESTED - len(suggested), 0)
+    suggested += over[:top_up]
+    return [RankedDish(d, True, _reasons(d, remaining)) for d in suggested] + [
+        RankedDish(d, False, []) for d in over[top_up:] + sorted(bad, key=lambda d: d.kcal)
+    ]
 
 
 def fold(text: str) -> str:

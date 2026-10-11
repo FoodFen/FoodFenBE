@@ -174,6 +174,12 @@ class UserRole(StrEnum):
     ADMIN = "admin"
 
 
+class DishDiet(StrEnum):
+    NONE = "none"
+    VEGETARIAN = "vegetarian"
+    VEGAN = "vegan"
+
+
 class ModerationStatus(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
