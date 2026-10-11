@@ -82,6 +82,7 @@ from src.infrastructure.db.repositories.chat_message_repository import (
 )
 from src.infrastructure.db.repositories.daily_goal_repository import SQLAlchemyDailyGoalRepository
 from src.infrastructure.db.repositories.food_entry_repository import SQLAlchemyFoodEntryRepository
+from src.infrastructure.db.repositories.restaurant_repository import SQLAlchemyRestaurantRepository
 from src.infrastructure.db.repositories.user_repository import SQLAlchemyUserRepository
 from src.infrastructure.di.database import StreamSessionDep
 from src.infrastructure.di.repositories import (
@@ -210,8 +211,9 @@ def get_social_sign_in_use_case(
 
 def get_list_chat_messages_use_case(
     chat_messages: ChatMessageRepositoryDep,
+    restaurants: RestaurantRepositoryDep,
 ) -> ListChatMessagesUseCase:
-    return ListChatMessagesUseCase(chat_messages=chat_messages)
+    return ListChatMessagesUseCase(chat_messages=chat_messages, restaurants=restaurants)
 
 
 def get_send_chat_message_use_case(
@@ -224,6 +226,7 @@ def get_send_chat_message_use_case(
         users=SQLAlchemyUserRepository(session),
         daily_goals=SQLAlchemyDailyGoalRepository(session),
         food_entries=SQLAlchemyFoodEntryRepository(session),
+        restaurants=SQLAlchemyRestaurantRepository(session),
         history_limit=settings.chat_history_limit,
     )
 
@@ -692,9 +695,10 @@ def get_list_public_dishes_use_case(
     restaurants: RestaurantRepositoryDep,
     daily_goals: DailyGoalRepositoryDep,
     food_entries: FoodEntryRepositoryDep,
+    users: UserRepositoryDep,
 ) -> ListPublicDishesUseCase:
     return ListPublicDishesUseCase(
-        restaurants=restaurants, daily_goals=daily_goals, food_entries=food_entries
+        restaurants=restaurants, daily_goals=daily_goals, food_entries=food_entries, users=users
     )
 
 

@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from src.domain.enums import ModerationStatus, ReviewDecision
+from src.domain.enums import DishDiet, ModerationStatus, ReviewDecision
 from src.domain.exceptions import InvalidRestaurantAttributeException
 from src.domain.moderation import checked_reason
 from src.domain.validation import require_non_empty, require_non_negative, require_positive
@@ -32,6 +32,7 @@ class Dish:
     fiber_g: float | None = None
     description: str | None = None
     image_url: str | None = None
+    diet_tag: DishDiet = DishDiet.NONE
     status: ModerationStatus = ModerationStatus.PENDING
     rejection_reason: str | None = None
     created_at: datetime = field(default_factory=_now)
@@ -68,12 +69,13 @@ class Dish:
         fiber_g: float | None = None,
         description: str | None = None,
         image_url: str | None = None,
+        diet_tag: DishDiet = DishDiet.NONE,
     ) -> Dish:
         now = _now()
         return cls(
             id=uuid4(), restaurant_id=restaurant_id, name=name, price=price, serving_g=serving_g,
             kcal=kcal, protein_g=protein_g, carbs_g=carbs_g, fat_g=fat_g, fiber_g=fiber_g,
-            description=description, image_url=image_url, created_at=now, updated_at=now,
+            description=description, image_url=image_url, diet_tag=diet_tag, created_at=now, updated_at=now,
         )
 
     def review(self, decision: ReviewDecision, reason: str | None, now: datetime) -> None:

@@ -3,7 +3,7 @@
 > **Living document.** The single source of truth for *what* the restaurant/admin/recommendation
 > side of FoodFen does and *why*. Update it in the same change as any decision or behaviour change.
 > Design specs (`docs/superpowers/specs/`) record *how* one slice was built; this file records the
-> rules that hold across slices. Status: **pieces 1–3 implemented** (branch feat/dish-tab). Specs: pieces 1–2
+> rules that hold across slices. Status: **pieces 1–3 implemented** (on main). Specs: pieces 1–2
 > `docs/superpowers/specs/2026-10-08-restaurants-admin-design.md`, piece 3 `docs/superpowers/specs/2026-10-09-dish-tab-design.md`.
 
 ## Vision
@@ -16,7 +16,7 @@ Five pieces, built in this order:
 | 1 | **Restaurants**: owners register for free, submit their profile and menu with nutrition | implemented |
 | 2 | **Admin**: approves restaurants and dishes, sees basic platform data (transactions, users) | implemented |
 | 3 | **Dish tab** (mobile): dishes that fit the user first, then the rest; tap a dish to see the restaurant and Google Maps | implemented |
-| 4 | **Recommendation**: AI or rules over the user's stats pick suitable dishes | later, approach undecided |
+| 4 | **Recommendation**: rules rank the dish tab by the day's macros; Fen recommends real dishes as cards in chat | implemented (`docs/superpowers/specs/2026-10-11-dish-recommendation-design.md`) |
 | 5 | **Paid placement**: restaurants pay to appear in a separate "featured" section | later, needs research |
 
 ## Decisions
@@ -35,6 +35,9 @@ Five pieces, built in this order:
 | 2026-10-09 | Both review endpoints take an optional `expectedUpdatedAt`; if it differs from the row's `updated_at` → 409 `{message}`. Absent = no check. Ships with the dish tab | An owner edit between the admin opening a row and approving it would otherwise be approved unseen. Optional so old clients keep working; web sends the on-screen `updatedAt` and asks for a reload on 409 |
 | 2026-10-09 | `imageUrl` (restaurant and dish, create and patch) only accepts our own Cloudinary delivery URLs; image changes are not re-reviewed. Ships with the dish tab | Any https host lets an owner swap the file behind an already-approved URL and lets a third party see every viewer's IP. The upload endpoint already returns Cloudinary URLs. A bad image is handled by the admin takedown; revisit re-review only if abuse shows up |
 | 2026-10-10 | `GET /dishes` gets search (`q`), filters and a cursor; filters apply after ranking and never change `remainingKcal` | The diner needs to find a dish by name or budget without losing the fits-first order. In memory and offset-based until the dish count makes it slow |
+| 2026-10-11 | Recommendation = deterministic ranking for the dish tab + Fen picking from that ranking in chat. No LLM in the list, no per-meal split, no RAG | The list must be instant, page-stable and testable, and an LLM compares numbers badly; Fen adds what numbers miss (variety, "đồ nước, không cay"). Users log at the end of the day, so meals can't be inferred. The whole catalog fits the prompt; retrieval waits until it doesn't (200 dishes) |
+| 2026-10-11 | Dish-tab rank: diet first, then fits the day's kcal (10% tolerance), ordered by how close the dish's macro split is to what is left; always at least 3 suggestions, flagged with `exceeds_*` reasons. `fits` now means "suggested" | Never too strict: a user near the goal still gets options, told what they would exceed. The app only sends `fits=true`, so tolerance and top-up dishes must count as `fits` |
+| 2026-10-11 | Dishes carry `dietTag` (`none`/`vegetarian`/`vegan`), declared by the owner, checked by the admin; a vegetarian/vegan user is never suggested or offered by Fen a non-matching dish | Suggesting cơm gà to a vegan user with "fills your protein" would break trust; the owner knows the recipe, an AI guess from the name does not |
 | 2026-10-10 | Admin gets read-only users (`GET /admin/users`), quiz questions and quest definitions; the dashboard gains `foodEntries` and `premiumUsers`. No overview endpoint, no AI-scan count | The web admin's mock screens needed real data. The dashboard already had the daily series, so KPIs reuse it; Premium AI scans are not recorded anywhere, so the number would be invented |
 
 ## Roles and permissions
@@ -61,12 +64,20 @@ in the admin edits users or content: no ban, toggle, export or edit actions.
 
 ## Dish tab (diner view)
 
-Free for every signed-in user (restaurants need views before they have a reason to join). "Fits first" is
-a remaining-kcal rule, not AI: the goal in force on the day minus the diary's kcal that day; a dish fits
-when its `kcal` is at most what is left. Fitting dishes come first, highest kcal first; then the rest,
-lowest kcal first; with no goal, newest first and nothing fits. No distance: coordinates are returned only
-so the app can open Google Maps. Logging a dish to the diary has no endpoint: the app copies the dish's
-nutrition into a local food entry and the existing sync uploads it.
+Free for every signed-in user (restaurants need views before they have a reason to join). The order is a
+rule, not AI: `remaining` is the goal in force on the day minus that day's diary (kcal, protein, carbs, fat),
+each clamped at 0. Per dish, in tiers: (1) diet-compatible and `kcal` <= remaining kcal, (2) diet-compatible
+and `kcal` <= remaining x 1.1, both ordered by a macro score (how far the dish's energy split P/C/F is from the
+split of what is left: protein short, carbs or fat over; ties lower kcal, then id); (3) the other
+diet-compatible dishes, lowest kcal first; (4) diet-incompatible dishes, lowest kcal first. Tiers 1-2 are
+**suggested** (`fits`); if they hold fewer than 3 dishes the lowest-kcal tier-3 dishes are suggested until there
+are 3 (also when nothing is left), never tier 4. Diet: a `vegan` user only gets `vegan` dishes, a `vegetarian`
+user `vegetarian` or `vegan`, any other or unset diet every dish. With no goal: newest first (diet-compatible
+before the rest), nothing suggested. `reasons` (suggested dishes only): `fills_protein` (the dish has at least
+the protein per kcal that is left), `exceeds_kcal` / `exceeds_carbs` / `exceeds_fat` (more than what is left;
+protein over is never flagged). No distance: coordinates are returned only so the app can open Google Maps.
+Logging a dish to the diary has no endpoint: the app copies the dish's nutrition into a local food entry and the
+existing sync uploads it.
 
 Search and filters (2026-10-10) narrow the ranked list, they never reorder it: rank first, then filter, then
 page. `q` matches the dish **or** restaurant name, case- and Vietnamese-diacritic-insensitive ("pho" finds
@@ -77,7 +88,9 @@ every public dish (`application/dish_fit.py`); move to SQL with a keyset cursor 
 
 - **Restaurant**: one per owner. Name, description, address, latitude/longitude (Google Maps, later
   distance filtering), phone, opening hours (free text), image.
-- **Dish**: belongs to a restaurant. Name, description, image, price (VND), serving size in grams, and
+- **Dish**: belongs to a restaurant. Name, description, image, price (VND), serving size in grams, `dietTag`
+  (`none` | `vegetarian` | `vegan`, default `none`, declared by the owner and checked by the admin like
+  nutrition; changing it is an edit, so it goes back to review), and
   nutrition per serving: `kcal`, `protein_g`, `carbs_g`, `fat_g`, optional `fiber_g`. These names and
   types match `food_entries` on purpose, so logging a restaurant dish to the diary is a straight copy.
 
@@ -111,10 +124,11 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
 
 - `GET /dishes?date=YYYY-MM-DD` → `{remainingKcal, dishes}`; `date` is the client's local day (omitted:
   Vietnam day). `remainingKcal` is `null` with no goal in force. Each dish: `id, name, description,
-  imageUrl, price, servingG, kcal, proteinG, carbsG, fatG, fiberG, fits` + `restaurant {id, name,
-  address, latitude, longitude}`. No status, timestamps or owner data.
-  Optional query params, all combinable: `q` (≤100 chars, blank = none), `fits` (`true` = only fitting
-  dishes, `false` = only non-fitting; omit for both), `kcalMin`/`kcalMax`, `priceMin`/`priceMax` (VND),
+  imageUrl, price, servingG, kcal, proteinG, carbsG, fatG, fiberG, dietTag, fits, reasons` + `restaurant
+  {id, name, address, latitude, longitude}`. `fits` = suggested (see above), not "within the goal". No status,
+  timestamps or owner data.
+  Optional query params, all combinable: `q` (≤100 chars, blank = none), `fits` (`true` = only suggested
+  dishes, `false` = only the others; omit for both), `kcalMin`/`kcalMax`, `priceMin`/`priceMax` (VND),
   `proteinMin` (g), bounds inclusive and ≥ 0; `limit` 1..50 (default 20), `cursor`. Response adds
   `nextCursor: string | null`: pass it back as `cursor` for the next page; `null` = last page. The cursor
   is opaque (today an offset, so a diary change mid-scroll can shift rows: dedupe by `id`). Bad values → 422.
@@ -161,9 +175,8 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
   `YYYY-MM-DD`, money is integer VND, and each row also carries `adRevenue`. Range capped at 366 days.
 - Role and status enums are exposed in the OpenAPI schema (the web client is generated from it).
 
-Not yet: diner pagination/search/distance, bulk review, queue pagination.
+Not yet: distance, bulk review, queue pagination.
 
 ## Open questions
 
-- Recommendation approach (rules over macros vs. AI) and how dishes are fed to it.
 - Paid placement: pricing, duration, how it is paid (PayOS / MoMo already integrated).

@@ -11,7 +11,16 @@ from typing import Literal
 from pydantic import Field
 
 from src.adapters.schemas.base import CamelModel
-from src.application.dtos.chat import ChatHistoryPageDTO, ChatMessageDTO
+from src.adapters.schemas.restaurant_schemas import PublicDishResponse, PublicRestaurantSummaryResponse
+from src.application.dtos.chat import ChatDishDTO, ChatHistoryPageDTO, ChatMessageDTO
+
+
+class ChatDishResponse(PublicDishResponse):
+    restaurant: PublicRestaurantSummaryResponse
+
+    @classmethod
+    def from_dto(cls, dto: ChatDishDTO) -> ChatDishResponse:
+        return cls(**vars(dto.dish), restaurant=PublicRestaurantSummaryResponse.from_dto(dto.restaurant))
 
 
 class ChatMessageResponse(CamelModel):
@@ -19,10 +28,14 @@ class ChatMessageResponse(CamelModel):
     role: Literal["user", "assistant"]
     content: str
     created_at: datetime
+    dishes: list[ChatDishResponse] = []
 
     @classmethod
     def from_dto(cls, dto: ChatMessageDTO) -> ChatMessageResponse:
-        return cls(id=dto.id, role=dto.role, content=dto.content, created_at=dto.created_at)
+        return cls(
+            id=dto.id, role=dto.role, content=dto.content, created_at=dto.created_at,
+            dishes=[ChatDishResponse.from_dto(d) for d in dto.dishes],
+        )
 
 
 class ChatHistoryResponse(CamelModel):

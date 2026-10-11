@@ -19,7 +19,7 @@ from src.application.dtos.restaurant import (
     PublicRestaurantSummaryDTO,
     RestaurantOutputDTO,
 )
-from src.domain.enums import ModerationStatus
+from src.domain.enums import DishDiet, ModerationStatus
 from src.infrastructure.config import settings  # a leaf module: just the cloud name, no wiring
 
 
@@ -77,6 +77,7 @@ class DishResponse(CamelModel):
     carbs_g: float
     fat_g: float
     fiber_g: float | None
+    diet_tag: DishDiet
     status: ModerationStatus
     rejection_reason: str | None
     created_at: datetime
@@ -100,6 +101,7 @@ class PublicDishResponse(CamelModel):
     carbs_g: float
     fat_g: float
     fiber_g: float | None
+    diet_tag: DishDiet
 
     @classmethod
     def from_dto(cls, dto: PublicDishDTO) -> PublicDishResponse:
@@ -120,6 +122,7 @@ class PublicRestaurantSummaryResponse(CamelModel):
 
 class PublicFitDishResponse(PublicDishResponse):
     fits: bool
+    reasons: list[str]
     restaurant: PublicRestaurantSummaryResponse
 
 
@@ -135,7 +138,10 @@ class PublicDishListResponse(CamelModel):
             next_cursor=dto.next_cursor,
             dishes=[
                 PublicFitDishResponse(
-                    **vars(d.dish), fits=d.fits, restaurant=PublicRestaurantSummaryResponse.from_dto(d.restaurant)
+                    **vars(d.dish),
+                    fits=d.fits,
+                    reasons=d.reasons,
+                    restaurant=PublicRestaurantSummaryResponse.from_dto(d.restaurant),
                 )
                 for d in dto.dishes
             ],
@@ -209,6 +215,7 @@ class CreateDishRequest(CamelModel):
     carbs_g: float = Field(ge=0, le=2_000)
     fat_g: float = Field(ge=0, le=2_000)
     fiber_g: float | None = Field(default=None, ge=0, le=2_000)
+    diet_tag: DishDiet = DishDiet.NONE
 
 
 class UpdateDishRequest(CamelModel):
@@ -224,8 +231,9 @@ class UpdateDishRequest(CamelModel):
     carbs_g: float | None = Field(default=None, ge=0, le=2_000)
     fat_g: float | None = Field(default=None, ge=0, le=2_000)
     fiber_g: float | None = Field(default=None, ge=0, le=2_000)  # null clears it (not tracked)
+    diet_tag: DishDiet | None = None
 
-    @field_validator("name", "price", "serving_g", "kcal", "protein_g", "carbs_g", "fat_g")
+    @field_validator("name", "price", "serving_g", "kcal", "protein_g", "carbs_g", "fat_g", "diet_tag")
     @classmethod
     def reject_null_required(cls, value):
         return _not_null(value)

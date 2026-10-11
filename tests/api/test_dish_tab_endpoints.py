@@ -51,6 +51,7 @@ async def test_only_approved_dishes_of_approved_restaurants_are_public(
     }
     assert not _PRIVATE & set(dish) and not _PRIVATE & set(dish["restaurant"])
     assert (dish["kcal"], dish["servingG"], dish["price"], dish["fits"]) == (450, 500, 55000, False)
+    assert (dish["dietTag"], dish["reasons"]) == ("none", [])
     assert body["remainingKcal"] is None
 
 
@@ -62,6 +63,7 @@ async def test_remaining_kcal_reflects_goal_and_diary_on_the_date(
     small = await _dish(client, owner, dish_body, approve=admin, name="Small", kcal=300)
     big = await _dish(client, owner, dish_body, approve=admin, name="Big", kcal=900)
     mid = await _dish(client, owner, dish_body, approve=admin, name="Mid", kcal=700)
+    huge = await _dish(client, owner, dish_body, approve=admin, name="Huge", kcal=1500)
 
     reader, _ = await make_user("reader@example.com")
     goal = {
@@ -77,7 +79,10 @@ async def test_remaining_kcal_reflects_goal_and_diary_on_the_date(
 
     body = (await client.get("/dishes?date=2026-10-09", headers=reader)).json()
     assert body["remainingKcal"] == 800
-    assert [(d["id"], d["fits"]) for d in body["dishes"]] == [(mid, True), (small, True), (big, False)]
+    # Same macros everywhere, so kcal ascending; Big is over by 100 kcal (> 10%), topped up to 3 suggestions.
+    assert [(d["id"], d["fits"], d["reasons"]) for d in body["dishes"]] == [
+        (small, True, []), (mid, True, []), (big, True, ["exceeds_kcal"]), (huge, False, []),
+    ]
 
     other_day = (await client.get("/dishes?date=2026-10-10", headers=reader)).json()
     assert other_day["remainingKcal"] == 2000
@@ -211,3 +216,34 @@ async def test_image_url_must_be_a_cloudinary_upload_on_our_cloud(
     bad_dish_patch = await client.patch(url, json={"imageUrl": _BAD_URLS[0]}, headers=headers)
     assert bad_dish_patch.status_code == 422 and "imageUrl" in bad_dish_patch.json()["errors"]
     assert (await client.patch(url, json={"imageUrl": None}, headers=headers)).json()["imageUrl"] is None
+
+
+async def test_ranking_uses_the_macro_mix_and_the_users_diet(client, make_user, restaurant_body, dish_body):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    owner, _ = await _restaurant(client, make_user, restaurant_body, "a@x.co", approve=admin)
+    carby = await _dish(client, owner, dish_body, approve=admin, name="Carby", kcal=400, proteinG=5, carbsG=80, fatG=5)
+    lean = await _dish(
+        client, owner, dish_body, approve=admin, name="Lean", kcal=400, proteinG=40, carbsG=20, fatG=8,
+        dietTag="vegan",
+    )
+    meaty = await _dish(client, owner, dish_body, approve=admin, name="Meaty", kcal=300, proteinG=40, carbsG=5, fatG=5)
+
+    reader, _ = await make_user("reader@example.com")
+    goal = {
+        "targetKcal": 1500, "targetCarbsG": 150, "targetProteinG": 150, "targetFatG": 40,
+        "targetWaterMl": 2500, "effectiveDate": "2026-10-01", "clientId": "g1",
+    }
+    assert (await client.post("/daily-goals", json=goal, headers=reader)).status_code == 200
+
+    body = (await client.get("/dishes?date=2026-10-09", headers=reader)).json()
+    assert [(d["id"], d["fits"]) for d in body["dishes"]] == [(meaty, True), (lean, True), (carby, True)]
+    assert {d["id"]: d["dietTag"] for d in body["dishes"]}[lean] == "vegan"
+    assert body["dishes"][0]["reasons"] == ["fills_protein"]
+    assert [d["id"] for d in (await client.get("/dishes?fits=true", headers=reader)).json()["dishes"]] == [
+        meaty, lean, carby,
+    ]
+
+    # A vegan user: only the vegan dish is suggested, the others sink and are never topped up.
+    assert (await client.patch("/users/me", json={"dietType": "vegan"}, headers=reader)).status_code == 200
+    body = (await client.get("/dishes?date=2026-10-09", headers=reader)).json()
+    assert [(d["id"], d["fits"]) for d in body["dishes"]] == [(lean, True), (meaty, False), (carby, False)]

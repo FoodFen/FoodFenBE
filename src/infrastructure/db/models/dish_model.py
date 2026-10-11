@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.domain.entities.dish import Dish
-from src.domain.enums import ModerationStatus
+from src.domain.enums import DishDiet, ModerationStatus
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.mixins import UUIDPrimaryKey
 from src.infrastructure.db.types import enum_column
@@ -36,6 +36,9 @@ class DishORM(UUIDPrimaryKey, Base):
     carbs_g: Mapped[float] = mapped_column(Float, nullable=False)
     fat_g: Mapped[float] = mapped_column(Float, nullable=False)
     fiber_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    diet_tag: Mapped[DishDiet] = mapped_column(
+        enum_column(DishDiet, "diet_tag"), nullable=False, server_default=DishDiet.NONE.value
+    )
     status: Mapped[ModerationStatus] = mapped_column(
         enum_column(ModerationStatus, "moderation_status"), nullable=False, index=True
     )
@@ -49,7 +52,8 @@ class DishORM(UUIDPrimaryKey, Base):
             id=self.id, restaurant_id=self.restaurant_id, name=self.name,
             description=self.description, image_url=self.image_url, price=self.price,
             serving_g=self.serving_g, kcal=self.kcal, protein_g=self.protein_g,
-            carbs_g=self.carbs_g, fat_g=self.fat_g, fiber_g=self.fiber_g, status=self.status,
+            carbs_g=self.carbs_g, fat_g=self.fat_g, fiber_g=self.fiber_g, diet_tag=self.diet_tag,
+            status=self.status,
             rejection_reason=self.rejection_reason, created_at=self.created_at,
             updated_at=self.updated_at, reviewed_at=self.reviewed_at,
         )
@@ -60,6 +64,6 @@ class DishORM(UUIDPrimaryKey, Base):
             id=d.id, restaurant_id=d.restaurant_id, name=d.name, description=d.description,
             image_url=d.image_url, price=d.price, serving_g=d.serving_g, kcal=d.kcal,
             protein_g=d.protein_g, carbs_g=d.carbs_g, fat_g=d.fat_g, fiber_g=d.fiber_g,
-            status=d.status, rejection_reason=d.rejection_reason, created_at=d.created_at,
+            diet_tag=d.diet_tag, status=d.status, rejection_reason=d.rejection_reason, created_at=d.created_at,
             updated_at=d.updated_at, reviewed_at=d.reviewed_at,
         )
