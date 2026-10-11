@@ -157,3 +157,67 @@ async def test_chat_rejects_an_out_of_range_date(client, signed_up):
     resp = await client.post("/chat/messages", json={"message": "hi", "date": "0001-01-02"}, headers=headers)
 
     assert resp.status_code == 422
+
+
+async def _public_dish(client, make_user, restaurant_body, dish_body, admin):
+    """An approved dish of an approved restaurant; returns its id."""
+    owner, _ = await make_user("owner@example.com")
+    r = (await client.post("/restaurants", json=restaurant_body, headers=owner)).json()
+    await client.post(f"/admin/restaurants/{r['id']}/review", json={"decision": "approved"}, headers=admin)
+    d = (await client.post("/restaurants/mine/dishes", json=dish_body, headers=owner)).json()
+    await client.post(f"/admin/dishes/{d['id']}/review", json={"decision": "approved"}, headers=admin)
+    return d["id"]
+
+
+async def test_fen_dish_cards_are_hydrated_and_markers_never_reach_the_client(
+    client, make_user, restaurant_body, dish_body, ai_chat_provider
+):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    dish_id = await _public_dish(client, make_user, restaurant_body, dish_body, admin)
+    reader, _ = await make_user("reader@example.com")
+    unknown = "00000000-0000-0000-0000-000000000abc"
+    ai_chat_provider.deltas = ["Hãy thử phở bò [[di", f"sh:{dish_id}]]", f" nhé [[dish:{unknown}]]!"]
+
+    resp = await client.post("/chat/messages", json={"message": "gợi ý"}, headers=reader)
+
+    frames = _parse_sse(resp.text)
+    assert "[[" not in resp.text and "dish:" not in "".join(f["delta"] for e, f in frames if e == "token")
+    message = frames[-1][1]["message"]
+    assert frames[-1][0] == "done" and message["content"] == "Hãy thử phở bò  nhé !"
+    [card] = message["dishes"]
+    assert card["id"] == dish_id and card["name"] == "Phở bò" and card["dietTag"] == "none"
+    assert card["restaurant"]["name"] == "Quán Ngon"
+    assert "fits" not in card and "reasons" not in card
+
+    history = (await client.get("/chat/messages", headers=reader)).json()["messages"]
+    assert [m["id"] for m in history[0]["dishes"]] == [dish_id] and history[1]["dishes"] == []
+
+    # unpublished after the reply -> the card disappears from history
+    await client.post(
+        f"/admin/dishes/{dish_id}/review", json={"decision": "rejected", "reason": "no"}, headers=admin
+    )
+    history = (await client.get("/chat/messages", headers=reader)).json()["messages"]
+    assert history[0]["dishes"] == []
+
+
+async def test_ordinary_messages_have_empty_dishes(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.post("/chat/messages", json={"message": "hi"}, headers=headers)
+
+    assert _parse_sse(resp.text)[-1][1]["message"]["dishes"] == []
+    assert all(m["dishes"] == [] for m in (await client.get("/chat/messages", headers=headers)).json()["messages"])
+
+
+async def test_context_lists_public_dishes_and_omits_the_section_without_any(
+    client, make_user, restaurant_body, dish_body, ai_chat_provider
+):
+    reader, _ = await make_user("reader@example.com")
+    await client.post("/chat/messages", json={"message": "hi"}, headers=reader)
+    assert "DISHES" not in ai_chat_provider.last_context
+
+    admin, _ = await make_user("admin@example.com", admin=True)
+    dish_id = await _public_dish(client, make_user, restaurant_body, dish_body, admin)
+    await client.post("/chat/messages", json={"message": "hi"}, headers=reader)
+
+    assert "DISHES" in ai_chat_provider.last_context and dish_id in ai_chat_provider.last_context

@@ -16,7 +16,7 @@ Five pieces, built in this order:
 | 1 | **Restaurants**: owners register for free, submit their profile and menu with nutrition | implemented |
 | 2 | **Admin**: approves restaurants and dishes, sees basic platform data (transactions, users) | implemented |
 | 3 | **Dish tab** (mobile): dishes that fit the user first, then the rest; tap a dish to see the restaurant and Google Maps | implemented |
-| 4 | **Recommendation**: rules rank the dish tab by the day's macros; Fen recommends real dishes as cards in chat | implemented (ranking); Fen cards pending (`docs/superpowers/specs/2026-10-11-dish-recommendation-design.md`) |
+| 4 | **Recommendation**: rules rank the dish tab by the day's macros; Fen recommends real dishes as cards in chat | implemented (`docs/superpowers/specs/2026-10-11-dish-recommendation-design.md`) |
 | 5 | **Paid placement**: restaurants pay to appear in a separate "featured" section | later, needs research |
 
 ## Decisions

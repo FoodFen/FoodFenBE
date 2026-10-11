@@ -48,6 +48,14 @@ class FakeFoodEntryRepo:
         return []
 
 
+class FakeRestaurantRepo:
+    def __init__(self, pairs=()) -> None:
+        self.pairs = list(pairs)
+
+    async def list_public_dishes(self):
+        return self.pairs
+
+
 class FakeProvider:
     """Yields a scripted sequence of deltas, or raises mid-stream."""
 
@@ -62,13 +70,14 @@ class FakeProvider:
             yield delta
 
 
-def _use_case(repo, provider, *, history_limit=10, users=None, food_entries=None):
+def _use_case(repo, provider, *, history_limit=10, users=None, food_entries=None, restaurants=None):
     return SendChatMessageUseCase(
         chat_messages=repo,
         provider=provider,
         users=users or FakeUserRepo(User(email="a@b.co", id=1)),
         daily_goals=FakeDailyGoalRepo(),
         food_entries=food_entries or FakeFoodEntryRepo(),
+        restaurants=restaurants or FakeRestaurantRepo(),
         history_limit=history_limit,
     )
 
@@ -180,3 +189,62 @@ async def test_context_is_not_persisted():
     await _collect(uc, user_id=1, message="hi")
 
     assert [m.content for m in repo.rows] == ["hi", "ok"]
+
+
+def _public_dish(name="Phở"):
+    from decimal import Decimal
+
+    from src.domain.entities.dish import Dish
+    from src.domain.entities.restaurant import Restaurant
+
+    r = Restaurant.create(
+        user_id=9, name="Quán A", address="a", phone="1", opening_hours="x", latitude=1.0, longitude=2.0
+    )
+    return Dish.create(
+        restaurant_id=r.id, name=name, price=Decimal(55000), serving_g=300, kcal=400,
+        protein_g=20, carbs_g=40, fat_g=10,
+    ), r
+
+
+async def test_markers_are_stripped_from_tokens_and_valid_ids_become_cards():
+    pair = _public_dish()
+    unknown = uuid4()
+    deltas = ["Try Phở [[di", f"sh:{pair[0].id}]]. Or [[dish:{unknown}]]x ", f"[[dish:{pair[0].id}]]"]
+    repo = FakeChatMessageRepo()
+    uc = _use_case(repo, FakeProvider(deltas), restaurants=FakeRestaurantRepo([pair]))
+
+    events = await _collect(uc, user_id=1, message="hi")
+
+    tokens = "".join(e.delta for e in events if isinstance(e, ChatStreamToken))
+    assert "[[" not in tokens and tokens.strip() == "Try Phở . Or x"
+    done = events[-1]
+    assert isinstance(done, ChatStreamDone)
+    assert [c.dish.id for c in done.message.dishes] == [pair[0].id]
+    assert done.message.dishes[0].restaurant.name == "Quán A"
+    assert repo.rows[-1].content == "Try Phở . Or x" and repo.rows[-1].dish_ids == [pair[0].id]
+
+
+async def test_reply_that_is_only_a_marker_counts_as_empty():
+    pair = _public_dish()
+    repo = FakeChatMessageRepo()
+    uc = _use_case(repo, FakeProvider([f"[[dish:{pair[0].id}]]"]), restaurants=FakeRestaurantRepo([pair]))
+
+    events = await _collect(uc, user_id=1, message="hi")
+
+    assert isinstance(events[-1], ChatStreamError) and len(repo.rows) == 1
+
+
+async def test_context_has_a_dishes_section_only_when_something_is_public():
+    seen: list[str] = []
+
+    class Recording:
+        async def stream_reply(self, history, user_message, context):
+            seen.append(context)
+            yield "ok"
+
+    pair = _public_dish()
+    await _collect(_use_case(FakeChatMessageRepo(), Recording(), restaurants=FakeRestaurantRepo([pair])), 1, "hi")
+    await _collect(_use_case(FakeChatMessageRepo(), Recording()), 1, "hi")
+
+    assert "DISHES" in seen[0] and str(pair[0].id) in seen[0]
+    assert "DISHES" not in seen[1]

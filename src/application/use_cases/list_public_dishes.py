@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
-from src.application.dish_fit import DishFilter, Remaining, rank_dishes
+from src.application.dish_fit import DishFilter, rank_dishes, remaining_on
 from src.application.dtos.restaurant import (
     PublicDishDTO,
     PublicDishListDTO,
@@ -32,18 +32,11 @@ class ListPublicDishesUseCase:
     ) -> PublicDishListDTO:
         """Rank, then filter, then slice ``[offset, offset + limit)``. ``remaining_kcal`` ignores filters and is not clamped."""
         day = day or datetime.now(_VN).date()
-        in_force = [g for g in await self.daily_goals.list_by_user(user_id) if g.effective_date <= day]
-        remaining_kcal = left = None
-        if in_force:
-            goal = max(in_force, key=lambda g: g.effective_date)
-            eaten = await self.food_entries.list_by_date_range(user_id, day, day)
-            remaining_kcal = goal.target_kcal - sum(e.total_kcal for e in eaten)
-            left = Remaining(
-                kcal=max(remaining_kcal, 0),
-                protein_g=max(goal.target_protein_g - sum(e.protein_g for e in eaten), 0),
-                carbs_g=max(goal.target_carbs_g - sum(e.carbs_g for e in eaten), 0),
-                fat_g=max(goal.target_fat_g - sum(e.fat_g for e in eaten), 0),
-            )
+        remaining_kcal, left = remaining_on(
+            await self.daily_goals.list_by_user(user_id),
+            await self.food_entries.list_by_date_range(user_id, day, day),
+            day,
+        )
         user = await self.users.get_by_id(user_id)
 
         pairs = await self.restaurants.list_public_dishes()

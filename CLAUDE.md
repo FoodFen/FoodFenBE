@@ -195,6 +195,13 @@ async def create_user(
   `DEFAULT_GEMINI_SYSTEM_PROMPT`, `infrastructure/config.py`), overridable via
   `GEMINI_SYSTEM_PROMPT` without touching `gemini_chat_provider.py`. `settings.chat_history_limit`
   caps how many prior messages are sent to the model per turn.
+- **Dish cards** (spec `docs/superpowers/specs/2026-10-11-dish-recommendation-design.md`): `_build_context`
+  also appends a `DISHES` section (`application/chat_dishes.py`: diet-ok public dishes ranked by `rank_dishes`,
+  capped at 200, omitted when none; its header tells Fen to write `[[dish:<id>]]` after each recommendation).
+  The use case strips those markers from every token delta, so they never reach the client or the stored text;
+  ids not offered this turn are dropped, max 5. They persist in `chat_messages.dish_ids` and every
+  `ChatMessage` (`done` frame, `GET /chat/messages`) carries `dishes` (public dish + restaurant, `[]` if none),
+  hydrated from the currently public dishes, so an unpublished dish disappears from old history.
 - Tests never call the real Gemini API — `tests/api/conftest.py::FakeAiChatProvider` overrides
   `get_ai_chat_provider` with a scripted reply.
 

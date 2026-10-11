@@ -13,8 +13,11 @@ import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from uuid import UUID
 
 from src.application.chat_context import WINDOW_DAYS, render_user_context
+from src.application.chat_dishes import MarkerStripper, pick_candidates, render_dishes, to_cards, valid_ids
+from src.application.dish_fit import rank_dishes, remaining_on
 from src.application.dtos.chat import (
     ChatMessageDTO,
     ChatStreamDone,
@@ -26,8 +29,11 @@ from src.application.ports.ai_chat_provider import AiChatProviderProtocol
 from src.application.ports.chat_message_repository import ChatMessageRepositoryProtocol
 from src.application.ports.daily_goal_repository import DailyGoalRepositoryProtocol
 from src.application.ports.food_entry_repository import FoodEntryRepositoryProtocol
+from src.application.ports.restaurant_repository import RestaurantRepositoryProtocol
 from src.application.ports.user_repository import UserRepositoryProtocol
 from src.domain.entities.chat_message import ChatMessage
+from src.domain.entities.dish import Dish
+from src.domain.entities.restaurant import Restaurant
 from src.domain.enums import ChatRole
 
 # Child of the "foodfenbe" logger configured in infrastructure/logging.py — the
@@ -47,6 +53,7 @@ class SendChatMessageUseCase:
     users: UserRepositoryProtocol
     daily_goals: DailyGoalRepositoryProtocol
     food_entries: FoodEntryRepositoryProtocol
+    restaurants: RestaurantRepositoryProtocol
     history_limit: int
 
     async def execute(
@@ -56,15 +63,20 @@ class SendChatMessageUseCase:
         # twice: once in `history`, once as the separate `user_message` param.
         recent = await self.chat_messages.list_before(user_id, None, self.history_limit)
         history = list(reversed(recent))
-        context = await self._build_context(user_id, today or datetime.now(_VN).date())
+        context, candidates = await self._build_context(user_id, today or datetime.now(_VN).date())
 
         await self.chat_messages.create(ChatMessage.create(user_id, ChatRole.USER, message))
 
         chunks: list[str] = []
+        markers = MarkerStripper()
         try:
             async for delta in self.provider.stream_reply(history, message, context):
-                chunks.append(delta)
-                yield ChatStreamToken(delta)
+                if text := markers.feed(delta):
+                    chunks.append(text)
+                    yield ChatStreamToken(text)
+            if text := markers.finish():
+                chunks.append(text)
+                yield ChatStreamToken(text)
         except Exception:
             _log.exception("chat generation failed for user %s", user_id)
             yield ChatStreamError(_GENERATION_FAILED_MESSAGE)
@@ -76,15 +88,28 @@ class SendChatMessageUseCase:
             yield ChatStreamError(_GENERATION_FAILED_MESSAGE)
             return
 
-        reply = await self.chat_messages.create(ChatMessage.create(user_id, ChatRole.ASSISTANT, full_text))
-        yield ChatStreamDone(ChatMessageDTO.from_entity(reply))
+        dish_ids = valid_ids(markers.ids, set(candidates))
+        reply = await self.chat_messages.create(
+            ChatMessage.create(user_id, ChatRole.ASSISTANT, full_text, dish_ids)
+        )
+        yield ChatStreamDone(ChatMessageDTO.from_entity(reply, to_cards(reply.dish_ids, candidates)))
 
-    async def _build_context(self, user_id: int, today: date) -> str:
-        """One section per source. A new source (food catalog, RAG retriever) appends its own."""
+    async def _build_context(
+        self, user_id: int, today: date
+    ) -> tuple[str, dict[UUID, tuple[Dish, Restaurant]]]:
+        """The context text (one section per source; a new source appends its own) and the dishes Fen was
+        offered this turn (id -> dish, restaurant), the only ones it may turn into cards."""
         user = await self.users.get_by_id(user_id)
         goals = await self.daily_goals.list_by_user(user_id)
         entries = await self.food_entries.list_by_date_range(
             user_id, today - timedelta(days=WINDOW_DAYS - 1), today
         )
         sections = [render_user_context(user, goals, entries, today)]
-        return "\n\n".join(sections)
+
+        public = {d.id: (d, r) for d, r in await self.restaurants.list_public_dishes()}
+        diet = user.diet_type if user else None
+        _, left = remaining_on(goals, (e for e in entries if e.logged_on == today), today)
+        offered = pick_candidates(rank_dishes((d for d, _ in public.values()), left, diet), diet)
+        if section := render_dishes(offered, public):
+            sections.append(section)
+        return "\n\n".join(sections), {r.dish.id: public[r.dish.id] for r in offered}

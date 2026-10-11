@@ -9,7 +9,11 @@ import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from datetime import date
+
+from src.domain.entities.daily_goal import DailyGoal
 from src.domain.entities.dish import Dish
+from src.domain.entities.food_entry import FoodEntry
 from src.domain.enums import DietType, DishDiet
 
 # ponytail: every public dish is loaded, sorted and filtered in Python, then sliced per page; push
@@ -30,6 +34,24 @@ class Remaining:
     fat_g: float
 
 
+def remaining_on(
+    goals: Iterable[DailyGoal], eaten: Iterable[FoodEntry], day: date
+) -> tuple[int | None, Remaining | None]:
+    """The goal in force on ``day`` minus the ``eaten`` entries of that day: the raw remaining kcal (may be
+    negative) and the clamped ``Remaining``; ``(None, None)`` when no goal is in force."""
+    in_force = [g for g in goals if g.effective_date <= day]
+    if not in_force:
+        return None, None
+    goal, eaten = max(in_force, key=lambda g: g.effective_date), list(eaten)
+    kcal = goal.target_kcal - sum(e.total_kcal for e in eaten)
+    return kcal, Remaining(
+        kcal=max(kcal, 0),
+        protein_g=max(goal.target_protein_g - sum(e.protein_g for e in eaten), 0),
+        carbs_g=max(goal.target_carbs_g - sum(e.carbs_g for e in eaten), 0),
+        fat_g=max(goal.target_fat_g - sum(e.fat_g for e in eaten), 0),
+    )
+
+
 @dataclass(frozen=True)
 class RankedDish:
     dish: Dish
@@ -37,7 +59,7 @@ class RankedDish:
     reasons: list[str]
 
 
-def _diet_ok(dish: Dish, diet: DietType | None) -> bool:
+def diet_ok(dish: Dish, diet: DietType | None) -> bool:
     if diet == DietType.VEGAN:
         return dish.diet_tag == DishDiet.VEGAN
     if diet == DietType.VEGETARIAN:
@@ -83,8 +105,8 @@ def rank_dishes(dishes: Iterable[Dish], remaining: Remaining | None, diet: DietT
     dishes by kcal, then diet-incompatible ones by kcal. No goal (``None``): newest first, diet-ok before
     the rest, nothing suggested. The id pre-sort makes ties stable (sorted() is stable)."""
     by_id = sorted(dishes, key=lambda d: d.id)
-    ok = [d for d in by_id if _diet_ok(d, diet)]
-    bad = [d for d in by_id if not _diet_ok(d, diet)]
+    ok = [d for d in by_id if diet_ok(d, diet)]
+    bad = [d for d in by_id if not diet_ok(d, diet)]
     if remaining is None:
         return [
             RankedDish(d, False, [])

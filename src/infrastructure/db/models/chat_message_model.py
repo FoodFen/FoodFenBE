@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Text
+from sqlalchemy import JSON, DateTime, Index, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.domain.entities.chat_message import ChatMessage
@@ -21,6 +22,7 @@ class ChatMessageORM(UUIDPrimaryKey, UserOwned, Base):
     role: Mapped[ChatRole] = mapped_column(enum_column(ChatRole, "chat_role"), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    dish_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, server_default=text("'[]'"))  # UUID strings
 
     def to_domain(self) -> ChatMessage:
         return ChatMessage(
@@ -29,6 +31,7 @@ class ChatMessageORM(UUIDPrimaryKey, UserOwned, Base):
             role=self.role,
             content=self.content,
             created_at=self.created_at,
+            dish_ids=[UUID(i) for i in self.dish_ids],
         )
 
     @staticmethod
@@ -39,4 +42,5 @@ class ChatMessageORM(UUIDPrimaryKey, UserOwned, Base):
             role=message.role,
             content=message.content,
             created_at=message.created_at,
+            dish_ids=[str(i) for i in message.dish_ids],
         )
