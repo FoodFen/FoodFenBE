@@ -15,7 +15,10 @@ Decisions:
 - **A package is N days for the whole restaurant**, not per dish. For each user the server picks the restaurant's
   best-ranked fitting dish, so a healthier menu is shown more: the incentive points the right way.
 - **Order = the existing ranking.** One dish per restaurant, the 3 best-ranked restaurants. Deterministic, testable.
-- **The main list is untouched**: a sponsored dish still appears at its natural rank there too.
+- **Two separate sections, the main list is untouched.** The sponsored section sits above the main list; the
+  main list stays ranked purely by health and carries no sponsor label. A sponsored dish also appears at its
+  natural rank there (shown twice on purpose: removing it would let money change the health list, and would
+  shift the offset cursor). The app does not de-duplicate either.
 - **Fen is neutral.** The chat never sees sponsorship; no chat code changes.
 - **Owners see daily impressions** (one counter row per restaurant per Vietnam day), since paying no longer
   guarantees exposure.
