@@ -92,3 +92,19 @@ async def test_execute_passes_order_code_and_amount_to_provider(use_case):
     result = await use_case.execute(CreateCheckoutInputDTO(user_id=1, plan_type=PlanType.MONTHLY))
     assert use_case.providers[PaymentProvider.PAYOS].created_with["order_code"] == result.order_code
     assert use_case.providers[PaymentProvider.PAYOS].created_with["amount"] == Decimal("49000")
+
+
+async def test_momo_premium_checkout_passes_no_return_url_so_the_app_deep_link_is_kept():
+    momo, payos = FakePaymentProvider(), FakePaymentProvider()
+    use_case = CreateCheckoutUseCase(
+        payments=FakePaymentRepo(),
+        providers={PaymentProvider.PAYOS: payos, PaymentProvider.MOMO: momo},
+        monthly_price_vnd=49_000,
+        annual_price_vnd=499_000,
+        return_url="https://app.example/return",
+        cancel_url="https://app.example/cancel",
+    )
+    await use_case.execute(CreateCheckoutInputDTO(1, PlanType.MONTHLY, PaymentProvider.MOMO))
+    await use_case.execute(CreateCheckoutInputDTO(1, PlanType.MONTHLY, PaymentProvider.PAYOS))
+    assert momo.created_with["return_url"] == ""  # MomoPaymentProvider then uses momo_redirect_url
+    assert payos.created_with["return_url"] == "https://app.example/return"

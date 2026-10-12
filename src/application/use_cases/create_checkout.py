@@ -59,7 +59,9 @@ class CreateCheckoutUseCase:
         payment = Payment.create(
             input_dto.user_id, input_dto.plan_type, self._price_for(input_dto.plan_type), input_dto.provider
         )
+        # MoMo keeps its own app deep link (momo_redirect_url): it gets no return URL, PayOS does.
+        payos = input_dto.provider is PaymentProvider.PAYOS
         return await start_checkout(
             self.payments, provider, payment, f"FoodFen {input_dto.plan_type.value} premium",
-            self.cancel_url, self.return_url,
+            self.cancel_url if payos else "", self.return_url if payos else "",
         )
