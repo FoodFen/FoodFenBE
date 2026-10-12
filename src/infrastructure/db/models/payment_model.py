@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, DateTime, Identity, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    BigInteger, CheckConstraint, DateTime, Identity, Integer, Numeric, String, Text, UniqueConstraint, func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.domain.entities.payment import Payment
@@ -17,7 +19,14 @@ from src.infrastructure.db.types import enum_column
 
 class PaymentORM(UUIDPrimaryKey, UserOwned, Base):
     __tablename__ = "payments"
-    __table_args__ = (UniqueConstraint("order_code", name="uq_payments_order_code"),)
+    __table_args__ = (
+        UniqueConstraint("order_code", name="uq_payments_order_code"),
+        # ad_days is set (> 0) iff this is an ad_package payment; the entity checks the same.
+        CheckConstraint(
+            "(plan_type = 'ad_package') = (ad_days IS NOT NULL) AND (ad_days IS NULL OR ad_days > 0)",
+            name="ad_days",
+        ),
+    )
 
     # DB-native identity column: PayOS needs a numeric order id, and this is
     # the only way to hand one out with no collision risk (not the PK — every
@@ -40,6 +49,7 @@ class PaymentORM(UUIDPrimaryKey, UserOwned, Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ad_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # placement days snapshotted at checkout
 
     def to_domain(self) -> Payment:
         return Payment(
@@ -55,6 +65,7 @@ class PaymentORM(UUIDPrimaryKey, UserOwned, Base):
             qr_code=self.qr_code,
             created_at=self.created_at,
             paid_at=self.paid_at,
+            ad_days=self.ad_days,
         )
 
     @staticmethod
@@ -71,6 +82,7 @@ class PaymentORM(UUIDPrimaryKey, UserOwned, Base):
             qr_code=payment.qr_code,
             created_at=payment.created_at,
             paid_at=payment.paid_at,
+            ad_days=payment.ad_days,
         )
         # Identity column: only set it when the entity already has one (an
         # update), never on insert — leave it unset so Postgres assigns it.

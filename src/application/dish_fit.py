@@ -10,6 +10,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from datetime import date
+from uuid import UUID
 
 from src.domain.entities.daily_goal import DailyGoal
 from src.domain.entities.dish import Dish
@@ -127,6 +128,18 @@ def rank_dishes(dishes: Iterable[Dish], remaining: Remaining | None, diet: DietT
     return [RankedDish(d, True, _reasons(d, remaining)) for d in suggested] + [
         RankedDish(d, False, []) for d in over[top_up:] + sorted(bad, key=lambda d: d.kcal)
     ]
+
+
+def pick_featured(ranked: list[RankedDish], featured_restaurant_ids: set[UUID], limit: int = 3) -> list[RankedDish]:
+    """The sponsored section: walking the ranking in order, each featured restaurant's best-ranked
+    *suggested* dish, at most ``limit`` restaurants. Money buys eligibility, never a dish that doesn't fit."""
+    picked: dict[UUID, RankedDish] = {}
+    for r in ranked:
+        if len(picked) == limit:
+            break
+        if r.fits and r.dish.restaurant_id in featured_restaurant_ids:
+            picked.setdefault(r.dish.restaurant_id, r)
+    return list(picked.values())
 
 
 def fold(text: str) -> str:
