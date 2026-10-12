@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import timedelta
 
 import pytest
 
@@ -10,6 +11,7 @@ from src.application.ports.payment_provider import WebhookPayload
 from src.application.use_cases.apply_payment_result import apply_payment_result
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
 from src.domain.entities.payment import Payment
+from src.domain.entities.restaurant import Restaurant
 from src.domain.entities.subscription import Subscription
 from src.domain.entities.user import User
 from src.domain.enums import PaymentProvider, PaymentStatus, PlanType, SubscriptionTier
@@ -112,7 +114,7 @@ async def test_successful_webhook_marks_paid_creates_subscription_and_upgrades_u
     users = FakeUserRepo(user)
     provider = FakeProvider(WebhookPayload(order_code=42, status=PaymentStatus.PAID, succeeded=True))
     use_case = HandlePaymentWebhookUseCase(
-        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions, users=users
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions, users=users, restaurants=None
     )
 
     await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
@@ -131,7 +133,7 @@ async def test_failed_webhook_marks_failed_without_touching_subscription():
     subscriptions = FakeSubscriptionRepo()
     provider = FakeProvider(WebhookPayload(order_code=42, status=PaymentStatus.FAILED, succeeded=False))
     use_case = HandlePaymentWebhookUseCase(
-        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions, users=FakeUserRepo(_user())
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions, users=FakeUserRepo(_user()), restaurants=None
     )
 
     await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
@@ -150,7 +152,7 @@ async def test_pending_webhook_leaves_the_payment_pending():
         WebhookPayload(order_code=42, status=PaymentStatus.PENDING, succeeded=False)
     )
     use_case = HandlePaymentWebhookUseCase(
-        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions, users=FakeUserRepo(_user())
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions, users=FakeUserRepo(_user()), restaurants=None
     )
 
     await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
@@ -170,7 +172,7 @@ async def test_success_webhook_on_a_cancelled_payment_still_grants_premium():
     users = FakeUserRepo(user)
     provider = FakeProvider(WebhookPayload(order_code=42, status=PaymentStatus.PAID, succeeded=True))
     use_case = HandlePaymentWebhookUseCase(
-        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions, users=users
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions, users=users, restaurants=None
     )
 
     await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
@@ -193,6 +195,7 @@ async def test_failure_webhook_on_a_cancelled_payment_stays_cancelled():
         providers={PaymentProvider.PAYOS: provider},
         subscriptions=FakeSubscriptionRepo(),
         users=FakeUserRepo(_user()),
+        restaurants=None,
     )
 
     await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
@@ -211,6 +214,7 @@ async def test_webhook_replay_is_idempotent():
         providers={PaymentProvider.PAYOS: provider},
         subscriptions=FakeSubscriptionRepo(),
         users=FakeUserRepo(_user()),
+        restaurants=None,
     )
 
     await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
@@ -226,6 +230,7 @@ async def test_invalid_signature_raises():
         providers={PaymentProvider.PAYOS: provider},
         subscriptions=FakeSubscriptionRepo(),
         users=FakeUserRepo(_user()),
+        restaurants=None,
     )
 
     with pytest.raises(InvalidWebhookSignatureException):
@@ -239,6 +244,7 @@ async def test_unknown_order_code_raises_not_found():
         providers={PaymentProvider.PAYOS: provider},
         subscriptions=FakeSubscriptionRepo(),
         users=FakeUserRepo(_user()),
+        restaurants=None,
     )
 
     with pytest.raises(PaymentNotFoundException):
@@ -254,9 +260,9 @@ async def test_stale_second_success_does_not_renew_again():
     subscriptions = FakeSubscriptionRepo()
     users = FakeUserRepo(_user())
 
-    await apply_payment_result(payment, True, payments, subscriptions, users)
+    await apply_payment_result(payment, True, payments, subscriptions, users, None)
     first_end = (await subscriptions.get_by_user_id(1)).end_date
-    result = await apply_payment_result(stale, True, payments, subscriptions, users)
+    result = await apply_payment_result(stale, True, payments, subscriptions, users, None)
 
     assert result.status is PaymentStatus.PAID
     assert (await subscriptions.get_by_user_id(1)).end_date == first_end
@@ -269,8 +275,42 @@ async def test_stale_failure_does_not_overwrite_paid():
     )
     stale = replace(payment)
 
-    await apply_payment_result(payment, True, payments, FakeSubscriptionRepo(), FakeUserRepo(_user()))
-    result = await apply_payment_result(stale, False, payments, FakeSubscriptionRepo(), FakeUserRepo(_user()))
+    await apply_payment_result(payment, True, payments, FakeSubscriptionRepo(), FakeUserRepo(_user()), None)
+    result = await apply_payment_result(stale, False, payments, FakeSubscriptionRepo(), FakeUserRepo(_user()), None)
 
     assert result.status is PaymentStatus.PAID
     assert payments._by_order_code[42].status is PaymentStatus.PAID
+
+
+class FakeRestaurantRepo:
+    def __init__(self, restaurant: Restaurant) -> None:
+        self.restaurant = restaurant
+
+    async def get_by_owner(self, user_id):
+        return self.restaurant if user_id == self.restaurant.user_id else None
+
+    async def update(self, restaurant):
+        self.restaurant = restaurant
+
+
+async def test_paid_ad_package_features_the_restaurant_and_leaves_premium_alone():
+    payments = FakePaymentRepo()
+    payment = payments.seed(
+        Payment.create(user_id=1, plan_type=PlanType.AD_PACKAGE, amount="99000", ad_days=7), order_code=42
+    )
+    restaurant = Restaurant.create(
+        user_id=1, name="Quán", address="a", phone="1", opening_hours="7-21", latitude=0, longitude=0
+    )
+    subscriptions, users = FakeSubscriptionRepo(), FakeUserRepo(_user())
+    provider = FakeProvider(WebhookPayload(order_code=42, status=PaymentStatus.PAID, succeeded=True))
+    use_case = HandlePaymentWebhookUseCase(
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=subscriptions,
+        users=users, restaurants=FakeRestaurantRepo(restaurant),
+    )
+
+    await use_case.execute(PaymentProvider.PAYOS, b"raw-body")
+    await use_case.execute(PaymentProvider.PAYOS, b"raw-body")  # replay: applied once
+
+    assert restaurant.featured_until == payment.paid_at + timedelta(days=7)
+    assert await subscriptions.get_by_user_id(1) is None
+    assert users._user.subscription_tier is SubscriptionTier.FREE

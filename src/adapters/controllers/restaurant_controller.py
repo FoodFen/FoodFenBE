@@ -10,6 +10,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, UploadFile, status
 
+from src.adapters.schemas.ad_schemas import CreateAdCheckoutRequest, MyAdsResponse
+from src.adapters.schemas.payment_schemas import CheckoutResponse
 from src.adapters.schemas.restaurant_schemas import (
     CreateDishRequest,
     CreateRestaurantRequest,
@@ -20,6 +22,7 @@ from src.adapters.schemas.restaurant_schemas import (
     UpdateDishRequest,
     UpdateRestaurantRequest,
 )
+from src.application.dtos.payment import CreateAdCheckoutInputDTO
 from src.application.dtos.restaurant import (
     CreateDishInputDTO,
     CreateRestaurantInputDTO,
@@ -28,10 +31,12 @@ from src.application.dtos.restaurant import (
 )
 from src.domain.exceptions import UnreadableImageException
 from src.infrastructure.di import (
+    CreateAdCheckoutUseCaseDep,
     CreateDishUseCaseDep,
     CreateRestaurantUseCaseDep,
     CurrentUserDep,
     DeleteDishUseCaseDep,
+    GetMyAdsUseCaseDep,
     GetMyRestaurantUseCaseDep,
     GetPublicRestaurantUseCaseDep,
     ListMyDishesUseCaseDep,
@@ -124,6 +129,21 @@ async def update_dish(
 @router.delete("/mine/dishes/{dish_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_dish(dish_id: UUID, user: CurrentUserDep, use_case: DeleteDishUseCaseDep) -> None:
     await use_case.execute(user.id, dish_id)
+
+
+@router.get("/mine/ads", response_model=MyAdsResponse)
+async def get_my_ads(user: CurrentUserDep, use_case: GetMyAdsUseCaseDep) -> MyAdsResponse:
+    return MyAdsResponse.from_dto(await use_case.execute(user.id))
+
+
+@router.post("/mine/ads/checkout", response_model=CheckoutResponse)
+async def create_ad_checkout(
+    body: CreateAdCheckoutRequest, user: CurrentUserDep, use_case: CreateAdCheckoutUseCaseDep
+) -> CheckoutResponse:
+    result = await use_case.execute(
+        CreateAdCheckoutInputDTO(user_id=user.id, package_id=body.package_id, provider=body.provider)
+    )
+    return CheckoutResponse.from_dto(result)
 
 
 # Declared last so "/mine" is never read as an id (the path param is a UUID, so it could only 422).

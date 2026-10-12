@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.domain.entities.streak import Streak
 from src.domain.entities.subscription import Subscription
 from src.domain.entities.user import User
-from src.domain.enums import PaymentStatus
+from src.domain.enums import PaymentStatus, PlanType
 from src.infrastructure.db.models.food_entry_model import FoodEntryORM
 from src.infrastructure.db.models.payment_model import PaymentORM
 from src.infrastructure.db.models.restaurant_model import RestaurantORM
@@ -24,15 +24,15 @@ class SQLAlchemyAdminStatsRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def paid_payments(self, start: datetime, end: datetime) -> list[tuple[datetime, Decimal]]:
+    async def paid_payments(self, start: datetime, end: datetime) -> list[tuple[datetime, Decimal, PlanType]]:
         rows = await self._session.execute(
-            select(PaymentORM.paid_at, PaymentORM.amount).where(
+            select(PaymentORM.paid_at, PaymentORM.amount, PaymentORM.plan_type).where(
                 PaymentORM.status == PaymentStatus.PAID,
                 PaymentORM.paid_at >= start,
                 PaymentORM.paid_at < end,
             )
         )
-        return [(paid_at, amount) for paid_at, amount in rows.all()]
+        return [(paid_at, amount, plan_type) for paid_at, amount, plan_type in rows.all()]
 
     async def user_signups(self, start: datetime, end: datetime) -> list[datetime]:
         return list(

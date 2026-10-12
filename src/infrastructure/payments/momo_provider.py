@@ -76,7 +76,7 @@ class MomoPaymentProvider:
     async def create_checkout_link(
         self, order_code: int, amount: Decimal, description: str, cancel_url: str, return_url: str
     ) -> CheckoutLinkResult:
-        # MoMo sends the user back to self.redirect_url; PayOS's return/cancel URLs don't apply.
+        # MoMo sends the user back to ``return_url`` when given (ads page), else self.redirect_url; the cancel URL doesn't apply.
         order_id = f"{_ORDER_ID_PREFIX}{order_code}"
         fields: dict[str, Any] = {
             "accessKey": self.access_key,
@@ -86,7 +86,7 @@ class MomoPaymentProvider:
             "orderId": order_id,
             "orderInfo": description,
             "partnerCode": self.partner_code,
-            "redirectUrl": self.redirect_url,
+            "redirectUrl": return_url or self.redirect_url,
             "requestId": order_id,
             "requestType": "captureWallet",
         }

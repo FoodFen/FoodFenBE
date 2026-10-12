@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -110,3 +110,20 @@ def test_user_defaults_to_user_role():
     user = User.create(email="a@b.co")
     assert user.role == UserRole.USER and not user.is_admin
     assert User(email="a@b.co", role=UserRole.ADMIN).is_admin
+
+
+def test_extend_featured_from_now_when_never_or_expired():
+    r = _restaurant()
+    assert not r.is_featured(NOW)
+    r.extend_featured(7, NOW)
+    assert r.featured_until == NOW + timedelta(days=7)
+    r.extend_featured(1, NOW + timedelta(days=30))  # long expired: counts from the purchase
+    assert r.featured_until == NOW + timedelta(days=31)
+
+
+def test_extend_featured_while_active_extends_from_the_current_end():
+    r = _restaurant()
+    r.extend_featured(7, NOW)
+    r.extend_featured(7, NOW + timedelta(days=2))
+    assert r.featured_until == NOW + timedelta(days=14)
+    assert r.is_featured(NOW + timedelta(days=13)) and not r.is_featured(NOW + timedelta(days=14))

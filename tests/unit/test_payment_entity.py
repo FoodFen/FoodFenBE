@@ -100,3 +100,16 @@ def test_attach_checkout_accepts_no_qr_code():
     payment.attach_checkout("FF1", "https://pay.momo/x", None)
     assert payment.qr_code is None
     assert payment.checkout_url == "https://pay.momo/x"
+
+
+def test_ad_package_payment_needs_positive_ad_days():
+    ok = Payment.create(1, PlanType.AD_PACKAGE, 99000, ad_days=7)
+    assert ok.ad_days == 7
+    for days in (None, 0, -1):
+        with pytest.raises(InvalidAttributeException):
+            Payment.create(1, PlanType.AD_PACKAGE, 99000, ad_days=days)
+
+
+def test_ad_days_only_belong_to_ad_package_payments():
+    with pytest.raises(InvalidAttributeException):
+        Payment.create(1, PlanType.MONTHLY, 49000, ad_days=7)

@@ -8,7 +8,7 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 from src.domain.enums import PaymentProvider, PaymentStatus, PlanType
-from src.domain.exceptions import InvalidPaymentStateException
+from src.domain.exceptions import InvalidAttributeException, InvalidPaymentStateException
 from src.domain.validation import require_positive
 
 
@@ -34,11 +34,16 @@ class Payment:
     qr_code: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     paid_at: datetime | None = None
+    ad_days: int | None = None  # days of placement bought; set iff plan_type is AD_PACKAGE
 
     def __post_init__(self) -> None:
         if not isinstance(self.amount, Decimal):
             self.amount = Decimal(str(self.amount))
         require_positive(self.amount, "amount")
+        if (self.plan_type is PlanType.AD_PACKAGE) != (self.ad_days is not None):
+            raise InvalidAttributeException("ad_days is required for, and only for, an ad_package payment")
+        if self.ad_days is not None:
+            require_positive(self.ad_days, "ad_days")
 
     @classmethod
     def create(
@@ -47,6 +52,7 @@ class Payment:
         plan_type: PlanType,
         amount: Decimal | int | str,
         provider: PaymentProvider = PaymentProvider.PAYOS,
+        ad_days: int | None = None,
     ) -> Payment:
         return cls(
             id=uuid4(),
@@ -55,6 +61,7 @@ class Payment:
             amount=Decimal(str(amount)),
             status=PaymentStatus.PENDING,
             provider=provider,
+            ad_days=ad_days,
         )
 
     def attach_checkout(self, payment_link_id: str, checkout_url: str, qr_code: str | None) -> None:

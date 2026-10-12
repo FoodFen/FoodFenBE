@@ -95,6 +95,7 @@ class PlanType(StrEnum):
     MONTHLY = "monthly"
     ANNUAL = "annual"
     COIN_REDEEM = "coin_redeem"  # granted by spending coins, never purchased via PayOS
+    AD_PACKAGE = "ad_package"  # a restaurant's paid placement, bought by its owner; not Premium
 
 
 class SubscriptionStatus(StrEnum):

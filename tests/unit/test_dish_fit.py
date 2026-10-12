@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from src.application.dish_fit import DishFilter, Remaining, fold, rank_dishes
+from src.application.dish_fit import DishFilter, Remaining, fold, pick_featured, rank_dishes
 from src.domain.entities.dish import Dish
 from src.domain.enums import DietType, DishDiet
 
@@ -146,3 +146,34 @@ def test_dish_filter_bounds_are_inclusive_and_q_matches_restaurant_too():
     for f in (DishFilter(q="pho"), DishFilter(fits=True), DishFilter(kcal_min=501), DishFilter(kcal_max=499),
               DishFilter(price_min=40001), DishFilter(price_max=39999), DishFilter(protein_min=25.5)):
         assert not f.matches(d, "Quán", fits=False), f
+
+
+def _in(restaurant: int, kcal: int) -> Dish:
+    d = _dish(kcal)
+    d.restaurant_id = UUID(int=restaurant)
+    return d
+
+
+def test_pick_featured_keeps_ranked_order_one_dish_per_restaurant_only_fitting_featured_ones():
+    # rank order: a1 (fits), b1 (fits), a2 (fits, same restaurant as a1), c1 (fits, not featured),
+    # b-over (does not fit)
+    ranked = rank_dishes([_in(1, 100), _in(2, 200), _in(1, 300), _in(3, 400), _in(2, 5000)], _rem(500), None)
+    picked = pick_featured(ranked, {UUID(int=1), UUID(int=2)})
+    assert [(r.dish.restaurant_id.int, r.dish.kcal) for r in picked] == [(1, 100), (2, 200)]
+
+
+def test_pick_featured_skips_a_restaurant_with_no_fitting_dish():
+    # restaurant 3's dishes keep the top-up (min 3 suggested) from rescuing restaurant 1's oversized dish
+    ranked = rank_dishes([_in(1, 5000), _in(2, 100), _in(3, 110), _in(3, 120)], _rem(500), None)
+    picked = pick_featured(ranked, {UUID(int=1), UUID(int=2)})
+    assert [r.dish.restaurant_id.int for r in picked] == [2]
+
+
+def test_pick_featured_caps_at_three():
+    ranked = rank_dishes([_in(i, 100 + i) for i in range(1, 6)], _rem(500), None)
+    assert len(pick_featured(ranked, {UUID(int=i) for i in range(1, 6)})) == 3
+
+
+def test_pick_featured_is_empty_without_a_goal():
+    ranked = rank_dishes([_in(1, 100)], None, None)  # nothing "fits" with no goal
+    assert pick_featured(ranked, {UUID(int=1)}) == []

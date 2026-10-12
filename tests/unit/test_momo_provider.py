@@ -41,7 +41,7 @@ async def test_create_signs_the_documented_raw_string_and_returns_the_deeplink()
         )
 
     link = await _provider(handler).create_checkout_link(
-        42, Decimal("49000"), "FoodFen monthly premium", "unused", "unused"
+        42, Decimal("49000"), "FoodFen monthly premium", "unused", ""
     )
 
     body = seen["body"]
@@ -194,3 +194,17 @@ def test_verify_webhook_rejects_a_missing_field():
 def test_verify_webhook_rejects_malformed_json():
     with pytest.raises(InvalidWebhookSignatureException):
         _provider(_unused).verify_webhook(b"not json")
+
+
+async def test_a_passed_return_url_overrides_the_configured_redirect():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"resultCode": 0, "payUrl": "https://pay.momo/x"})
+
+    await _provider(handler).create_checkout_link(
+        42, Decimal("99000"), "ads", "unused", "https://web.test/restaurant/ads"
+    )
+
+    assert seen["body"]["redirectUrl"] == "https://web.test/restaurant/ads"

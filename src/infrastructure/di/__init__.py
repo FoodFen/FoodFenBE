@@ -13,6 +13,8 @@ from src.infrastructure.di.notifications import (
     get_email_verification_notifier,
 )
 from src.infrastructure.di.repositories import (
+    AdImpressionRepositoryDep,
+    AdPackageRepositoryDep,
     ActivityLogRepositoryDep,
     AdminStatsRepositoryDep,
     AiTrialRepositoryDep,
@@ -33,6 +35,8 @@ from src.infrastructure.di.repositories import (
     WaterLogRepositoryDep,
     WeightLogRepositoryDep,
     get_activity_log_repository,
+    get_ad_impression_repository,
+    get_ad_package_repository,
     get_admin_stats_repository,
     get_ai_trial_repository,
     get_chat_message_repository,
@@ -82,6 +86,16 @@ from src.infrastructure.di.security import (
     limit_upload_by_user,
 )
 from src.infrastructure.di.use_cases import (
+    CreateAdCheckoutUseCaseDep,
+    CreateAdPackageUseCaseDep,
+    GetMyAdsUseCaseDep,
+    ListAdPackagesUseCaseDep,
+    UpdateAdPackageUseCaseDep,
+    get_create_ad_checkout_use_case,
+    get_create_ad_package_use_case,
+    get_get_my_ads_use_case,
+    get_list_ad_packages_use_case,
+    get_update_ad_package_use_case,
     AiTrialUseCaseDep,
     AnalyzeFoodImageUseCaseDep,
     AnalyzeFoodTextUseCaseDep,
@@ -209,6 +223,20 @@ from src.infrastructure.di.use_cases import (
 )
 
 __all__ = [
+    "AdImpressionRepositoryDep",
+    "AdPackageRepositoryDep",
+    "CreateAdCheckoutUseCaseDep",
+    "CreateAdPackageUseCaseDep",
+    "GetMyAdsUseCaseDep",
+    "ListAdPackagesUseCaseDep",
+    "UpdateAdPackageUseCaseDep",
+    "get_ad_impression_repository",
+    "get_ad_package_repository",
+    "get_create_ad_checkout_use_case",
+    "get_create_ad_package_use_case",
+    "get_get_my_ads_use_case",
+    "get_list_ad_packages_use_case",
+    "get_update_ad_package_use_case",
     "ActivityLogRepositoryDep",
     "AdminStatsRepositoryDep",
     "AiChatProviderDep",

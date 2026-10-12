@@ -103,7 +103,7 @@ async def test_returns_local_status_without_reconciling_when_not_pending():
     payment.mark_paid()
     provider = FakeProvider(ProviderPaymentStatus(order_code=1, status=PaymentStatus.PAID, succeeded=True))
     use_case = GetPaymentStatusUseCase(
-        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=FakeSubscriptionRepo(), users=FakeUserRepo(_user())
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=FakeSubscriptionRepo(), users=FakeUserRepo(_user()), restaurants=None
     )
     result = await use_case.execute(user_id=1, order_code=1)
     assert result.status is PaymentStatus.PAID
@@ -116,7 +116,7 @@ async def test_reconciles_pending_payment_when_provider_reports_paid():
     provider = FakeProvider(ProviderPaymentStatus(order_code=1, status=PaymentStatus.PAID, succeeded=True))
     users = FakeUserRepo(user)
     use_case = GetPaymentStatusUseCase(
-        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=FakeSubscriptionRepo(), users=users
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=FakeSubscriptionRepo(), users=users, restaurants=None
     )
     result = await use_case.execute(user_id=1, order_code=1)
     assert result.status is PaymentStatus.PAID
@@ -133,7 +133,7 @@ async def test_reconciles_cancelled_payment_when_provider_reports_paid():
     provider = FakeProvider(ProviderPaymentStatus(order_code=1, status=PaymentStatus.PAID, succeeded=True))
     users = FakeUserRepo(user)
     use_case = GetPaymentStatusUseCase(
-        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=FakeSubscriptionRepo(), users=users
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=FakeSubscriptionRepo(), users=users, restaurants=None
     )
     result = await use_case.execute(user_id=1, order_code=1)
     assert result.status is PaymentStatus.PAID
@@ -145,7 +145,7 @@ async def test_raises_not_found_for_another_users_payment():
     payments.seed(Payment.create(user_id=2, plan_type=PlanType.MONTHLY, amount="49000"), order_code=1)
     provider = FakeProvider(ProviderPaymentStatus(order_code=1, status=PaymentStatus.PENDING, succeeded=False))
     use_case = GetPaymentStatusUseCase(
-        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=FakeSubscriptionRepo(), users=FakeUserRepo(_user())
+        payments=payments, providers={PaymentProvider.PAYOS: provider}, subscriptions=FakeSubscriptionRepo(), users=FakeUserRepo(_user()), restaurants=None
     )
     with pytest.raises(PaymentNotFoundException):
         await use_case.execute(user_id=1, order_code=1)

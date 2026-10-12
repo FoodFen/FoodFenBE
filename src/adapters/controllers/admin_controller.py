@@ -9,8 +9,9 @@ from datetime import date
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 
+from src.adapters.schemas.ad_schemas import AdPackageResponse, CreateAdPackageRequest, UpdateAdPackageRequest
 from src.adapters.schemas.admin_schemas import (
     AdminQuestResponse,
     AdminQuizQuestionResponse,
@@ -23,6 +24,9 @@ from src.adapters.schemas.admin_schemas import (
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
 from src.domain.enums import ModerationStatus, SubscriptionTier
 from src.infrastructure.di import (
+    CreateAdPackageUseCaseDep,
+    ListAdPackagesUseCaseDep,
+    UpdateAdPackageUseCaseDep,
     GetAdminDashboardUseCaseDep,
     GetAdminRestaurantUseCaseDep,
     ListAdminQuestDefinitionsUseCaseDep,
@@ -98,3 +102,21 @@ async def list_quizzes(use_case: ListAdminQuizQuestionsUseCaseDep) -> list[Admin
 @router.get("/quests", response_model=list[AdminQuestResponse])
 async def list_quests(use_case: ListAdminQuestDefinitionsUseCaseDep) -> list[AdminQuestResponse]:
     return [AdminQuestResponse.from_dto(q) for q in await use_case.execute()]
+
+
+@router.get("/ad-packages", response_model=list[AdPackageResponse])
+async def list_ad_packages(use_case: ListAdPackagesUseCaseDep) -> list[AdPackageResponse]:
+    """Every package, inactive ones included."""
+    return [AdPackageResponse.from_dto(p) for p in await use_case.execute()]
+
+
+@router.post("/ad-packages", response_model=AdPackageResponse, status_code=status.HTTP_201_CREATED)
+async def create_ad_package(body: CreateAdPackageRequest, use_case: CreateAdPackageUseCaseDep) -> AdPackageResponse:
+    return AdPackageResponse.from_dto(await use_case.execute(body.days, body.price_vnd, body.active))
+
+
+@router.patch("/ad-packages/{package_id}", response_model=AdPackageResponse)
+async def update_ad_package(
+    package_id: UUID, body: UpdateAdPackageRequest, use_case: UpdateAdPackageUseCaseDep
+) -> AdPackageResponse:
+    return AdPackageResponse.from_dto(await use_case.execute(package_id, body.days, body.price_vnd, body.active))

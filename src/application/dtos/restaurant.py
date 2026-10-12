@@ -167,6 +167,7 @@ class PublicFitDishDTO:
 class PublicDishListDTO:
     remaining_kcal: int | None
     dishes: list[PublicFitDishDTO]
+    featured: list[PublicFitDishDTO]  # the sponsored section: first page only, every one ``fits``
     next_cursor: str | None = None
 
 

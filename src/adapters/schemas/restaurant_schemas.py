@@ -15,6 +15,7 @@ from src.application.dtos.restaurant import (
     DishOutputDTO,
     PublicDishDTO,
     PublicDishListDTO,
+    PublicFitDishDTO,
     PublicRestaurantDTO,
     PublicRestaurantSummaryDTO,
     RestaurantOutputDTO,
@@ -129,22 +130,24 @@ class PublicFitDishResponse(PublicDishResponse):
 class PublicDishListResponse(CamelModel):
     remaining_kcal: int | None
     dishes: list[PublicFitDishResponse]
+    featured: list[PublicFitDishResponse]  # sponsored section: first page only, [] if nothing sponsored fits
     next_cursor: str | None
 
     @classmethod
     def from_dto(cls, dto: PublicDishListDTO) -> PublicDishListResponse:
+        def card(d: PublicFitDishDTO) -> PublicFitDishResponse:
+            return PublicFitDishResponse(
+                **vars(d.dish),
+                fits=d.fits,
+                reasons=d.reasons,
+                restaurant=PublicRestaurantSummaryResponse.from_dto(d.restaurant),
+            )
+
         return cls(
             remaining_kcal=dto.remaining_kcal,
             next_cursor=dto.next_cursor,
-            dishes=[
-                PublicFitDishResponse(
-                    **vars(d.dish),
-                    fits=d.fits,
-                    reasons=d.reasons,
-                    restaurant=PublicRestaurantSummaryResponse.from_dto(d.restaurant),
-                )
-                for d in dto.dishes
-            ],
+            dishes=[card(d) for d in dto.dishes],
+            featured=[card(d) for d in dto.featured],
         )
 
 

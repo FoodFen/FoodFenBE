@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from src.domain.enums import ModerationStatus, ReviewDecision
@@ -33,6 +33,7 @@ class Restaurant:
     created_at: datetime = field(default_factory=_now)
     updated_at: datetime = field(default_factory=_now)
     reviewed_at: datetime | None = None
+    featured_until: datetime | None = None  # paid placement runs until here
 
     def __post_init__(self) -> None:
         exc = InvalidRestaurantAttributeException
@@ -81,3 +82,10 @@ class Restaurant:
         if self.status == ModerationStatus.REJECTED:
             self.status = ModerationStatus.PENDING
             self.rejection_reason = None
+
+    def is_featured(self, now: datetime) -> bool:
+        return self.featured_until is not None and self.featured_until > now
+
+    def extend_featured(self, days: int, now: datetime) -> None:
+        """Buying while featured extends from the current end; otherwise from ``now``."""
+        self.featured_until = max(now, self.featured_until or now) + timedelta(days=days)

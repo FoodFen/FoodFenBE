@@ -140,3 +140,15 @@ class AdminRequiredException(DomainException):
 
 class StaleReviewException(DomainException):
     """The row changed since the reviewer loaded it (its updated_at moved). Maps to HTTP 409."""
+
+
+class InvalidAdPackageException(InvalidAttributeException):
+    """An ad package violates a domain invariant (days and price must be positive). Maps to HTTP 422."""
+
+
+class AdPackageNotFoundException(EntityNotFoundException):
+    """No such ad package, or it is inactive."""
+
+
+class RestaurantNotApprovedException(DomainException):
+    """Only an approved restaurant can buy placement. Maps to HTTP 409 with error code ``restaurant_not_approved``."""

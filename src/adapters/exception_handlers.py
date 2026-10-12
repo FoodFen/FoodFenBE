@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from src.domain.exceptions import (
     AdminRequiredException,
     AiTrialExhaustedException,
+    InvalidAdPackageException,
     AuthenticationException,
     DomainException,
     EntityNotFoundException,
@@ -26,6 +27,7 @@ from src.domain.exceptions import (
     QuizAlreadySubmittedException,
     RateLimitedException,
     RestaurantAlreadyExistsException,
+    RestaurantNotApprovedException,
     StaleReviewException,
     UserAlreadyExistsException,
 )
@@ -36,6 +38,7 @@ from src.domain.exceptions import (
 # `errors` body, not just a message) so it is deliberately not listed here.
 EXCEPTION_STATUS: list[tuple[type[DomainException], int]] = [
     (InvalidWebhookSignatureException, 401),  # a more specific AuthenticationException
+    (InvalidAdPackageException, 422),
     (InvalidAttributeException, 400),  # + InvalidUserAttributeException, WeakPasswordException, InvalidPaymentStateException
     (AuthenticationException, 401),  # + InvalidCredentialsException, InvalidTokenException
     (PremiumRequiredException, 402),
@@ -90,6 +93,15 @@ async def _quiz_already_submitted_handler(
     )
 
 
+async def _restaurant_not_approved_handler(
+    _: Request, exc: RestaurantNotApprovedException
+) -> JSONResponse:
+    """409 with a stable machine code, so the client can send the owner to wait for approval."""
+    return JSONResponse(
+        status_code=409, content={"message": str(exc), "error": "restaurant_not_approved"}
+    )
+
+
 async def _validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
     """Reshape Pydantic's ``{"detail": [...]}`` into ``{message, errors}``."""
     errors: dict[str, str] = {}
@@ -106,5 +118,6 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(UserAlreadyExistsException, _duplicate_email_handler)
     app.add_exception_handler(AiTrialExhaustedException, _ai_trial_exhausted_handler)
     app.add_exception_handler(QuizAlreadySubmittedException, _quiz_already_submitted_handler)
+    app.add_exception_handler(RestaurantNotApprovedException, _restaurant_not_approved_handler)
     for exc_type, status_code in EXCEPTION_STATUS:
         app.add_exception_handler(exc_type, _domain_exception_handler(status_code))

@@ -34,6 +34,7 @@ class RestaurantORM(UUIDPrimaryKey, UserOwned, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    featured_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     def to_domain(self) -> Restaurant:
         return Restaurant(
@@ -42,6 +43,7 @@ class RestaurantORM(UUIDPrimaryKey, UserOwned, Base):
             latitude=self.latitude, longitude=self.longitude, image_url=self.image_url,
             status=self.status, rejection_reason=self.rejection_reason,
             created_at=self.created_at, updated_at=self.updated_at, reviewed_at=self.reviewed_at,
+            featured_until=self.featured_until,
         )
 
     @staticmethod
@@ -52,4 +54,5 @@ class RestaurantORM(UUIDPrimaryKey, UserOwned, Base):
             latitude=r.latitude, longitude=r.longitude, image_url=r.image_url,
             status=r.status, rejection_reason=r.rejection_reason,
             created_at=r.created_at, updated_at=r.updated_at, reviewed_at=r.reviewed_at,
+            featured_until=r.featured_until,
         )
