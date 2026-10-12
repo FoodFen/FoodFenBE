@@ -3,8 +3,9 @@
 > **Living document.** The single source of truth for *what* the restaurant/admin/recommendation
 > side of FoodFen does and *why*. Update it in the same change as any decision or behaviour change.
 > Design specs (`docs/superpowers/specs/`) record *how* one slice was built; this file records the
-> rules that hold across slices. Status: **pieces 1–3 implemented** (on main). Specs: pieces 1–2
-> `docs/superpowers/specs/2026-10-08-restaurants-admin-design.md`, piece 3 `docs/superpowers/specs/2026-10-09-dish-tab-design.md`.
+> rules that hold across slices. Status: **pieces 1–5 implemented**. Specs: pieces 1–2
+> `docs/superpowers/specs/2026-10-08-restaurants-admin-design.md`, piece 3 `docs/superpowers/specs/2026-10-09-dish-tab-design.md`,
+> piece 5 `docs/superpowers/specs/2026-10-12-paid-placement-design.md`.
 
 ## Vision
 
@@ -17,7 +18,7 @@ Five pieces, built in this order:
 | 2 | **Admin**: approves restaurants and dishes, sees basic platform data (transactions, users) | implemented |
 | 3 | **Dish tab** (mobile): dishes that fit the user first, then the rest; tap a dish to see the restaurant and Google Maps | implemented |
 | 4 | **Recommendation**: rules rank the dish tab by the day's macros; Fen recommends real dishes as cards in chat | implemented (`docs/superpowers/specs/2026-10-11-dish-recommendation-design.md`) |
-| 5 | **Paid placement**: restaurants pay to appear in a separate "featured" section | later, needs research |
+| 5 | **Paid placement**: restaurants pay to appear in a separate "Được tài trợ" section above the dish list | implemented (`docs/superpowers/specs/2026-10-12-paid-placement-design.md`) |
 
 ## Decisions
 
@@ -28,7 +29,7 @@ Five pieces, built in this order:
 | 2026-10-08 | Admin approves the restaurant once, and each dish separately | Editing one dish must not hide the whole restaurant |
 | 2026-10-08 | Editing an approved dish sends it back to `pending`; it is hidden until re-approved | Simplest correct rule. Keeping the old version live needs a revision table: add it only if owners complain |
 | 2026-10-08 | Admin scope is moderation + a cash-flow/growth dashboard + ad packages; no users table | The owner named what matters; the rest stays mock |
-| 2026-10-08 | Ads (packages, purchase, featured section) are deferred to their own spec, together with the dish tab | Packages nobody can buy are dead data; ads only pay off once the featured section and dish tab exist. The dashboard already returns `adRevenue` (0 for now) so its contract won't change |
+| 2026-10-08 | Ads (packages, purchase, featured section) are deferred to their own spec, together with the dish tab (done 2026-10-12, see below) | Packages nobody can buy are dead data; ads only pay off once the featured section and dish tab exist. The dashboard already returned `adRevenue` so its contract didn't change |
 | 2026-10-08 | Approved restaurant profile edits go live without re-review; admin can take a restaurant down any time | A profile carries no nutrition, so the risk is low; re-review would hide the whole restaurant over a phone-number change |
 | 2026-10-08 | Moderation is status columns on each row, no review-history table | Nobody needs an audit trail yet; add a `moderation_reviews` table when someone does |
 | 2026-10-08 | No separate restaurant account type. Any user can create a restaurant and becomes its owner; `role` is only `user` \| `admin` | One account system, one sign-up flow; an owner can still use the app as a diner; a role can never disagree with ownership data |
@@ -39,6 +40,16 @@ Five pieces, built in this order:
 | 2026-10-11 | Dish-tab rank: diet first, then fits the day's kcal (10% tolerance), ordered by how close the dish's macro split is to what is left; always at least 3 suggestions, flagged with `exceeds_*` reasons. `fits` now means "suggested" | Never too strict: a user near the goal still gets options, told what they would exceed. The app only sends `fits=true`, so tolerance and top-up dishes must count as `fits` |
 | 2026-10-11 | Dishes carry `dietTag` (`none`/`vegetarian`/`vegan`), declared by the owner, checked by the admin; a vegetarian/vegan user is never suggested or offered by Fen a non-matching dish | Suggesting cơm gà to a vegan user with "fills your protein" would break trust; the owner knows the recipe, an AI guess from the name does not |
 | 2026-10-10 | Admin gets read-only users (`GET /admin/users`), quiz questions and quest definitions; the dashboard gains `foodEntries` and `premiumUsers`. No overview endpoint, no AI-scan count | The web admin's mock screens needed real data. The dashboard already had the daily series, so KPIs reuse it; Premium AI scans are not recorded anywhere, so the number would be invented |
+| 2026-10-12 | Money buys eligibility to be shown, never a place in front of a user the dish doesn't fit: a sponsored dish is shown only if it is in that user's suggested set (`fits`); nothing fits, or no goal, means no sponsored section | A paid ad for 1500 kcal to someone with 200 left would break trust in the whole tab. Health first is the product |
+| 2026-10-12 | A package is N days for the **whole restaurant**, not per dish; per user the server picks the restaurant's best-ranked fitting dish | A healthier menu is shown more often: the incentive points the right way. Owners pick nothing per dish, so there is nothing to moderate |
+| 2026-10-12 | Order and size of the sponsored section = the existing ranking, one dish per restaurant, the 3 best-ranked restaurants | Deterministic and testable; no bidding, so no auction rules |
+| 2026-10-12 | The sponsored section is separate from the main list, which stays ranked purely by health and carries no sponsor label. A sponsored dish also appears at its natural rank in the main list (shown twice, the app does not de-duplicate) | Removing it from the main list would let money change the health ranking and shift the offset cursor |
+| 2026-10-12 | The sponsored section appears on the first page only and honours search/filters (a search for "phở" only features phở) | Later pages are for browsing; a sponsored dish that ignores the search is noise |
+| 2026-10-12 | Fen (chat) never sees sponsorship | Advice must stay neutral; sponsored dishes can still be recommended by Fen, but only on health merit |
+| 2026-10-12 | Owners see daily impressions (one counter row per restaurant per Vietnam day, last 30 days) | Paying no longer guarantees exposure (the health gate), so the owner needs to see what they got. No click tracking |
+| 2026-10-12 | Admin creates and edits packages (days, price, active) on the admin web; no delete (deactivate instead); the migration seeds one (7 days, 99 000 VND) | Payments snapshot the days and amount, so an edit never changes a pending order and history survives |
+| 2026-10-12 | Buying while featured extends from the current end; no refund if the admin takes the restaurant down mid-package (its dishes just stop being public, the days keep running) | Simple and predictable; the takedown is the restaurant's own doing |
+| 2026-10-12 | Only an approved restaurant can buy placement; payment goes through the existing PayOS / MoMo checkout (`plan_type = ad_package`), the return URL is FoodFenWeb's `/restaurant/ads` | Reuses the payment flow, status polling and webhooks as they are; ad payments count as `adRevenue`, never `premiumRevenue`, and grant no Premium |
 
 ## Roles and permissions
 
@@ -60,7 +71,7 @@ in the admin edits users or content: no ban, toggle, export or edit actions.
    - **Growth**: new users and new restaurants per day.
    - **Activity**: meals logged per day (`foodEntries`) and the current Premium user count. Today vs
      yesterday is the same endpoint with `from=<yesterday>&to=<today>`, not a separate overview.
-3. **Ad packages**: manage the paid-placement packages restaurants can buy. *Deferred* (see Decisions).
+3. **Ad packages**: create and edit the paid-placement packages restaurants can buy (`/admin/ad-packages`); the dashboard's `adRevenue` is the paid `ad_package` payments.
 
 ## Dish tab (diner view)
 
@@ -84,10 +95,25 @@ page. `q` matches the dish **or** restaurant name, case- and Vietnamese-diacriti
 "Phở", "dong" finds "Đông"). `remainingKcal` ignores filters. All filtering and paging happen in memory over
 every public dish (`application/dish_fit.py`); move to SQL with a keyset cursor once that gets slow.
 
+## Paid placement
+
+Spec: `docs/superpowers/specs/2026-10-12-paid-placement-design.md`.
+
+- A **package** (`ad_packages`: `days`, `priceVnd`, `active`) is N days of placement for a whole restaurant.
+  The owner buys it through the normal checkout; once the payment flips to `paid` (webhook or status poll,
+  applied exactly once) `restaurants.featured_until = max(now, featured_until) + days`.
+- **Health gate**: `GET /dishes` computes `featured` from the ranked, filtered list: walking it in order, the
+  first `fits` dish of each currently featured restaurant, at most 3 restaurants (`pick_featured` in
+  `application/dish_fit.py`). First page only (no cursor). No goal means nothing `fits`, so `featured` is `[]`.
+- **Impressions**: every restaurant in a returned `featured` list gets +1 on today's Vietnam day
+  (`ad_impressions`, upsert). Zero when nothing is shown: no exposure, no count.
+- Fen's chat context is untouched.
+
 ## Data
 
 - **Restaurant**: one per owner. Name, description, address, latitude/longitude (Google Maps, later
   distance filtering), phone, opening hours (free text), image.
+- `featured_until` (nullable) is when the restaurant's paid placement ends; see Paid placement.
 - **Dish**: belongs to a restaurant. Name, description, image, price (VND), serving size in grams, `dietTag`
   (`none` | `vegetarian` | `vegan`, default `none`, declared by the owner and checked by the admin like
   nutrition; changing it is an edit, so it goes back to review), and
@@ -119,14 +145,22 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
 - `GET|POST /restaurants/mine/dishes` · `PATCH|DELETE /restaurants/mine/dishes/{id}` (404, not 403,
   for a dish of another restaurant)
 - `POST /restaurants/mine/images` (multipart) → `{url}`, for both profile and dish images
+- `GET /restaurants/mine/ads` → `{featuredUntil, packages: [{id, days, priceVnd}] (active, fewest days first),
+  impressions: [{date, count}] (last 30 Vietnam days, oldest first, zero-filled)}`
+- `POST /restaurants/mine/ads/checkout {packageId, provider}` → the same body as `/payments/checkout`
+  (`planType: "ad_package"`); 409 `{error: "restaurant_not_approved"}` unless the restaurant is approved,
+  404 for an unknown or inactive package. Status and cancel reuse `GET /payments/{orderCode}` and
+  `POST /payments/{orderCode}/cancel`. `POST /payments/checkout` still only accepts `monthly | annual` (422).
 
 **Diner** (any signed-in user, no Premium gate; public = approved dish of an approved restaurant):
 
-- `GET /dishes?date=YYYY-MM-DD` → `{remainingKcal, dishes}`; `date` is the client's local day (omitted:
+- `GET /dishes?date=YYYY-MM-DD` → `{remainingKcal, dishes, featured}`; `date` is the client's local day (omitted:
   Vietnam day). `remainingKcal` is `null` with no goal in force. Each dish: `id, name, description,
   imageUrl, price, servingG, kcal, proteinG, carbsG, fatG, fiberG, dietTag, fits, reasons` + `restaurant
   {id, name, address, latitude, longitude}`. `fits` = suggested (see above), not "within the goal". No status,
   timestamps or owner data.
+  The response also has `featured` (same dish shape, `fits` always true): the sponsored section, `[]` on
+  later pages, with no goal, or when nothing sponsored fits.
   Optional query params, all combinable: `q` (≤100 chars, blank = none), `fits` (`true` = only suggested
   dishes, `false` = only the others; omit for both), `kcalMin`/`kcalMax`, `priceMin`/`priceMax` (VND),
   `proteinMin` (g), bounds inclusive and ≥ 0; `limit` 1..50 (default 20), `cursor`. Response adds
@@ -144,7 +178,10 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
   The review queue = `pending` restaurants **or** approved ones with `pending` dishes.
   Optional `expectedUpdatedAt` (the `updatedAt` the admin saw, sent back verbatim): if the row has
   changed since, 409 `{message}` and nothing is reviewed. Absent: no check.
-- `GET /admin/dashboard?from=&to=`: totals `premiumRevenue`, `adRevenue` (0 until ads exist),
+- `GET /admin/ad-packages` (all, inactive included: `[{id, days, priceVnd, active, createdAt}]`) ·
+  `POST /admin/ad-packages {days, priceVnd, active?}` (201) · `PATCH /admin/ad-packages/{id}`
+  `{days?, priceVnd?, active?}` (404 unknown id). `days` and `priceVnd` are positive integers (422).
+- `GET /admin/dashboard?from=&to=`: totals `premiumRevenue` (paid payments except ads), `adRevenue` (paid `ad_package` payments),
   `newUsers`, `newRestaurants` + a daily series. Days are Vietnam days (UTC+7); default last 30 days.
 
 `GET /auth/me` gains `role` and `restaurantId` (null when the user owns none).
@@ -172,11 +209,11 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
   `https://res.cloudinary.com/<our cloud>/image/upload/`, else 422 `errors.imageUrl`; `null` still
   clears. With no `CLOUDINARY_URL` configured every non-null `imageUrl` is rejected.
 - Dashboard: `daily` is zero-filled for every Vietnam day in `[from, to]` inclusive; dates are
-  `YYYY-MM-DD`, money is integer VND, and each row also carries `adRevenue`. Range capped at 366 days.
+  `YYYY-MM-DD`, money is integer VND, and each row also carries `adRevenue`; `priceVnd` of ad packages is a JSON integer too. Range capped at 366 days.
 - Role and status enums are exposed in the OpenAPI schema (the web client is generated from it).
 
 Not yet: distance, bulk review, queue pagination.
 
 ## Open questions
 
-- Paid placement: pricing, duration, how it is paid (PayOS / MoMo already integrated).
+None.

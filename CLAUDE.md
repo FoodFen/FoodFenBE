@@ -261,6 +261,16 @@ update it in the same change as any decision.
   `application/dish_fit.py`) and `GET /restaurants/{id}` (404 unless approved). Spec:
   `docs/superpowers/specs/2026-10-09-dish-tab-design.md`. Reviews take an optional `expectedUpdatedAt`
   (stale → 409); `imageUrl` must be a Cloudinary upload on our cloud (`restaurant_schemas.py`).
+- **Paid placement** (spec `docs/superpowers/specs/2026-10-12-paid-placement-design.md`): `GET /restaurants/mine/ads`,
+  `POST /restaurants/mine/ads/checkout {packageId, provider}` (owner, approved restaurant only: 409
+  `restaurant_not_approved`), admin `GET|POST /admin/ad-packages` + `PATCH /admin/ad-packages/{id}` (no delete).
+  A package is N days for the whole restaurant: `PlanType.AD_PACKAGE` payment with a snapshotted `payments.ad_days`
+  (set iff ad_package), and `apply_payment_result` extends `restaurants.featured_until` (from the current end if still
+  featured) instead of renewing Premium. `POST /payments/checkout` stays monthly|annual. **Health gate**:
+  `GET /dishes` returns `featured` (first page only) from `dish_fit.pick_featured`: the best-ranked *`fits`* dish per
+  featured restaurant, max 3, from the filtered ranking; no goal or nothing fits means `[]`. The main list is never
+  changed. Each shown restaurant gets +1 in `ad_impressions` (Vietnam day, upsert). **Fen is neutral**: chat never sees
+  sponsorship. Ad payments are `adRevenue`, not `premiumRevenue`. `priceVnd` is a JSON integer on the wire.
 - Dashboard buckets rows into Vietnam days in `get_admin_dashboard.py` (Python, not SQL; see its
   `ponytail:` note).
 
