@@ -12,6 +12,8 @@ from fastapi import Depends
 
 from src.application.ports.activity_log_repository import ActivityLogRepositoryProtocol
 from src.application.ports.admin_stats_repository import AdminStatsRepositoryProtocol
+from src.application.ports.ad_impression_repository import AdImpressionRepositoryProtocol
+from src.application.ports.ad_package_repository import AdPackageRepositoryProtocol
 from src.application.ports.ai_trial_repository import AiTrialRepositoryProtocol
 from src.application.ports.chat_message_repository import ChatMessageRepositoryProtocol
 from src.application.ports.coin_bundle_repository import CoinBundleRepositoryProtocol
@@ -35,6 +37,10 @@ from src.infrastructure.db.repositories.activity_log_repository import (
 from src.infrastructure.db.repositories.admin_stats_repository import (
     SQLAlchemyAdminStatsRepository,
 )
+from src.infrastructure.db.repositories.ad_impression_repository import (
+    SQLAlchemyAdImpressionRepository,
+)
+from src.infrastructure.db.repositories.ad_package_repository import SQLAlchemyAdPackageRepository
 from src.infrastructure.db.repositories.ai_trial_repository import SQLAlchemyAiTrialRepository
 from src.infrastructure.db.repositories.chat_message_repository import (
     SQLAlchemyChatMessageRepository,
@@ -213,4 +219,20 @@ def get_admin_stats_repository(session: SessionDep) -> AdminStatsRepositoryProto
 
 AdminStatsRepositoryDep = Annotated[
     AdminStatsRepositoryProtocol, Depends(get_admin_stats_repository)
+]
+
+
+def get_ad_package_repository(session: SessionDep) -> AdPackageRepositoryProtocol:
+    return SQLAlchemyAdPackageRepository(session)
+
+
+AdPackageRepositoryDep = Annotated[AdPackageRepositoryProtocol, Depends(get_ad_package_repository)]
+
+
+def get_ad_impression_repository(session: SessionDep) -> AdImpressionRepositoryProtocol:
+    return SQLAlchemyAdImpressionRepository(session)
+
+
+AdImpressionRepositoryDep = Annotated[
+    AdImpressionRepositoryProtocol, Depends(get_ad_impression_repository)
 ]

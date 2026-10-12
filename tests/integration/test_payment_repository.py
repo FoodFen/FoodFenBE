@@ -115,9 +115,9 @@ async def test_concurrent_success_results_renew_the_subscription_once(session):
     first = await payments.get_by_order_code(created.order_code)
     stale = replace(first)
 
-    await apply_payment_result(first, True, payments, subs, users)
+    await apply_payment_result(first, True, payments, subs, users, None)
     after_first = await subs.get_by_user_id(created.user_id)
-    result = await apply_payment_result(stale, True, payments, subs, users)
+    result = await apply_payment_result(stale, True, payments, subs, users, None)
 
     assert result.status is PaymentStatus.PAID
     assert (await subs.get_by_user_id(created.user_id)).end_date == after_first.end_date
@@ -128,8 +128,8 @@ async def test_stale_failure_cannot_overwrite_a_paid_payment(session):
     first = await payments.get_by_order_code(created.order_code)
     stale = replace(first)
 
-    await apply_payment_result(first, True, payments, subs, users)
-    result = await apply_payment_result(stale, False, payments, subs, users)
+    await apply_payment_result(first, True, payments, subs, users, None)
+    result = await apply_payment_result(stale, False, payments, subs, users, None)
 
     assert result.status is PaymentStatus.PAID
     assert (await payments.get_by_order_code(created.order_code)).status is PaymentStatus.PAID

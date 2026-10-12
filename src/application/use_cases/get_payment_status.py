@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from src.application.dtos.payment import PaymentOutputDTO
 from src.application.ports.payment_provider import PaymentProviderProtocol
 from src.application.ports.payment_repository import PaymentRepositoryProtocol
+from src.application.ports.restaurant_repository import RestaurantRepositoryProtocol
 from src.application.ports.subscription_repository import SubscriptionRepositoryProtocol
 from src.application.ports.user_repository import UserRepositoryProtocol
 from src.application.use_cases.apply_payment_result import apply_payment_result
@@ -23,6 +24,7 @@ class GetPaymentStatusUseCase:
     providers: dict[PaymentProvider, PaymentProviderProtocol]
     subscriptions: SubscriptionRepositoryProtocol
     users: UserRepositoryProtocol
+    restaurants: RestaurantRepositoryProtocol
 
     async def execute(self, user_id: int, order_code: int) -> PaymentOutputDTO:
         payment = await self.payments.get_by_order_code(order_code)
@@ -34,7 +36,7 @@ class GetPaymentStatusUseCase:
             provider_status = await provider.get_payment_status(order_code)
             if provider_status.status is not PaymentStatus.PENDING:
                 payment = await apply_payment_result(
-                    payment, provider_status.succeeded, self.payments, self.subscriptions, self.users
+                    payment, provider_status.succeeded, self.payments, self.subscriptions, self.users, self.restaurants
                 )
 
         return PaymentOutputDTO.from_entity(payment)

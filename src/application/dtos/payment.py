@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from uuid import UUID
 
 from src.domain.entities.payment import Payment
 from src.domain.enums import PaymentProvider, PaymentStatus, PlanType
@@ -14,6 +15,13 @@ from src.domain.enums import PaymentProvider, PaymentStatus, PlanType
 class CreateCheckoutInputDTO:
     user_id: int
     plan_type: PlanType
+    provider: PaymentProvider = PaymentProvider.PAYOS
+
+
+@dataclass(frozen=True)
+class CreateAdCheckoutInputDTO:
+    user_id: int
+    package_id: UUID
     provider: PaymentProvider = PaymentProvider.PAYOS
 
 

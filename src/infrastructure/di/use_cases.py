@@ -10,12 +10,19 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from src.application.use_cases.admin_ad_packages import (
+    CreateAdPackageUseCase,
+    ListAdPackagesUseCase,
+    UpdateAdPackageUseCase,
+)
 from src.application.use_cases.ai_trial import AiTrialUseCase
 from src.application.use_cases.analyze_food_image import AnalyzeFoodImageUseCase
 from src.application.use_cases.analyze_food_text import AnalyzeFoodTextUseCase
 from src.application.use_cases.cancel_payment import CancelPaymentUseCase
 from src.application.use_cases.create_activity_log import CreateActivityLogUseCase
+from src.application.use_cases.create_ad_checkout import CreateAdCheckoutUseCase
 from src.application.use_cases.create_checkout import CreateCheckoutUseCase
+from src.application.use_cases.get_my_ads import GetMyAdsUseCase
 from src.application.use_cases.create_daily_goal import CreateDailyGoalUseCase
 from src.application.use_cases.create_food_entry import CreateFoodEntryUseCase
 from src.application.use_cases.create_water_log import CreateWaterLogUseCase
@@ -86,6 +93,8 @@ from src.infrastructure.db.repositories.restaurant_repository import SQLAlchemyR
 from src.infrastructure.db.repositories.user_repository import SQLAlchemyUserRepository
 from src.infrastructure.di.database import StreamSessionDep
 from src.infrastructure.di.repositories import (
+    AdImpressionRepositoryDep,
+    AdPackageRepositoryDep,
     AdminStatsRepositoryDep,
     AiTrialRepositoryDep,
     ActivityLogRepositoryDep,
@@ -295,9 +304,11 @@ def get_handle_payment_webhook_use_case(
     providers: PaymentProvidersDep,
     subscriptions: SubscriptionRepositoryDep,
     users: UserRepositoryDep,
+    restaurants: RestaurantRepositoryDep,
 ) -> HandlePaymentWebhookUseCase:
     return HandlePaymentWebhookUseCase(
-        payments=payments, providers=providers, subscriptions=subscriptions, users=users
+        payments=payments, providers=providers, subscriptions=subscriptions, users=users,
+        restaurants=restaurants,
     )
 
 
@@ -306,9 +317,11 @@ def get_get_payment_status_use_case(
     providers: PaymentProvidersDep,
     subscriptions: SubscriptionRepositoryDep,
     users: UserRepositoryDep,
+    restaurants: RestaurantRepositoryDep,
 ) -> GetPaymentStatusUseCase:
     return GetPaymentStatusUseCase(
-        payments=payments, providers=providers, subscriptions=subscriptions, users=users
+        payments=payments, providers=providers, subscriptions=subscriptions, users=users,
+        restaurants=restaurants,
     )
 
 
@@ -696,9 +709,11 @@ def get_list_public_dishes_use_case(
     daily_goals: DailyGoalRepositoryDep,
     food_entries: FoodEntryRepositoryDep,
     users: UserRepositoryDep,
+    ad_impressions: AdImpressionRepositoryDep,
 ) -> ListPublicDishesUseCase:
     return ListPublicDishesUseCase(
-        restaurants=restaurants, daily_goals=daily_goals, food_entries=food_entries, users=users
+        restaurants=restaurants, daily_goals=daily_goals, food_entries=food_entries, users=users,
+        ad_impressions=ad_impressions,
     )
 
 
@@ -712,3 +727,53 @@ def get_get_public_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> 
 GetPublicRestaurantUseCaseDep = Annotated[
     GetPublicRestaurantUseCase, Depends(get_get_public_restaurant_use_case)
 ]
+
+
+def get_get_my_ads_use_case(
+    restaurants: RestaurantRepositoryDep,
+    packages: AdPackageRepositoryDep,
+    impressions: AdImpressionRepositoryDep,
+) -> GetMyAdsUseCase:
+    return GetMyAdsUseCase(restaurants=restaurants, packages=packages, impressions=impressions)
+
+
+GetMyAdsUseCaseDep = Annotated[GetMyAdsUseCase, Depends(get_get_my_ads_use_case)]
+
+
+def get_create_ad_checkout_use_case(
+    restaurants: RestaurantRepositoryDep,
+    packages: AdPackageRepositoryDep,
+    payments: PaymentRepositoryDep,
+    providers: PaymentProvidersDep,
+) -> CreateAdCheckoutUseCase:
+    return CreateAdCheckoutUseCase(
+        restaurants=restaurants,
+        packages=packages,
+        payments=payments,
+        providers=providers,
+        return_url=f"{settings.app_base_url}/restaurant/ads",  # FoodFenWeb's ads page
+    )
+
+
+CreateAdCheckoutUseCaseDep = Annotated[CreateAdCheckoutUseCase, Depends(get_create_ad_checkout_use_case)]
+
+
+def get_list_ad_packages_use_case(packages: AdPackageRepositoryDep) -> ListAdPackagesUseCase:
+    return ListAdPackagesUseCase(packages=packages)
+
+
+ListAdPackagesUseCaseDep = Annotated[ListAdPackagesUseCase, Depends(get_list_ad_packages_use_case)]
+
+
+def get_create_ad_package_use_case(packages: AdPackageRepositoryDep) -> CreateAdPackageUseCase:
+    return CreateAdPackageUseCase(packages=packages)
+
+
+CreateAdPackageUseCaseDep = Annotated[CreateAdPackageUseCase, Depends(get_create_ad_package_use_case)]
+
+
+def get_update_ad_package_use_case(packages: AdPackageRepositoryDep) -> UpdateAdPackageUseCase:
+    return UpdateAdPackageUseCase(packages=packages)
+
+
+UpdateAdPackageUseCaseDep = Annotated[UpdateAdPackageUseCase, Depends(get_update_ad_package_use_case)]

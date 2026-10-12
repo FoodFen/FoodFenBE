@@ -9,13 +9,14 @@ from typing import Protocol
 from src.domain.entities.streak import Streak
 from src.domain.entities.subscription import Subscription
 from src.domain.entities.user import User
+from src.domain.enums import PlanType
 
 
 class AdminStatsRepositoryProtocol(Protocol):
     """All ranges are ``[start, end)`` in aware UTC instants; returned instants are aware."""
 
-    async def paid_payments(self, start: datetime, end: datetime) -> list[tuple[datetime, Decimal]]:
-        """``(paid_at, amount)`` of payments with status ``paid``, by ``paid_at``."""
+    async def paid_payments(self, start: datetime, end: datetime) -> list[tuple[datetime, Decimal, PlanType]]:
+        """``(paid_at, amount, plan_type)`` of payments with status ``paid``, by ``paid_at``."""
         ...
 
     async def user_signups(self, start: datetime, end: datetime) -> list[datetime]: ...

@@ -24,7 +24,8 @@ class FakeStats:
 
     async def paid_payments(self, start, end):
         self.ranges.append((start, end))
-        return [(t, a) for t, a in self.payments if start <= t < end]
+        # a payment is (paid_at, amount) or (paid_at, amount, plan_type); default Premium
+        return [(t, a, *(kind or (PlanType.MONTHLY,))) for t, a, *kind in self.payments if start <= t < end]
 
     async def user_signups(self, start, end):
         return [t for t in self.users if start <= t < end]
@@ -115,3 +116,14 @@ async def test_premium_users_counts_effective_premium_today():
     ])
     result = await GetAdminDashboardUseCase(stats).execute(date(2026, 10, 1), date(2026, 10, 3), TODAY)
     assert result.premium_users == 2  # current count, not tied to the requested range
+
+
+async def test_ad_payments_are_ad_revenue_not_premium_revenue():
+    stats = FakeStats(payments=[
+        (datetime(2026, 10, 7, 3, tzinfo=UTC), Decimal("99000")),
+        (datetime(2026, 10, 7, 4, tzinfo=UTC), Decimal("99000"), PlanType.AD_PACKAGE),
+        (datetime(2026, 10, 8, 4, tzinfo=UTC), Decimal("198000"), PlanType.AD_PACKAGE),
+    ])
+    result = await GetAdminDashboardUseCase(stats).execute(date(2026, 10, 7), date(2026, 10, 8), TODAY)
+    assert [(d.premium_revenue, d.ad_revenue) for d in result.daily] == [(99000, 99000), (0, 198000)]
+    assert (result.premium_revenue, result.ad_revenue) == (99000, 297000)

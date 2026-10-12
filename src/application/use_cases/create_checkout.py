@@ -13,6 +13,30 @@ from src.domain.enums import PaymentProvider, PlanType
 from src.domain.exceptions import PaymentProviderUnavailableException
 
 
+async def start_checkout(
+    payments: PaymentRepositoryProtocol,
+    provider: PaymentProviderProtocol,
+    payment: Payment,
+    description: str,
+    cancel_url: str,
+    return_url: str,
+) -> CheckoutOutputDTO:
+    """Persist a new payment and open its provider checkout link. Shared by Premium and ad checkouts."""
+    payment = await payments.create(payment)
+    assert payment.order_code is not None  # DB identity column, assigned on insert
+
+    link = await provider.create_checkout_link(
+        order_code=payment.order_code,
+        amount=payment.amount,
+        description=description,
+        cancel_url=cancel_url,
+        return_url=return_url,
+    )
+    payment.attach_checkout(link.payment_link_id, link.checkout_url, link.qr_code)
+    payment = await payments.update(payment)
+    return CheckoutOutputDTO.from_entity(payment, link.deeplink)
+
+
 @dataclass
 class CreateCheckoutUseCase:
     payments: PaymentRepositoryProtocol
@@ -32,18 +56,10 @@ class CreateCheckoutUseCase:
             raise PaymentProviderUnavailableException(
                 f"payment provider {input_dto.provider} is not enabled"
             )
-        amount = self._price_for(input_dto.plan_type)
-        payment = Payment.create(input_dto.user_id, input_dto.plan_type, amount, input_dto.provider)
-        payment = await self.payments.create(payment)
-        assert payment.order_code is not None  # DB identity column, assigned on insert
-
-        link = await provider.create_checkout_link(
-            order_code=payment.order_code,
-            amount=amount,
-            description=f"FoodFen {input_dto.plan_type.value} premium",
-            cancel_url=self.cancel_url,
-            return_url=self.return_url,
+        payment = Payment.create(
+            input_dto.user_id, input_dto.plan_type, self._price_for(input_dto.plan_type), input_dto.provider
         )
-        payment.attach_checkout(link.payment_link_id, link.checkout_url, link.qr_code)
-        payment = await self.payments.update(payment)
-        return CheckoutOutputDTO.from_entity(payment, link.deeplink)
+        return await start_checkout(
+            self.payments, provider, payment, f"FoodFen {input_dto.plan_type.value} premium",
+            self.cancel_url, self.return_url,
+        )
