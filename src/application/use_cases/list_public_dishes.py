@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
-from src.application.dish_fit import DishFilter, RankedDish, pick_featured, rank_dishes, remaining_on
+from src.application.dish_fit import (
+    KCAL_TOLERANCE, DishFilter, RankedDish, pick_featured, rank_dishes, remaining_on,
+)
 from src.application.dtos.restaurant import (
     PublicDishDTO,
     PublicDishListDTO,
@@ -59,8 +61,8 @@ class ListPublicDishesUseCase:
             )
 
         featured = []
-        if offset == 0:
-            featured = pick_featured(shown, {r.id for _, r in pairs if r.is_featured(now)})
+        if offset == 0 and left is not None:  # no goal: nothing is suggested, so nothing is sponsored
+            featured = pick_featured(shown, {r.id for _, r in pairs if r.is_featured(now)}, left.kcal * KCAL_TOLERANCE)
             await self.ad_impressions.increment([f.dish.restaurant_id for f in featured], now.date())
         # ponytail: offset cursor over the in-memory list; rows shift if the diary changes mid-scroll
         # (the app dedupes by id). Switch to a keyset cursor when ordering moves into SQL.

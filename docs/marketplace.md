@@ -40,7 +40,7 @@ Five pieces, built in this order:
 | 2026-10-11 | Dish-tab rank: diet first, then fits the day's kcal (10% tolerance), ordered by how close the dish's macro split is to what is left; always at least 3 suggestions, flagged with `exceeds_*` reasons. `fits` now means "suggested" | Never too strict: a user near the goal still gets options, told what they would exceed. The app only sends `fits=true`, so tolerance and top-up dishes must count as `fits` |
 | 2026-10-11 | Dishes carry `dietTag` (`none`/`vegetarian`/`vegan`), declared by the owner, checked by the admin; a vegetarian/vegan user is never suggested or offered by Fen a non-matching dish | Suggesting cơm gà to a vegan user with "fills your protein" would break trust; the owner knows the recipe, an AI guess from the name does not |
 | 2026-10-10 | Admin gets read-only users (`GET /admin/users`), quiz questions and quest definitions; the dashboard gains `foodEntries` and `premiumUsers`. No overview endpoint, no AI-scan count | The web admin's mock screens needed real data. The dashboard already had the daily series, so KPIs reuse it; Premium AI scans are not recorded anywhere, so the number would be invented |
-| 2026-10-12 | Money buys eligibility to be shown, never a place in front of a user the dish doesn't fit: a sponsored dish is shown only if it is in that user's suggested set (`fits`); nothing fits, or no goal, means no sponsored section | A paid ad for 1500 kcal to someone with 200 left would break trust in the whole tab. Health first is the product |
+| 2026-10-12 | Money buys eligibility to be shown, never a place in front of a user the dish doesn't fit: a sponsored dish is shown only if it is in that user's suggested set (`fits`) **and** within the day's kcal tolerance (left x 1.1); the top-up dishes that keep the main list from being empty are never sponsored; nothing qualifies, or no goal, means no sponsored section | A paid ad for 1500 kcal to someone with 200 left would break trust in the whole tab. Health first is the product |
 | 2026-10-12 | A package is N days for the **whole restaurant**, not per dish; per user the server picks the restaurant's best-ranked fitting dish | A healthier menu is shown more often: the incentive points the right way. Owners pick nothing per dish, so there is nothing to moderate |
 | 2026-10-12 | Order and size of the sponsored section = the existing ranking, one dish per restaurant, the 3 best-ranked restaurants | Deterministic and testable; no bidding, so no auction rules |
 | 2026-10-12 | The sponsored section is separate from the main list, which stays ranked purely by health and carries no sponsor label. A sponsored dish also appears at its natural rank in the main list (shown twice, the app does not de-duplicate) | Removing it from the main list would let money change the health ranking and shift the offset cursor |
@@ -103,8 +103,10 @@ Spec: `docs/superpowers/specs/2026-10-12-paid-placement-design.md`.
   The owner buys it through the normal checkout; once the payment flips to `paid` (webhook or status poll,
   applied exactly once) `restaurants.featured_until = max(now, featured_until) + days`.
 - **Health gate**: `GET /dishes` computes `featured` from the ranked, filtered list: walking it in order, the
-  first `fits` dish of each currently featured restaurant, at most 3 restaurants (`pick_featured` in
-  `application/dish_fit.py`). First page only (no cursor). No goal means nothing `fits`, so `featured` is `[]`.
+  first `fits` dish within kcal left x 1.1 of each currently featured restaurant, at most 3 restaurants
+  (`pick_featured` in `application/dish_fit.py`). The top-up dishes (suggested only so the main list is
+  never empty) are over that limit, so they are never sponsored: a user with nothing left sees no sponsored
+  section. First page only (no cursor). No goal means `featured` is `[]`.
 - **Impressions**: every restaurant in a returned `featured` list gets +1 on today's Vietnam day
   (`ad_impressions`, upsert). Zero when nothing is shown: no exposure, no count.
 - Fen's chat context is untouched.

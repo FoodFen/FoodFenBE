@@ -130,14 +130,18 @@ def rank_dishes(dishes: Iterable[Dish], remaining: Remaining | None, diet: DietT
     ]
 
 
-def pick_featured(ranked: list[RankedDish], featured_restaurant_ids: set[UUID], limit: int = 3) -> list[RankedDish]:
+def pick_featured(
+    ranked: list[RankedDish], featured_restaurant_ids: set[UUID], kcal_limit: float, limit: int = 3
+) -> list[RankedDish]:
     """The sponsored section: walking the ranking in order, each featured restaurant's best-ranked
-    *suggested* dish, at most ``limit`` restaurants. Money buys eligibility, never a dish that doesn't fit."""
+    suggested dish within ``kcal_limit`` (what is left x ``KCAL_TOLERANCE``), at most ``limit`` restaurants.
+    Money buys eligibility, never a dish that doesn't fit: the top-up dishes (``fits`` only so the main list
+    is never empty) are over the limit and are never sponsored."""
     picked: dict[UUID, RankedDish] = {}
     for r in ranked:
         if len(picked) == limit:
             break
-        if r.fits and r.dish.restaurant_id in featured_restaurant_ids:
+        if r.fits and r.dish.kcal <= kcal_limit and r.dish.restaurant_id in featured_restaurant_ids:
             picked.setdefault(r.dish.restaurant_id, r)
     return list(picked.values())
 

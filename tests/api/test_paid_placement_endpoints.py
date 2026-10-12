@@ -117,6 +117,30 @@ async def test_a_sponsored_dish_that_does_not_fit_is_not_featured(
     assert sum(i["count"] for i in ads["impressions"]) == 0  # no exposure, no impression
 
 
+async def test_a_user_who_ate_the_whole_goal_gets_no_sponsored_dish_but_keeps_the_main_list(
+    client, make_user, restaurant_body, dish_body, payment_provider
+):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    package = await _package(client, admin)
+    owner, _, _ = await _place(client, make_user, admin, restaurant_body, dish_body, "a@x.co", kcal=300)
+    for email in ("b@x.co", "c@x.co"):
+        await _place(client, make_user, admin, restaurant_body, dish_body, email, kcal=400)
+    await _buy(client, payment_provider, owner, package["id"])
+    diner = await _diner(client, make_user)
+    entry = {
+        "name": "Feast", "inputMethod": "manual", "totalKcal": 2000, "carbsG": 1, "proteinG": 1, "fatG": 1,
+        "mealType": "lunch", "clientId": "e1", "loggedOn": "2026-10-09", "ingredients": [],
+    }
+    assert (await client.post("/food-entries", json=entry, headers=diner)).status_code == 200
+
+    body = (await client.get("/dishes?date=2026-10-09", headers=diner)).json()
+    assert body["remainingKcal"] == 0
+    assert [d["fits"] for d in body["dishes"]] == [True, True, True]  # topped up so the list is never empty
+    assert body["featured"] == []
+    ads = (await client.get("/restaurants/mine/ads", headers=owner)).json()
+    assert sum(i["count"] for i in ads["impressions"]) == 0
+
+
 async def test_no_goal_means_no_sponsored_section(
     client, make_user, restaurant_body, dish_body, payment_provider
 ):

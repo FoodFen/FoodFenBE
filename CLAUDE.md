@@ -267,8 +267,9 @@ update it in the same change as any decision.
   A package is N days for the whole restaurant: `PlanType.AD_PACKAGE` payment with a snapshotted `payments.ad_days`
   (set iff ad_package), and `apply_payment_result` extends `restaurants.featured_until` (from the current end if still
   featured) instead of renewing Premium. `POST /payments/checkout` stays monthly|annual. **Health gate**:
-  `GET /dishes` returns `featured` (first page only) from `dish_fit.pick_featured`: the best-ranked *`fits`* dish per
-  featured restaurant, max 3, from the filtered ranking; no goal or nothing fits means `[]`. The main list is never
+  `GET /dishes` returns `featured` (first page only) from `dish_fit.pick_featured`: the best-ranked *`fits`* dish within kcal
+  left x `KCAL_TOLERANCE` per featured restaurant, max 3, from the filtered ranking (top-up dishes are never
+  sponsored); no goal or nothing qualifies means `[]`. The main list is never
   changed. Each shown restaurant gets +1 in `ad_impressions` (Vietnam day, upsert). **Fen is neutral**: chat never sees
   sponsorship. Ad payments are `adRevenue`, not `premiumRevenue`. `priceVnd` is a JSON integer on the wire.
 - Dashboard buckets rows into Vietnam days in `get_admin_dashboard.py` (Python, not SQL; see its

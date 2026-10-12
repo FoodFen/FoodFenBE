@@ -10,8 +10,9 @@ health advice**. Money buys *eligibility* to be shown, never a place in front of
 Decisions:
 
 - **Health gate.** A sponsored dish is shown to a user only if it is in that user's *suggested* set (`fits`:
-  diet-compatible and within the day's kcal tolerance, the existing `dish_fit` rules). Nothing fits, or the user
-  has no goal → no sponsored section.
+  diet-compatible and within the day's kcal tolerance, the existing `dish_fit` rules) **and** its kcal is within
+  that tolerance (`remaining × KCAL_TOLERANCE`). The `MIN_SUGGESTED` top-up dishes are `fits` only so the main
+  list is never empty; they are never sponsored. Nothing fits, or the user has no goal → no sponsored section.
 - **A package is N days for the whole restaurant**, not per dish. For each user the server picks the restaurant's
   best-ranked fitting dish, so a healthier menu is shown more: the incentive points the right way.
 - **Order = the existing ranking.** One dish per restaurant, the 3 best-ranked restaurants. Deterministic, testable.
@@ -61,8 +62,8 @@ Out of scope: click tracking, per-dish campaigns, bidding/pay-per-impression, di
 
 ## 3. Featured selection (`application/dish_fit.py`, stdlib only)
 
-`pick_featured(ranked: list[RankedDish], featured_restaurant_ids: set[UUID], limit=3) -> list[RankedDish]`:
-walk the ranked list in order, keep `fits` dishes whose restaurant is featured, first dish per restaurant,
+`pick_featured(ranked: list[RankedDish], featured_restaurant_ids: set[UUID], kcal_limit: float, limit=3) -> list[RankedDish]`:
+walk the ranked list in order, keep `fits` dishes with `kcal <= kcal_limit` (remaining × `KCAL_TOLERANCE`) whose restaurant is featured, first dish per restaurant,
 stop at `limit`. Pure, unit-tested.
 
 `ListPublicDishesUseCase`: on the **first page only** (no cursor), compute `featured` from the **filtered,

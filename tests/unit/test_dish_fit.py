@@ -158,22 +158,37 @@ def test_pick_featured_keeps_ranked_order_one_dish_per_restaurant_only_fitting_f
     # rank order: a1 (fits), b1 (fits), a2 (fits, same restaurant as a1), c1 (fits, not featured),
     # b-over (does not fit)
     ranked = rank_dishes([_in(1, 100), _in(2, 200), _in(1, 300), _in(3, 400), _in(2, 5000)], _rem(500), None)
-    picked = pick_featured(ranked, {UUID(int=1), UUID(int=2)})
+    picked = pick_featured(ranked, {UUID(int=1), UUID(int=2)}, 550)
     assert [(r.dish.restaurant_id.int, r.dish.kcal) for r in picked] == [(1, 100), (2, 200)]
 
 
 def test_pick_featured_skips_a_restaurant_with_no_fitting_dish():
     # restaurant 3's dishes keep the top-up (min 3 suggested) from rescuing restaurant 1's oversized dish
     ranked = rank_dishes([_in(1, 5000), _in(2, 100), _in(3, 110), _in(3, 120)], _rem(500), None)
-    picked = pick_featured(ranked, {UUID(int=1), UUID(int=2)})
+    picked = pick_featured(ranked, {UUID(int=1), UUID(int=2)}, 550)
     assert [r.dish.restaurant_id.int for r in picked] == [2]
 
 
 def test_pick_featured_caps_at_three():
     ranked = rank_dishes([_in(i, 100 + i) for i in range(1, 6)], _rem(500), None)
-    assert len(pick_featured(ranked, {UUID(int=i) for i in range(1, 6)})) == 3
+    assert len(pick_featured(ranked, {UUID(int=i) for i in range(1, 6)}, 550)) == 3
 
 
 def test_pick_featured_is_empty_without_a_goal():
     ranked = rank_dishes([_in(1, 100)], None, None)  # nothing "fits" with no goal
-    assert pick_featured(ranked, {UUID(int=1)}) == []
+    assert pick_featured(ranked, {UUID(int=1)}, 0) == []
+
+
+def test_pick_featured_never_sponsors_a_top_up_dish_beyond_the_kcal_tolerance():
+    # 1000 left: the 1050 dish is within the 10% tolerance; 1500 and 1600 are only topped up
+    # (fits=True so the main list is never empty) and must not become sponsored.
+    ranked = rank_dishes([_in(1, 1050), _in(2, 1500), _in(3, 1600)], _rem(1000), None)
+    assert all(r.fits for r in ranked)
+    picked = pick_featured(ranked, {UUID(int=1), UUID(int=2), UUID(int=3)}, 1000 * 1.1)
+    assert [r.dish.kcal for r in picked] == [1050]
+
+
+def test_pick_featured_with_nothing_left_picks_nothing():
+    ranked = rank_dishes([_in(1, 300), _in(2, 400), _in(3, 500)], _rem(0), None)
+    assert all(r.fits for r in ranked)  # topped up
+    assert pick_featured(ranked, {UUID(int=1), UUID(int=2), UUID(int=3)}, 0) == []
