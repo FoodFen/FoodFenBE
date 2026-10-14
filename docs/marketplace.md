@@ -184,7 +184,8 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
   `POST /admin/ad-packages {days, priceVnd, active?}` (201) · `PATCH /admin/ad-packages/{id}`
   `{days?, priceVnd?, active?}` (404 unknown id). `days` and `priceVnd` are positive integers (422).
 - `GET /admin/dashboard?from=&to=`: totals `premiumRevenue` (paid payments except ads), `adRevenue` (paid `ad_package` payments),
-  `newUsers`, `newRestaurants` + a daily series. Days are Vietnam days (UTC+7); default last 30 days.
+  `newUsers`, `newRestaurants`, `foodEntries` (by their own `logged_on` day) and `premiumUsers` (a current count, totals
+  only: there is no tier history) + a daily series of the same fields except `premiumUsers`. Days are Vietnam days (UTC+7); default last 30 days.
 
 `GET /auth/me` gains `role` and `restaurantId` (null when the user owns none).
 

@@ -1,7 +1,15 @@
 # PayOS payment feature — design
 
 Date: 2026-09-24
-Status: approved for implementation
+Status: implemented. Kept as the original design; where the code differs, the code wins.
+
+> **Changed since (2026-10-14):** `CurrentPremiumUserDep` / `get_current_premium_user` (a
+> 402 hard gate) no longer exist; no endpoint is Premium-only. Premium is read as a soft
+> status: `PremiumStatusDep` (`get_premium_status`) and `get_ai_caller` both go through
+> `_reconcile_premium` in `src/infrastructure/di/security.py`, which also downgrades a
+> lapsed subscription; on the backend Premium today only lifts the AI-analysis free-trial limit. A daily
+> sweep (`src/infrastructure/expiry_job.py`) expires lapsed subscriptions too. MoMo was added
+> as a second provider (FoodFenFE `docs/superpowers/specs/2026-10-05-momo-payment-design.md`).
 
 ## Goal
 

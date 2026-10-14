@@ -1,5 +1,9 @@
 # AI food capture — API contract
 
+> **Owner of this contract:** `FoodFenFE/docs/backend-contracts/ai-food-capture.md` (the client repo owns
+> every contract, like `quiz.md` and `sync.md`). This file is a shorter server-side summary; where the two
+> differ, the FE file wins and this one should be brought in line.
+
 Endpoints: `POST /ai/food/analyze-image`, `POST /ai/food/analyze-text`, `GET /ai/food/quota`.
 Wire format is camelCase. Failure bodies are `{message, ...}` (see `docs/authentication.md`).
 
