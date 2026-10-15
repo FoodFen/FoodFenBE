@@ -34,14 +34,13 @@ async def apply_payment_result(
         return payment
 
     # Conditional write first: only the request that flips the status may renew Premium.
-    # ponytail: two DIFFERENT payments of one user paid concurrently can still race on the
-    # Subscription row; lock the user row (FOR UPDATE) if that ever matters.
-    # ponytail: two ad payments of one owner paid concurrently can race on featured_until; lock the
-    # restaurant row if that ever matters (same ceiling as the Subscription note above).
     if succeeded:
         payment.mark_paid()
         if not await payments.update_if_status(payment, (PaymentStatus.PENDING, PaymentStatus.CANCELLED)):
             return await _stored(payment, payments)
+        # Serialise this user's grants: two payments confirmed at once would otherwise race on the
+        # Subscription row / restaurants.featured_until (the lock lasts until the transaction ends).
+        await users.lock(payment.user_id)
         if payment.plan_type is PlanType.AD_PACKAGE:
             restaurant = await restaurants.get_by_owner(payment.user_id)  # one restaurant per owner
             if restaurant is not None:

@@ -180,6 +180,14 @@ async def test_momo_webhook_with_invalid_signature_is_rejected(client, payment_p
     assert resp.status_code == 401
 
 
+async def test_momo_webhook_when_momo_is_not_configured_is_unavailable(client, payment_providers):
+    del payment_providers[PaymentProvider.MOMO]
+
+    resp = await client.post("/payments/webhook/momo", content=b"raw-ipn-body")
+
+    assert resp.status_code == 422
+
+
 async def test_status_of_a_momo_payment_reconciles_with_momo(client, signed_up, payment_providers):
     headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
     checkout = (

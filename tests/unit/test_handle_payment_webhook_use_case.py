@@ -15,7 +15,11 @@ from src.domain.entities.restaurant import Restaurant
 from src.domain.entities.subscription import Subscription
 from src.domain.entities.user import User
 from src.domain.enums import PaymentProvider, PaymentStatus, PlanType, SubscriptionTier
-from src.domain.exceptions import InvalidWebhookSignatureException, PaymentNotFoundException
+from src.domain.exceptions import (
+    InvalidWebhookSignatureException,
+    PaymentNotFoundException,
+    PaymentProviderUnavailableException,
+)
 
 
 class FakePaymentRepo:
@@ -62,6 +66,7 @@ class FakeSubscriptionRepo:
 class FakeUserRepo:
     def __init__(self, user: User) -> None:
         self._user = user
+        self.locked: list[int] = []
 
     async def get_by_id(self, user_id):
         return self._user if user_id == self._user.id else None
@@ -75,6 +80,9 @@ class FakeUserRepo:
     async def update(self, user):
         self._user = user
         return user
+
+    async def lock(self, user_id):
+        self.locked.append(user_id)
 
 
 class FakeProvider:
@@ -314,3 +322,56 @@ async def test_paid_ad_package_features_the_restaurant_and_leaves_premium_alone(
     assert restaurant.featured_until == payment.paid_at + timedelta(days=7)
     assert await subscriptions.get_by_user_id(1) is None
     assert users._user.subscription_tier is SubscriptionTier.FREE
+
+
+async def test_successful_grant_locks_the_user_but_a_failed_or_replayed_payment_does_not():
+    payments = FakePaymentRepo()
+    paid = payments.seed(Payment.create(user_id=1, plan_type=PlanType.MONTHLY, amount="49000"), order_code=42)
+    failed = payments.seed(Payment.create(user_id=1, plan_type=PlanType.MONTHLY, amount="49000"), order_code=43)
+    users = FakeUserRepo(_user())
+
+    await apply_payment_result(failed, False, payments, FakeSubscriptionRepo(), users, None)
+    assert users.locked == []
+
+    await apply_payment_result(paid, True, payments, FakeSubscriptionRepo(), users, None)
+    assert users.locked == [1]
+
+    await apply_payment_result(paid, True, payments, FakeSubscriptionRepo(), users, None)  # already processed
+    assert users.locked == [1]
+
+
+async def test_ad_package_grant_locks_the_user_too():
+    payments = FakePaymentRepo()
+    payment = payments.seed(
+        Payment.create(user_id=1, plan_type=PlanType.AD_PACKAGE, amount="99000", ad_days=7), order_code=42
+    )
+    restaurant = Restaurant.create(
+        user_id=1, name="Quán", address="a", phone="1", opening_hours="7-21", latitude=0, longitude=0
+    )
+    users = FakeUserRepo(_user())
+
+    await apply_payment_result(
+        payment, True, payments, FakeSubscriptionRepo(), users, FakeRestaurantRepo(restaurant)
+    )
+
+    assert users.locked == [1]
+
+
+async def test_webhook_for_a_disabled_provider_raises_and_changes_nothing():
+    payments = FakePaymentRepo()
+    payment = payments.seed(Payment.create(user_id=1, plan_type=PlanType.MONTHLY, amount="49000"), order_code=42)
+    subscriptions, users = FakeSubscriptionRepo(), FakeUserRepo(_user())
+    use_case = HandlePaymentWebhookUseCase(
+        payments=payments,
+        providers={PaymentProvider.PAYOS: FakeProvider(raise_invalid=True)},
+        subscriptions=subscriptions,
+        users=users,
+        restaurants=None,
+    )
+
+    with pytest.raises(PaymentProviderUnavailableException):
+        await use_case.execute(PaymentProvider.MOMO, b"raw-body")
+
+    assert payment.status is PaymentStatus.PENDING
+    assert await subscriptions.get_by_user_id(1) is None
+    assert users.locked == []

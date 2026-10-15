@@ -3,7 +3,7 @@ services:
     name: foodfenbe
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: free
+    plan: free # sleeps after ~15 min idle: the first request (or payment IPN) after that waits for a cold start
     envVars:
       - key: DATABASE_URL
         sync: false # postgresql+asyncpg://... — e.g. a Neon free Postgres connection string
@@ -17,3 +17,10 @@ services:
       # Render dashboard, they fail closed (not open) when unset:
       # GEMINI_API_KEY, GOOGLE_OAUTH_CLIENT_IDS, APPLE_CLIENT_IDS, CLOUDINARY_URL,
       # PAYOS_CLIENT_ID, PAYOS_API_KEY, PAYOS_CHECKSUM_KEY, PAYOS_RETURN_URL, PAYOS_CANCEL_URL
+      # MOMO_PARTNER_CODE, MOMO_ACCESS_KEY, MOMO_SECRET_KEY, MOMO_REDIRECT_URL,
+      # MOMO_ENDPOINT (https://payment.momo.vn for prod; defaults to the sandbox),
+      # MOMO_IPN_URL (https://<service>.onrender.com/payments/webhook/momo)
+      # First admin account (created at startup if missing): ADMIN_EMAIL, ADMIN_PASSWORD
+      # Real email instead of logging links: EMAIL_BACKEND=smtp plus
+      # SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_STARTTLS
+      # SEED_DEMO adds fictional restaurants: leave it unset (false) in production

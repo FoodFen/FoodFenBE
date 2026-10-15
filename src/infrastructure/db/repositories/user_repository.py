@@ -38,3 +38,6 @@ class SQLAlchemyUserRepository:
             setattr(row, column, getattr(fresh, column))
         await self._session.flush()
         return row.to_domain()
+
+    async def lock(self, user_id: int) -> None:
+        await self._session.execute(select(UserORM.id).where(UserORM.id == user_id).with_for_update())
