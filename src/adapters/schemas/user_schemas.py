@@ -45,6 +45,8 @@ class UserResponse(CamelModel):
     subscription_tier: SubscriptionTier
     role: UserRole
     weekly_rate_kg: float | None
+    protein_g_per_kg: float | None
+    fat_share: float | None
     created_at: datetime
 
     @classmethod
@@ -66,6 +68,8 @@ class UserResponse(CamelModel):
             subscription_tier=dto.subscription_tier,
             role=dto.role,
             weekly_rate_kg=dto.weekly_rate_kg,
+            protein_g_per_kg=dto.protein_g_per_kg,
+            fat_share=dto.fat_share,
             created_at=dto.created_at,
         )
 
@@ -101,3 +105,5 @@ class UpdateUserProfileRequest(CamelModel):
     calorie_calc_mode: CalorieCalcMode | None = None
     calorie_left_mode: CalorieLeftMode | None = None
     weekly_rate_kg: float | None = None
+    protein_g_per_kg: float | None = None
+    fat_share: float | None = None

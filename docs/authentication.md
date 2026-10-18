@@ -181,7 +181,7 @@ Response 200:
               "weightCurrent": null, "weightGoal": null, "activityLevel": null,
               "dietType": null, "calorieCalcMode": "auto", "calorieLeftMode": null,
               "subscriptionTier": "free", "role": "user", "weeklyRateKg": null,
-              "createdAt": "2026-09-19T11:49:13Z" } }
+              "proteinGPerKg": null, "fatShare": null, "createdAt": "2026-09-19T11:49:13Z" } }
 ```
 
 `expiresAt` is **epoch milliseconds** (not seconds, not ISO) — the contract's

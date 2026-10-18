@@ -39,6 +39,8 @@ class UserOutputDTO:
     subscription_tier: SubscriptionTier
     role: UserRole
     weekly_rate_kg: float | None
+    protein_g_per_kg: float | None
+    fat_share: float | None
     created_at: datetime
 
     @classmethod
@@ -61,6 +63,8 @@ class UserOutputDTO:
             subscription_tier=user.subscription_tier,
             role=user.role,
             weekly_rate_kg=user.weekly_rate_kg,
+            protein_g_per_kg=user.protein_g_per_kg,
+            fat_share=user.fat_share,
             created_at=user.created_at,
         )
 
