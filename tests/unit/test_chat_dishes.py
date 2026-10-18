@@ -104,6 +104,13 @@ def test_no_goal_lists_dishes_none_suggested():
     assert str(pair[0].id) in text and "not suggested" in text
 
 
+def test_header_scopes_list_to_restaurant_picks():
+    pair = _dish("Phở", 400)
+    text = render_dishes(pick_candidates(rank_dishes([pair[0]], None, None), None), _public(pair))
+    for part in ("only when suggesting a dish to order", "FoodFen doesn't have it yet", "comes first"):
+        assert part in text
+
+
 def test_diet_incompatible_dishes_are_dropped():
     meat, veg = _dish("Thịt", 400), _dish("Chay", 400, DishDiet.VEGAN)
     ranked = rank_dishes([meat[0], veg[0]], None, DietType.VEGAN)

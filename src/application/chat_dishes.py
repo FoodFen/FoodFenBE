@@ -23,10 +23,14 @@ MAX_CHAT_DISHES = 200
 MAX_CARDS = 5
 
 _HEADER = (
-    "DISHES (real dishes you may recommend)\n"
-    "Recommend only dishes from this list, never invent one. Prefer the suggested ones; if a dish has an "
-    "exceeds_* reason, say in words that it goes over the user's kcal / carbs / fat left today. Write "
-    "[[dish:<id>]] with the exact id right after each dish you recommend. Reply in the user's language."
+    "DISHES (real dishes on FoodFen you may recommend)\n"
+    "Use this list only when suggesting a dish to order or eat at a FoodFen restaurant: never invent one, "
+    "and write [[dish:<id>]] with the exact id right after each dish you recommend. For anything else "
+    "(recipes, home cooking, nutrition questions, food outside the app) answer normally, without markers. "
+    "If the user asks for a dish or restaurant that is not listed, say FoodFen doesn't have it yet, then "
+    "still help. The user's request (e.g. high protein, cheap, a restaurant, a cuisine) comes first; "
+    "\"suggested\" only breaks ties when they ask for nothing specific. If a dish has an exceeds_* reason, "
+    "say in words that it goes over the user's kcal / carbs / fat left today. Reply in the user's language."
 )
 # "x" = one hex digit. A marker is exactly this shape.
 _SHAPE = "[[dish:" + "-".join("x" * n for n in (8, 4, 4, 4, 12)) + "]]"
