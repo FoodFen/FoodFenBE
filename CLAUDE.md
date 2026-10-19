@@ -224,6 +224,11 @@ Design + defaults: `docs/superpowers/specs/2026-09-30-coins-quests-design.md`.
 - **The catalog is the `quest_definitions` table** (seeded in migration 0012). What each `QuestType`
   *measures* lives in `SQLAlchemyQuestRepository.measure()`; a new type needs an evaluator there.
 - **`PlanType.COIN_REDEEM` is not purchasable** — `CreateCheckoutRequest` only accepts monthly/annual.
+- **Mascots** (spec `docs/superpowers/specs/2026-10-19-mascots-design.md`, `mascot_controller.py`, `CurrentUserDep`):
+  `GET /mascots`, `POST /mascots/{id}/purchase` (`spend` ledger line, same lock as redeem), `PUT /mascots/equipped`.
+  Catalogue is the `mascots` table (seeded in 0026; its PK is the slug the app's artwork keys on — the second
+  deliberate non-UUID PK). `coin_cost == 0` = owned by everyone, no `user_mascots` row. `users.equipped_mascot_id`
+  is not on the `User` entity; only the mascot repository touches it (`user_repository.update` skips it).
 
 ## Quiz
 

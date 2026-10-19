@@ -35,7 +35,8 @@ class SQLAlchemyUserRepository:
             raise UserNotFoundException(f"user {user.id} not found")
         fresh = UserORM.from_domain(user)
         for column in UserORM.__table__.columns.keys():
-            setattr(row, column, getattr(fresh, column))
+            if column != "equipped_mascot_id":  # not on the entity; the mascot repository owns it
+                setattr(row, column, getattr(fresh, column))
         await self._session.flush()
         return row.to_domain()
 

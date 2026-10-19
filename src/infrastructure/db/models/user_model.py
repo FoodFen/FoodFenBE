@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.domain.entities.user import User
@@ -73,6 +73,10 @@ class UserORM(IntPrimaryKey, Base):
     fat_share: Mapped[float | None] = mapped_column(Float, nullable=True)
     role: Mapped[UserRole] = mapped_column(
         enum_column(UserRole, "user_role"), nullable=False, server_default=UserRole.USER.value
+    )
+    # Only the mascot repository reads or writes this; the User entity doesn't carry it.
+    equipped_mascot_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("mascots.id"), nullable=False, server_default="default"
     )
 
     def to_domain(self) -> User:

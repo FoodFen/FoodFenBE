@@ -43,7 +43,10 @@ from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
 from src.application.use_cases.list_activity_logs import ListActivityLogsUseCase
 from src.application.use_cases.list_chat_messages import ListChatMessagesUseCase
+from src.application.use_cases.equip_mascot import EquipMascotUseCase
+from src.application.use_cases.get_mascots import GetMascotsUseCase
 from src.application.use_cases.list_coin_bundles import ListCoinBundlesUseCase
+from src.application.use_cases.purchase_mascot import PurchaseMascotUseCase
 from src.application.use_cases.list_plans import ListPlansUseCase
 from src.application.use_cases.list_daily_goals import ListDailyGoalsUseCase
 from src.application.use_cases.list_food_entries import ListFoodEntriesUseCase
@@ -99,6 +102,7 @@ from src.infrastructure.di.repositories import (
     AiTrialRepositoryDep,
     ActivityLogRepositoryDep,
     CoinBundleRepositoryDep,
+    MascotRepositoryDep,
     CoinRepositoryDep,
     QuestRepositoryDep,
     QuizRepositoryDep,
@@ -521,6 +525,22 @@ def get_list_coin_bundles_use_case(bundles: CoinBundleRepositoryDep) -> ListCoin
     return ListCoinBundlesUseCase(bundles=bundles)
 
 
+def get_get_mascots_use_case(
+    coins: CoinRepositoryDep, mascots: MascotRepositoryDep
+) -> GetMascotsUseCase:
+    return GetMascotsUseCase(coins=coins, mascots=mascots)
+
+
+def get_purchase_mascot_use_case(
+    coins: CoinRepositoryDep, mascots: MascotRepositoryDep
+) -> PurchaseMascotUseCase:
+    return PurchaseMascotUseCase(coins=coins, mascots=mascots)
+
+
+def get_equip_mascot_use_case(mascots: MascotRepositoryDep) -> EquipMascotUseCase:
+    return EquipMascotUseCase(mascots=mascots)
+
+
 def get_list_plans_use_case(providers: PaymentProvidersDep) -> ListPlansUseCase:
     return ListPlansUseCase(
         monthly_price_vnd=settings.payos_monthly_price_vnd,
@@ -534,6 +554,9 @@ RedeemCoinsUseCaseDep = Annotated[RedeemCoinsUseCase, Depends(get_redeem_coins_u
 ListCoinBundlesUseCaseDep = Annotated[
     ListCoinBundlesUseCase, Depends(get_list_coin_bundles_use_case)
 ]
+GetMascotsUseCaseDep = Annotated[GetMascotsUseCase, Depends(get_get_mascots_use_case)]
+PurchaseMascotUseCaseDep = Annotated[PurchaseMascotUseCase, Depends(get_purchase_mascot_use_case)]
+EquipMascotUseCaseDep = Annotated[EquipMascotUseCase, Depends(get_equip_mascot_use_case)]
 ListPlansUseCaseDep = Annotated[ListPlansUseCase, Depends(get_list_plans_use_case)]
 
 

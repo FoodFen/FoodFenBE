@@ -18,6 +18,7 @@ from src.application.ports.ai_trial_repository import AiTrialRepositoryProtocol
 from src.application.ports.chat_message_repository import ChatMessageRepositoryProtocol
 from src.application.ports.coin_bundle_repository import CoinBundleRepositoryProtocol
 from src.application.ports.coin_repository import CoinRepositoryProtocol
+from src.application.ports.mascot_repository import MascotRepositoryProtocol
 from src.application.ports.daily_goal_repository import DailyGoalRepositoryProtocol
 from src.application.ports.food_entry_repository import FoodEntryRepositoryProtocol
 from src.application.ports.payment_repository import PaymentRepositoryProtocol
@@ -48,6 +49,7 @@ from src.infrastructure.db.repositories.chat_message_repository import (
 from src.infrastructure.db.repositories.coin_bundle_repository import (
     SQLAlchemyCoinBundleRepository,
 )
+from src.infrastructure.db.repositories.mascot_repository import SQLAlchemyMascotRepository
 from src.infrastructure.db.repositories.coin_repository import SQLAlchemyCoinRepository
 from src.infrastructure.db.repositories.daily_goal_repository import SQLAlchemyDailyGoalRepository
 from src.infrastructure.db.repositories.food_entry_repository import SQLAlchemyFoodEntryRepository
@@ -202,6 +204,13 @@ def get_coin_bundle_repository(session: SessionDep) -> CoinBundleRepositoryProto
 CoinBundleRepositoryDep = Annotated[
     CoinBundleRepositoryProtocol, Depends(get_coin_bundle_repository)
 ]
+
+
+def get_mascot_repository(session: SessionDep) -> MascotRepositoryProtocol:
+    return SQLAlchemyMascotRepository(session)
+
+
+MascotRepositoryDep = Annotated[MascotRepositoryProtocol, Depends(get_mascot_repository)]
 
 
 def get_restaurant_repository(session: SessionDep) -> RestaurantRepositoryProtocol:

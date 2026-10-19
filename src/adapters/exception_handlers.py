@@ -22,6 +22,8 @@ from src.domain.exceptions import (
     InsufficientCoinsException,
     InvalidAttributeException,
     InvalidWebhookSignatureException,
+    MascotAlreadyOwnedException,
+    MascotNotOwnedException,
     PaymentProviderUnavailableException,
     PremiumRequiredException,
     QuizAlreadySubmittedException,
@@ -102,6 +104,13 @@ async def _restaurant_not_approved_handler(
     )
 
 
+def _conflict_with_code(code: str):
+    async def handler(_: Request, exc: DomainException) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"message": str(exc), "error": code})
+
+    return handler
+
+
 async def _validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
     """Reshape Pydantic's ``{"detail": [...]}`` into ``{message, errors}``."""
     errors: dict[str, str] = {}
@@ -119,5 +128,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AiTrialExhaustedException, _ai_trial_exhausted_handler)
     app.add_exception_handler(QuizAlreadySubmittedException, _quiz_already_submitted_handler)
     app.add_exception_handler(RestaurantNotApprovedException, _restaurant_not_approved_handler)
+    app.add_exception_handler(MascotAlreadyOwnedException, _conflict_with_code("mascot_already_owned"))
+    app.add_exception_handler(MascotNotOwnedException, _conflict_with_code("mascot_not_owned"))
     for exc_type, status_code in EXCEPTION_STATUS:
         app.add_exception_handler(exc_type, _domain_exception_handler(status_code))

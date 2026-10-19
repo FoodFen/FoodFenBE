@@ -17,6 +17,7 @@ from sqlalchemy.dialects.sqlite import DATETIME  # noqa: E402
 from sqlalchemy.dialects.sqlite.aiosqlite import SQLiteDialect_aiosqlite  # noqa: E402
 from sqlalchemy.engine import Engine  # noqa: E402
 
+from src.infrastructure.db.models.mascot_model import MascotORM  # noqa: E402
 from src.infrastructure.db.models.payment_model import PaymentORM  # noqa: E402
 
 
@@ -44,3 +45,9 @@ def _fake_identity(_mapper, _conn, row: PaymentORM) -> None:
     # `order_code` is a non-PK IDENTITY column on Postgres; SQLite has no equivalent.
     if row.order_code is None:
         row.order_code = next(_order_codes)
+
+
+@event.listens_for(MascotORM.__table__, "after_create")
+def _seed_free_mascot(_table, connection, **_kw) -> None:
+    # users.equipped_mascot_id defaults to 'default' and is an FK; migration 0026 seeds that row, create_all does not.
+    connection.execute(MascotORM.__table__.insert().values(id="default", name="Fen", coin_cost=0, active=True))
