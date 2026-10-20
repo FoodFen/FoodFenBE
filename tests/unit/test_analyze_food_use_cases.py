@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+
+import pytest
+
 from src.application.dtos.ai_trial import AiCallerDTO
 from src.application.dtos.food_analysis import FoodAnalysisDTO, IngredientSuggestionDTO
 from src.application.use_cases.ai_trial import AiTrialUseCase
@@ -74,6 +78,82 @@ async def test_analyze_image_uploads_and_sets_image_url():
     assert result.image_url == storage.url
     assert vision.image_calls == [(b"fake-bytes", "image/jpeg", "en")]
     assert storage.uploads == [(b"fake-bytes", "image/jpeg")]
+
+
+class _CountingTrialUsage:
+    """Free-tier caller: records increments."""
+
+    def __init__(self) -> None:
+        self.increments = 0
+
+    async def used(self, owner_keys, day):
+        return {}
+
+    async def increment(self, owner_keys, method, day):
+        self.increments += 1
+
+
+_FREE_CALLER = AiCallerDTO(keys=("user:1",), is_premium=False, signed_in=True)
+
+
+async def test_analyze_image_runs_vision_and_upload_concurrently():
+    both_started = {"vision": asyncio.Event(), "upload": asyncio.Event()}
+
+    class Vision(FakeVisionProvider):
+        async def analyze_image(self, image_bytes, content_type, language):
+            both_started["vision"].set()
+            await asyncio.wait_for(both_started["upload"].wait(), 1)  # needs upload to have started
+            return self._result
+
+    class Storage(FakeImageStorage):
+        async def upload(self, data, content_type):
+            both_started["upload"].set()
+            await asyncio.wait_for(both_started["vision"].wait(), 1)  # needs vision to have started
+            return self.url
+
+    vision = Vision(FoodAnalysisDTO("Pho", [_INGREDIENT], image_url=None))
+    storage = Storage()
+    uc = AnalyzeFoodImageUseCase(vision=vision, images=storage, trial=_TRIAL)
+
+    result = await uc.execute(_CALLER, b"x", "image/jpeg", "en")
+
+    assert result.image_url == storage.url
+
+
+async def test_analyze_image_upload_failure_still_returns_analysis_and_consumes_trial():
+    class BrokenStorage:
+        async def upload(self, data, content_type):
+            raise RuntimeError("cloudinary down")
+
+    usage = _CountingTrialUsage()
+    vision = FakeVisionProvider(FoodAnalysisDTO("Pho", [_INGREDIENT], image_url=None))
+    uc = AnalyzeFoodImageUseCase(
+        vision=vision, images=BrokenStorage(), trial=AiTrialUseCase(usage=usage)
+    )
+
+    result = await uc.execute(_FREE_CALLER, b"x", "image/jpeg", "en")
+
+    assert result.image_url is None
+    assert result.ingredients == [_INGREDIENT]
+    assert usage.increments == 1
+
+
+async def test_analyze_image_vision_failure_propagates_and_does_not_consume_trial():
+    class BrokenVision(FakeVisionProvider):
+        async def analyze_image(self, image_bytes, content_type, language):
+            raise ValueError("vision down")
+
+    usage = _CountingTrialUsage()
+    uc = AnalyzeFoodImageUseCase(
+        vision=BrokenVision(FoodAnalysisDTO("", [], image_url=None)),
+        images=FakeImageStorage(),
+        trial=AiTrialUseCase(usage=usage),
+    )
+
+    with pytest.raises(ValueError, match="vision down"):
+        await uc.execute(_FREE_CALLER, b"x", "image/jpeg", "en")
+
+    assert usage.increments == 0
 
 
 async def test_analyze_text_never_touches_image_storage():
