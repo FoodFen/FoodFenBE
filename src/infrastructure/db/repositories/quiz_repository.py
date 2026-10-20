@@ -71,13 +71,16 @@ class SQLAlchemyQuizRepository:
 
     async def get_or_add_daily(self, quiz: Quiz) -> Quiz:
         row = QuizORM.from_domain(quiz)
-        await self._session.execute(
+        inserted = await self._session.scalar(
             pg_insert(QuizORM)
             .values({c.name: getattr(row, c.name) for c in QuizORM.__table__.columns})
             .on_conflict_do_nothing()  # the partial unique index uq_quizzes_user_daily_date
+            .returning(QuizORM.id)
         )
+        if inserted is not None:
+            return quiz  # ours won; it already holds its questions, no read-back
         stored = await self.get_daily(quiz.user_id, quiz.quiz_date)
-        assert stored is not None  # our insert or a concurrent one just made it
+        assert stored is not None  # a concurrent insert made it
         return stored
 
     async def add(self, quiz: Quiz) -> Quiz:
