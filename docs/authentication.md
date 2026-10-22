@@ -24,8 +24,8 @@ the contract wins; a few endpoints here (`verify-email`,
 All three are in `pyproject.toml` under `[project].dependencies`. Install with `uv sync`.
 
 Nothing else was needed. FastAPI ships `OAuth2PasswordBearer` and
-`BackgroundTasks`; email goes out through the standard-library `smtplib` +
-`email.message`; camelCase JSON comes from Pydantic's own
+`BackgroundTasks`; email goes out through Brevo's HTTP API via the already-installed
+`httpx`; camelCase JSON comes from Pydantic's own
 `alias_generators.to_camel`.
 
 ---
@@ -206,7 +206,7 @@ client                 RegisterUserUseCase                bcrypt / PyJWT       D
    controller schedules  background_tasks.add_task(notifier.send_verification, ...)
         |                 (runs AFTER the response is sent — a slow/down mail
         |                  server can never block or fail sign-up)
-   notifier -> SMTP: "click https://APP_BASE_URL/auth/verify-email?token=<jwt>"
+   notifier -> Brevo: "click https://APP_BASE_URL/auth/verify-email?token=<jwt>"
 ```
 
 A duplicate email is a **`400`** with a field-keyed body, not a generic error:
@@ -444,7 +444,7 @@ src/infrastructure/                (the real libraries live here)
   db/models/social_identity_model.py     SocialIdentityORM
   db/repositories/refresh_token_repository.py
   db/repositories/social_identity_repository.py
-  notifications/email_verification_notifier.py   Logging + Smtp notifiers (both emails)
+  notifications/email_verification_notifier.py   Logging + Brevo notifiers (both emails)
   di/database.py  di/repositories.py  di/security.py  di/notifications.py
   di/use_cases.py                  every get_*_use_case provider, one file, all slices
   config.py                        JWT + email settings
@@ -482,11 +482,9 @@ from `src.infrastructure.di`.
 | `verification_token_expire_hours` | `VERIFICATION_TOKEN_EXPIRE_HOURS` | `24` | |
 | `password_reset_token_expire_minutes` | `PASSWORD_RESET_TOKEN_EXPIRE_MINUTES` | `60` | shorter than verification — a leaked reset link is more damaging |
 | `app_base_url` | `APP_BASE_URL` | `http://localhost:8000` (set it to the web client, e.g. `http://localhost:5173`) | origin of the web client (FoodFenWeb); email links land on its `/auth/verify-email` and `/auth/reset-password` pages |
-| `email_backend` | `EMAIL_BACKEND` | `console` | `console` logs the link; `smtp` sends it |
-| `email_from` | `EMAIL_FROM` | `no-reply@foodfen.local` | |
-| `smtp_host` / `smtp_port` | `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` | |
-| `smtp_username` / `smtp_password` | `SMTP_USERNAME` / `SMTP_PASSWORD` | empty | omit to skip AUTH |
-| `smtp_starttls` | `SMTP_STARTTLS` | `true` | |
+| `email_backend` | `EMAIL_BACKEND` | `console` | `console` logs the link; `brevo` sends it via Brevo's HTTP API; any other value fails at startup |
+| `email_from` | `EMAIL_FROM` | `no-reply@foodfen.local` | must be a sender (address or domain) verified in Brevo |
+| `brevo_api_key` | `BREVO_API_KEY` | empty | required when `EMAIL_BACKEND=brevo` |
 
 Generate a real secret:
 

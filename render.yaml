@@ -21,6 +21,6 @@ services:
       # MOMO_ENDPOINT (https://payment.momo.vn for prod; defaults to the sandbox),
       # MOMO_IPN_URL (https://<service>.onrender.com/payments/webhook/momo)
       # First admin account (created at startup if missing): ADMIN_EMAIL, ADMIN_PASSWORD
-      # Real email instead of logging links: EMAIL_BACKEND=smtp plus
-      # SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_STARTTLS
+      # Real email instead of logging links: EMAIL_BACKEND=brevo plus
+      # BREVO_API_KEY and EMAIL_FROM (a sender address or domain verified in Brevo)
       # SEED_DEMO adds fictional restaurants: leave it unset (false) in production

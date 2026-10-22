@@ -153,7 +153,7 @@ async def create_user(
   OAuth2 spec) exists only as that form's target; it's `include_in_schema=False` and calls the same
   `LoginUseCase` as the real, JSON `POST /auth/sign-in`. Requires `python-multipart`.
 - **Never** log, return, or persist a plaintext password. Hashing is `PasswordHasherProtocol`
-  (bcrypt, cost 12) — the domain never sees bcrypt. No JWT is stored; only the refresh token's `jti` is.
+  (bcrypt, cost 12; `async`, runs bcrypt in `asyncio.to_thread` so it never blocks the loop) — the domain never sees bcrypt. No JWT is stored; only the refresh token's `jti` is.
 - **Never** raise `HTTPException` for auth failures. Raise a `DomainException` subclass
   (`InvalidCredentialsException`/`InvalidTokenException` → 401); `src/adapters/exception_handlers.py`
   maps the type to a status. 401s also carry `WWW-Authenticate: Bearer`.

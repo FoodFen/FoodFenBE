@@ -60,7 +60,7 @@ async def ensure_admin(session: AsyncSession, email: str, password: str) -> None
     user = await users.get_by_email(email)
     if user is None:
         User.validate_password_strength(password)
-        user = User.create(email=email, password_hash=BcryptPasswordHasher().hash(password))
+        user = User.create(email=email, password_hash=await BcryptPasswordHasher().hash(password))
         user.role = UserRole.ADMIN
         await users.create(user)
         _log.info("bootstrap: created admin %s", email)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Shipping this value to production is a critical misconfiguration; main.lifespan
@@ -129,13 +131,11 @@ class Settings(BaseSettings):
     # stays False).
     cors_allow_origins: str = "*"
 
-    email_backend: str = "console"  # "console" logs the link; "smtp" actually sends
+    # "console" logs the link; "brevo" sends via Brevo's HTTP API. Anything else fails at startup.
+    email_backend: Literal["console", "brevo"] = "console"
+    # Must be a sender (address or domain) verified in Brevo (the local default only works for "console").
     email_from: str = "no-reply@foodfen.local"
-    smtp_host: str = "localhost"
-    smtp_port: int = 1025
-    smtp_username: str = ""
-    smtp_password: str = ""
-    smtp_starttls: bool = True
+    brevo_api_key: str = ""
 
     # Startup bootstrap (db/bootstrap.py): with both set, that account is created / promoted to admin
     # (an existing account keeps its password). SEED_DEMO adds fictional restaurants; keep it off in prod.

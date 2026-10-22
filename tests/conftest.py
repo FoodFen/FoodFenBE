@@ -11,6 +11,8 @@ from datetime import timezone
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 # A fake cloud: restaurant/dish imageUrl is only accepted from it (fails closed when unset).
 os.environ["CLOUDINARY_URL"] = "cloudinary://k:s@testcloud"
+# Never send real email from tests, whatever EMAIL_BACKEND the developer's .env sets.
+os.environ["EMAIL_BACKEND"] = "console"
 
 from sqlalchemy import event, types  # noqa: E402
 from sqlalchemy.dialects.sqlite import DATETIME  # noqa: E402

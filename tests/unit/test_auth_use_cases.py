@@ -83,10 +83,10 @@ class FakeRefreshRepo:
 
 
 class FakeHasher:
-    def hash(self, plain: str) -> str:
+    async def hash(self, plain: str) -> str:
         return f"hashed::{plain}"
 
-    def verify(self, plain: str, hashed: str) -> bool:
+    async def verify(self, plain: str, hashed: str) -> bool:
         return hashed == f"hashed::{plain}"
 
 

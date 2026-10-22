@@ -49,7 +49,7 @@ async def test_ensure_admin_creates_admin_with_working_password(session):
 
     boss = await SQLAlchemyUserRepository(session).get_by_email("boss@example.com")
     assert boss.role == UserRole.ADMIN
-    assert BcryptPasswordHasher().verify("s3cret-pass", boss.password_hash)
+    assert await BcryptPasswordHasher().verify("s3cret-pass", boss.password_hash)
 
 
 async def test_ensure_admin_promotes_existing_user_and_keeps_password(session):

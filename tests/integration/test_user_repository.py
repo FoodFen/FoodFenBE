@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import os
 
+import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from src.domain.entities.user import User
+from src.domain.exceptions import UserAlreadyExistsException
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.models.user_model import UserORM  # noqa: F401 — registers the table
 from src.infrastructure.db.repositories.user_repository import SQLAlchemyUserRepository
@@ -62,3 +64,14 @@ async def test_get_by_email(session):
 async def test_get_by_id_missing_returns_none(session):
     repo = SQLAlchemyUserRepository(session)
     assert await repo.get_by_id(999_999) is None
+
+
+async def test_create_duplicate_email_raises_already_exists(session):
+    repo = SQLAlchemyUserRepository(session)
+    await repo.create(User.create(email="dup@example.com", name="First"))
+
+    with pytest.raises(UserAlreadyExistsException):
+        await repo.create(User.create(email="dup@example.com", name="Second"))
+
+    # The savepoint keeps the outer transaction usable.
+    assert await repo.get_by_email("dup@example.com") is not None

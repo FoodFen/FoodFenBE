@@ -303,25 +303,62 @@ async def test_rate_limit_ignores_client_supplied_forwarded_for(client, monkeypa
     assert statuses == [401, 401, 429, 401]
 
 
-async def test_failing_email_delivery_does_not_undo_sign_up(client, monkeypatch):
+async def test_failing_email_delivery_does_not_undo_sign_up(client):
     """The mail runs as a background task *inside* the request's DB-session scope; if delivery
-    raises, the sign-up transaction must still commit."""
+    fails, the sign-up transaction must still commit."""
+    import httpx
+
     from src.infrastructure.di import get_email_verification_notifier
     from src.infrastructure.notifications.email_verification_notifier import (
-        SmtpEmailVerificationNotifier,
+        BrevoEmailVerificationNotifier,
     )
     from src.main import app
 
-    def _unreachable(self, message):
-        raise OSError("Network is unreachable")
+    def _unreachable(request):
+        raise httpx.ConnectError("Network is unreachable")
 
-    monkeypatch.setattr(SmtpEmailVerificationNotifier, "_deliver", _unreachable)
-    smtp = SmtpEmailVerificationNotifier(
-        base_url="http://x", sender="a@b.c", host="h", port=25, username="", password="",
-        starttls=False,
+    notifier = BrevoEmailVerificationNotifier(
+        base_url="http://x",
+        sender="a@b.c",
+        api_key="k",
+        http=httpx.AsyncClient(transport=httpx.MockTransport(_unreachable)),
     )
-    app.dependency_overrides[get_email_verification_notifier] = lambda: smtp
+    app.dependency_overrides[get_email_verification_notifier] = lambda: notifier
     creds = {"email": "mail@example.com", "password": "s3cret-pass"}
 
     assert (await client.post("/auth/sign-up", json=creds)).status_code == 200
     assert (await client.post("/auth/sign-in", json=creds)).status_code == 200
+
+
+async def test_brevo_notifier_posts_expected_request():
+    import json
+
+    import httpx
+
+    from src.infrastructure.notifications.email_verification_notifier import (
+        BrevoEmailVerificationNotifier,
+    )
+
+    seen: list[httpx.Request] = []
+
+    def _ok(request):
+        seen.append(request)
+        return httpx.Response(201, json={"messageId": "x"})
+
+    notifier = BrevoEmailVerificationNotifier(
+        base_url="http://x",
+        sender="no-reply@foodfen.app",
+        api_key="xkeysib-k",
+        http=httpx.AsyncClient(transport=httpx.MockTransport(_ok)),
+    )
+    await notifier.send_verification("u@example.com", "Ann", "tok")
+
+    (request,) = seen
+    body = json.loads(request.content)
+    assert str(request.url) == "https://api.brevo.com/v3/smtp/email"
+    assert request.headers["api-key"] == "xkeysib-k"
+    assert request.headers["accept"] == "application/json"
+    assert body["sender"] == {"name": "FoodFen", "email": "no-reply@foodfen.app"}
+    assert body["to"] == [{"email": "u@example.com"}]
+    assert "http://x/auth/verify-email?token=tok" in body["textContent"]
+    assert body["subject"]
