@@ -681,15 +681,19 @@ def get_get_admin_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> G
 GetAdminRestaurantUseCaseDep = Annotated[GetAdminRestaurantUseCase, Depends(get_get_admin_restaurant_use_case)]
 
 
-def get_review_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> ReviewRestaurantUseCase:
-    return ReviewRestaurantUseCase(restaurants=restaurants)
+def get_review_restaurant_use_case(
+    restaurants: RestaurantRepositoryDep, users: UserRepositoryDep
+) -> ReviewRestaurantUseCase:
+    return ReviewRestaurantUseCase(restaurants=restaurants, users=users)
 
 
 ReviewRestaurantUseCaseDep = Annotated[ReviewRestaurantUseCase, Depends(get_review_restaurant_use_case)]
 
 
-def get_review_dish_use_case(restaurants: RestaurantRepositoryDep) -> ReviewDishUseCase:
-    return ReviewDishUseCase(restaurants=restaurants)
+def get_review_dish_use_case(
+    restaurants: RestaurantRepositoryDep, users: UserRepositoryDep
+) -> ReviewDishUseCase:
+    return ReviewDishUseCase(restaurants=restaurants, users=users)
 
 
 ReviewDishUseCaseDep = Annotated[ReviewDishUseCase, Depends(get_review_dish_use_case)]

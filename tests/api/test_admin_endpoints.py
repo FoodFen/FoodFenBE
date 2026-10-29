@@ -152,3 +152,33 @@ async def test_dashboard_bad_range_is_400(client, make_user):
     admin, _ = await make_user("admin@example.com", admin=True)
     resp = await client.get("/admin/dashboard?from=2026-10-09&to=2026-10-08", headers=admin)
     assert resp.status_code == 400
+
+
+async def test_review_emails_owner_only_when_status_changes(
+    client, make_user, restaurant_body, dish_body, notifier
+):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    _, rid, dishes = await _restaurant_with(client, make_user, restaurant_body, dish_body, "o@x.co", "R", 2)
+
+    await _review(client, admin, "restaurants", rid, "approved")
+    await _review(client, admin, "restaurants", rid, "approved")  # same status: silent
+    await _review(client, admin, "dishes", dishes[0], "approved")  # approvals are silent
+    await _review(client, admin, "dishes", dishes[1], "rejected", "kcal is wrong")
+    await _review(client, admin, "dishes", dishes[1], "rejected", "kcal is wrong")  # same status: silent
+    await _review(client, admin, "restaurants", rid, "rejected", "food safety report")
+
+    assert notifier.reviews == [
+        {"email": "o@x.co", "restaurant": "R", "approved": True, "reason": None, "dish": None},
+        {"email": "o@x.co", "restaurant": "R", "approved": False, "reason": "kcal is wrong", "dish": "Phở bò"},
+        {"email": "o@x.co", "restaurant": "R", "approved": False, "reason": "food safety report", "dish": None},
+    ]
+
+
+async def test_review_message_links_to_owner_portal_and_includes_reason():
+    from src.infrastructure.notifications.email_verification_notifier import _review_message
+
+    subject, body = _review_message("Ann", "Quán Ngon", False, "bad photo", "Phở", "http://x/restaurant")
+    assert "Phở" in subject and "Quán Ngon" in subject
+    assert "Reason: bad photo" in body and "http://x/restaurant" in body
+    subject, body = _review_message(None, "Quán Ngon", True, None, None, "http://x/restaurant")
+    assert "approved" in subject and "visible to diners" in body and "Hi there" in body

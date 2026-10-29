@@ -9,7 +9,7 @@ from datetime import date
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 
 from src.adapters.schemas.ad_schemas import AdPackageResponse, CreateAdPackageRequest, UpdateAdPackageRequest
 from src.adapters.schemas.admin_schemas import (
@@ -22,9 +22,12 @@ from src.adapters.schemas.admin_schemas import (
     ReviewRequest,
 )
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
+from src.application.dtos.restaurant import ReviewNoticeDTO
+from src.application.ports.email_verification_notifier import EmailVerificationNotifierProtocol
 from src.domain.enums import ModerationStatus, SubscriptionTier
 from src.infrastructure.di import (
     CreateAdPackageUseCaseDep,
+    EmailVerificationNotifierDep,
     ListAdPackagesUseCaseDep,
     UpdateAdPackageUseCaseDep,
     GetAdminDashboardUseCaseDep,
@@ -39,6 +42,10 @@ from src.infrastructure.di import (
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(get_current_admin)])
+
+
+async def _send_notice(notifier: EmailVerificationNotifierProtocol, n: ReviewNoticeDTO) -> None:
+    await notifier.send_review_result(n.email, n.name, n.restaurant_name, n.approved, n.reason, n.dish_name)
 
 
 @router.get("/restaurants", response_model=list[AdminRestaurantRowResponse])
@@ -59,16 +66,30 @@ async def get_restaurant(
 
 @router.post("/restaurants/{restaurant_id}/review", response_model=RestaurantResponse)
 async def review_restaurant(
-    restaurant_id: UUID, body: ReviewRequest, use_case: ReviewRestaurantUseCaseDep
+    restaurant_id: UUID,
+    body: ReviewRequest,
+    use_case: ReviewRestaurantUseCaseDep,
+    notifier: EmailVerificationNotifierDep,
+    background_tasks: BackgroundTasks,
 ) -> RestaurantResponse:
     result = await use_case.execute(restaurant_id, body.decision, body.reason, body.expected_updated_at)
-    return RestaurantResponse.from_dto(result)
+    if result.notice is not None:
+        background_tasks.add_task(_send_notice, notifier, result.notice)
+    return RestaurantResponse.from_dto(result.restaurant)
 
 
 @router.post("/dishes/{dish_id}/review", response_model=DishResponse)
-async def review_dish(dish_id: UUID, body: ReviewRequest, use_case: ReviewDishUseCaseDep) -> DishResponse:
+async def review_dish(
+    dish_id: UUID,
+    body: ReviewRequest,
+    use_case: ReviewDishUseCaseDep,
+    notifier: EmailVerificationNotifierDep,
+    background_tasks: BackgroundTasks,
+) -> DishResponse:
     result = await use_case.execute(dish_id, body.decision, body.reason, body.expected_updated_at)
-    return DishResponse.from_dto(result)
+    if result.notice is not None:
+        background_tasks.add_task(_send_notice, notifier, result.notice)
+    return DishResponse.from_dto(result.dish)
 
 
 @router.get("/dashboard", response_model=DashboardResponse)

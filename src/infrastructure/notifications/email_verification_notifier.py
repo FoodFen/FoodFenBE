@@ -4,7 +4,8 @@
 - ``BrevoEmailVerificationNotifier``: sends through Brevo's HTTP API (Render's free tier
   blocks the usual mail ports).
 
-Both take their subject/body from ``_verification_message`` / ``_password_reset_message``.
+Both take their subject/body from ``_verification_message`` / ``_password_reset_message`` /
+``_review_message``.
 """
 
 from __future__ import annotations
@@ -50,6 +51,45 @@ def _password_reset_message(name: str | None, link: str) -> tuple[str, str]:
     )
 
 
+def _owner_portal_link(base_url: str) -> str:
+    return f"{base_url.rstrip('/')}/restaurant"
+
+
+def _review_message(
+    name: str | None,
+    restaurant_name: str,
+    approved: bool,
+    reason: str | None,
+    dish_name: str | None,
+    link: str,
+) -> tuple[str, str]:
+    if approved:
+        return (
+            f"{restaurant_name} is approved on FoodFen",
+            f"Hi {_greeting(name)},\n\n"
+            f"Good news: {restaurant_name} is approved and now visible to diners.\n\n"
+            f"Manage your restaurant here:\n\n"
+            f"{link}\n",
+        )
+    if dish_name:
+        return (
+            f"{dish_name} at {restaurant_name} was not approved",
+            f"Hi {_greeting(name)},\n\n"
+            f"Your dish {dish_name} at {restaurant_name} was not approved, so diners cannot see it.\n\n"
+            f"Reason: {reason}\n\n"
+            f"Edit the dish to send it back for review:\n\n"
+            f"{link}\n",
+        )
+    return (
+        f"{restaurant_name} was not approved on FoodFen",
+        f"Hi {_greeting(name)},\n\n"
+        f"{restaurant_name} was not approved, so diners cannot see it.\n\n"
+        f"Reason: {reason}\n\n"
+        f"Update your restaurant to send it back for review:\n\n"
+        f"{link}\n",
+    )
+
+
 class LoggingEmailVerificationNotifier:
     def __init__(self, *, base_url: str) -> None:
         self._base_url = base_url
@@ -68,6 +108,19 @@ class LoggingEmailVerificationNotifier:
             _password_reset_link(self._base_url, token),
         )
 
+    async def send_review_result(
+        self,
+        email: str,
+        name: str | None,
+        restaurant_name: str,
+        approved: bool,
+        reason: str | None,
+        dish_name: str | None = None,
+    ) -> None:
+        link = _owner_portal_link(self._base_url)
+        subject, _ = _review_message(name, restaurant_name, approved, reason, dish_name, link)
+        _log.info("[email:console] review result for %s -> %s -> %s", email, subject, link)
+
 
 class BrevoEmailVerificationNotifier:
     def __init__(self, *, base_url: str, sender: str, api_key: str, http: httpx.AsyncClient) -> None:
@@ -82,6 +135,20 @@ class BrevoEmailVerificationNotifier:
 
     async def send_password_reset(self, email: str, name: str | None, token: str) -> None:
         subject, body = _password_reset_message(name, _password_reset_link(self._base_url, token))
+        await self._send(email, subject, body)
+
+    async def send_review_result(
+        self,
+        email: str,
+        name: str | None,
+        restaurant_name: str,
+        approved: bool,
+        reason: str | None,
+        dish_name: str | None = None,
+    ) -> None:
+        subject, body = _review_message(
+            name, restaurant_name, approved, reason, dish_name, _owner_portal_link(self._base_url)
+        )
         await self._send(email, subject, body)
 
     async def _send(self, email: str, subject: str, body: str) -> None:
