@@ -180,7 +180,7 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
 
 **Admin**:
 
-- `GET /admin/restaurants?needsReview=true|status=|q=|cursor=|limit=` (limit 1..50, default 20; `q` = case-insensitive substring of restaurant name, owner name or owner email, accents matter) → `{restaurants, total, nextCursor}`, oldest `updatedAt` first · `GET /admin/restaurants/{id}` (profile + full menu + `ownerName`, `ownerEmail`)
+- `GET /admin/restaurants?needsReview=true|status=|q=|cursor=|limit=` (limit 1..50, default 20; `q` = case- and accent-insensitive substring of restaurant name, owner name or owner email ("bun cha" finds "Bún Chả", "dau" finds "Đậu"; needs the Postgres `unaccent` extension)) → `{restaurants, total, nextCursor}`, oldest `updatedAt` first · `GET /admin/restaurants/{id}` (profile + full menu + `ownerName`, `ownerEmail`)
 - `POST /admin/restaurants/{id}/review` and `POST /admin/dishes/{id}/review`:
   `{decision: approved|rejected, reason?}` (reason required to reject; also used for takedowns).
   The review queue = `pending` restaurants **or** approved ones with `pending` dishes.

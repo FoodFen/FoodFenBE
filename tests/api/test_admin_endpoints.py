@@ -118,6 +118,29 @@ async def test_restaurant_list_search_matches_owner_name(client, make_user, rest
     assert [r["ownerEmail"] for r in rows] == ["zed@x.co"]
 
 
+async def test_restaurant_list_search_ignores_accents(client, make_user, restaurant_body):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    for email, owner, name in (
+        ("a@x.co", "Nguyễn Văn Ân", "Bún Chả Hương Liên"),
+        ("b@x.co", "Lê Bình", "Quán Đậu Phụ"),
+    ):
+        signup = await client.post(
+            "/auth/sign-up", json={"email": email, "password": "s3cret-pass", "displayName": owner}
+        )
+        headers = {"Authorization": f"Bearer {signup.json()['accessToken']}"}
+        await client.post("/restaurants", json={**restaurant_body, "name": name}, headers=headers)
+
+    async def names(q):
+        rows = (await client.get(f"/admin/restaurants?q={q}", headers=admin)).json()["restaurants"]
+        return [r["name"] for r in rows]
+
+    assert await names("bun cha") == ["Bún Chả Hương Liên"]
+    assert await names("dau") == ["Quán Đậu Phụ"]
+    assert await names("ĐẬU") == ["Quán Đậu Phụ"]
+    assert await names("nguyen van an") == ["Bún Chả Hương Liên"]
+    assert await names("Bún Chả") == ["Bún Chả Hương Liên"]
+
+
 async def test_restaurant_list_rejects_bad_paging(client, make_user):
     admin, _ = await make_user("admin@example.com", admin=True)
     for query in ("limit=0", "limit=51", "cursor=abc"):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from uuid import UUID
 
 from sqlalchemy import and_, case, delete, func, or_, select
@@ -67,12 +68,14 @@ class SQLAlchemyRestaurantRepository:
         if status is not None:
             stmt = stmt.where(RestaurantORM.status == status)
         if q and q.strip():
-            term = q.strip()
+            escaped = re.sub(r"([\\%_])", r"\\\1", q.strip())
+            pattern = func.unaccent(func.lower(f"%{escaped}%"))
             stmt = stmt.where(
                 or_(
-                    RestaurantORM.name.icontains(term, autoescape=True),
-                    UserORM.name.icontains(term, autoescape=True),
-                    UserORM.email.icontains(term, autoescape=True),
+                    *(
+                        func.unaccent(func.lower(col)).like(pattern, escape="\\")
+                        for col in (RestaurantORM.name, UserORM.name, UserORM.email)
+                    )
                 )
             )
         if needs_review:

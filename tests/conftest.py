@@ -6,6 +6,7 @@ read them at import. The shims below paper over where SQLite differs from the Po
 
 import itertools
 import os
+import unicodedata
 from datetime import timezone
 
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
@@ -27,6 +28,19 @@ from src.infrastructure.db.models.payment_model import PaymentORM  # noqa: E402
 def _enable_foreign_keys(dbapi_connection, _record) -> None:
     # SQLite ignores FKs (and so ON DELETE CASCADE) unless asked, per connection.
     dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
+
+def _unaccent(text: str | None) -> str | None:
+    # Postgres `unaccent` (extension, migration 0028) has no SQLite twin; mimic it, including d-stroke -> d.
+    if text is None:
+        return None
+    text = text.replace("đ", "d").replace("Đ", "D")
+    return "".join(c for c in unicodedata.normalize("NFD", text) if not unicodedata.combining(c))
+
+
+@event.listens_for(Engine, "connect")
+def _register_unaccent(dbapi_connection, _record) -> None:
+    dbapi_connection.create_function("unaccent", 1, _unaccent, deterministic=True)
 
 
 class _UTCDateTime(DATETIME):
