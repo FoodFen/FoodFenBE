@@ -216,6 +216,12 @@ Design + defaults: `docs/superpowers/specs/2026-09-30-coins-quests-design.md`.
   `unit` (`count`|`percent`, derived in `Quest.unit`), `completionRatio`, `title` and `description` (the
   `title_*`/`description_*` columns of `quest_definitions`: static text, edit it with SQL together with any
   target/ratio change).
+- **History** (spec `docs/superpowers/specs/2026-10-14-coin-history-design.md`): `GET /coins/transactions?before=&limit=`
+  (limit 1..50, default 20) returns `{transactions: [{id, amount, reason, createdAt}], nextCursor}`, newest first, own rows only.
+  Same opaque cursor as chat (`chat_cursor.encode_cursor` takes any row with `created_at`/`id`).
+- **Redeem is idempotent** with an optional `clientId` (1..64 chars) in `POST /coins/redeem`, stored on the `SPEND` row
+  (`coin_transactions.client_id`, unique with `user_id`, migration 0027). A repeat of a known `clientId` is a replay:
+  200 with the current balance and subscription, nothing spent or granted, even if `days` differs.
 - **Balance is `SUM(coin_transactions.amount)`**, never a stored field. Redeem takes the user row
   `FOR UPDATE` before checking it; insufficient coins → `InsufficientCoinsException` (409).
 - **Quests are evaluated lazily** inside `GET /quests` from synced diary rows — the client never reports

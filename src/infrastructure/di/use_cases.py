@@ -45,6 +45,7 @@ from src.application.use_cases.list_activity_logs import ListActivityLogsUseCase
 from src.application.use_cases.list_chat_messages import ListChatMessagesUseCase
 from src.application.use_cases.equip_mascot import EquipMascotUseCase
 from src.application.use_cases.get_mascots import GetMascotsUseCase
+from src.application.use_cases.list_coin_transactions import ListCoinTransactionsUseCase
 from src.application.use_cases.list_coin_bundles import ListCoinBundlesUseCase
 from src.application.use_cases.purchase_mascot import PurchaseMascotUseCase
 from src.application.use_cases.list_plans import ListPlansUseCase
@@ -521,6 +522,10 @@ def get_redeem_coins_use_case(
     )
 
 
+def get_list_coin_transactions_use_case(coins: CoinRepositoryDep) -> ListCoinTransactionsUseCase:
+    return ListCoinTransactionsUseCase(coins=coins)
+
+
 def get_list_coin_bundles_use_case(bundles: CoinBundleRepositoryDep) -> ListCoinBundlesUseCase:
     return ListCoinBundlesUseCase(bundles=bundles)
 
@@ -551,6 +556,9 @@ def get_list_plans_use_case(providers: PaymentProvidersDep) -> ListPlansUseCase:
 
 GetQuestsUseCaseDep = Annotated[GetQuestsUseCase, Depends(get_get_quests_use_case)]
 RedeemCoinsUseCaseDep = Annotated[RedeemCoinsUseCase, Depends(get_redeem_coins_use_case)]
+ListCoinTransactionsUseCaseDep = Annotated[
+    ListCoinTransactionsUseCase, Depends(get_list_coin_transactions_use_case)
+]
 ListCoinBundlesUseCaseDep = Annotated[
     ListCoinBundlesUseCase, Depends(get_list_coin_bundles_use_case)
 ]

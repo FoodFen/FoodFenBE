@@ -1,4 +1,4 @@
-"""Opaque pagination cursor for chat history: `created_at|id`, newest-first.
+"""Opaque pagination cursor for chat history and coin transactions: `created_at|id`, newest-first.
 
 A shared codec so the use case (encodes the next cursor) and the repository
 (decodes an incoming one for its WHERE clause) can't drift out of sync. The
@@ -9,14 +9,19 @@ duplicated rows on a page boundary. Standard library only.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Protocol
 from uuid import UUID
 
-from src.domain.entities.chat_message import ChatMessage
 from src.domain.exceptions import InvalidAttributeException
 
 
-def encode_cursor(message: ChatMessage) -> str:
-    return f"{message.created_at.isoformat()}|{message.id}"
+class Cursored(Protocol):
+    created_at: datetime
+    id: UUID
+
+
+def encode_cursor(row: Cursored) -> str:
+    return f"{row.created_at.isoformat()}|{row.id}"
 
 
 def decode_cursor(cursor: str) -> tuple[datetime, UUID]:
