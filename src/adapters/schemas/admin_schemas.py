@@ -10,6 +10,7 @@ from pydantic import Field, ValidationInfo, field_validator
 from src.adapters.schemas.base import CamelModel
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
 from src.application.dtos.admin import (
+    AdminPaymentListDTO,
     AdminQuestDTO,
     AdminQuizQuestionDTO,
     AdminRestaurantDetailDTO,
@@ -18,7 +19,16 @@ from src.application.dtos.admin import (
     AdminUserRowDTO,
     DashboardDTO,
 )
-from src.domain.enums import ModerationStatus, QuestCadence, ReviewDecision, SubscriptionTier, UserRole
+from src.domain.enums import (
+    ModerationStatus,
+    PaymentProvider,
+    PaymentStatus,
+    PlanType,
+    QuestCadence,
+    ReviewDecision,
+    SubscriptionTier,
+    UserRole,
+)
 
 
 class ReviewRequest(CamelModel):
@@ -148,3 +158,34 @@ class AdminQuestResponse(CamelModel):
     @classmethod
     def from_dto(cls, dto: AdminQuestDTO) -> AdminQuestResponse:
         return cls(**vars(dto))
+
+
+class AdminPaymentRowResponse(CamelModel):
+    id: UUID
+    order_code: int
+    user_id: int
+    user_email: str
+    user_name: str | None
+    restaurant_id: UUID | None
+    restaurant_name: str | None
+    plan_type: PlanType
+    provider: PaymentProvider
+    amount: int  # whole VND
+    status: PaymentStatus
+    ad_days: int | None
+    created_at: datetime
+    paid_at: datetime | None
+
+
+class AdminPaymentListResponse(CamelModel):
+    payments: list[AdminPaymentRowResponse]
+    total: int
+    next_cursor: str | None
+
+    @classmethod
+    def from_dto(cls, dto: AdminPaymentListDTO) -> AdminPaymentListResponse:
+        return cls(
+            payments=[AdminPaymentRowResponse(**{**vars(p), "amount": int(p.amount)}) for p in dto.payments],
+            total=dto.total,
+            next_cursor=dto.next_cursor,
+        )

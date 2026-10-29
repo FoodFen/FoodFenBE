@@ -8,9 +8,9 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 
-from src.adapters.schemas.ad_schemas import CreateAdCheckoutRequest, MyAdsResponse
+from src.adapters.schemas.ad_schemas import CreateAdCheckoutRequest, MyAdPaymentListResponse, MyAdsResponse
 from src.adapters.schemas.payment_schemas import CheckoutResponse
 from src.adapters.schemas.restaurant_schemas import (
     CreateDishRequest,
@@ -40,6 +40,7 @@ from src.infrastructure.di import (
     GetMyRestaurantUseCaseDep,
     GetPublicRestaurantUseCaseDep,
     ListMyDishesUseCaseDep,
+    ListMyPaymentsUseCaseDep,
     UpdateDishUseCaseDep,
     UpdateMyRestaurantUseCaseDep,
     UploadRestaurantImageUseCaseDep,
@@ -134,6 +135,17 @@ async def delete_dish(dish_id: UUID, user: CurrentUserDep, use_case: DeleteDishU
 @router.get("/mine/ads", response_model=MyAdsResponse)
 async def get_my_ads(user: CurrentUserDep, use_case: GetMyAdsUseCaseDep) -> MyAdsResponse:
     return MyAdsResponse.from_dto(await use_case.execute(user.id))
+
+
+@router.get("/mine/payments", response_model=MyAdPaymentListResponse)
+async def list_my_payments(
+    user: CurrentUserDep,
+    use_case: ListMyPaymentsUseCaseDep,
+    cursor: Annotated[str | None, Query(pattern=r"^\d{1,9}$")] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> MyAdPaymentListResponse:
+    """The owner's ad payments, newest first. ``cursor`` is opaque: pass back the previous ``nextCursor``."""
+    return MyAdPaymentListResponse.from_dto(await use_case.execute(user.id, int(cursor or 0), limit))
 
 
 @router.post("/mine/ads/checkout", response_model=CheckoutResponse)

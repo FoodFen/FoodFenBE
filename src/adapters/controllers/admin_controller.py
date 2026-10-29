@@ -16,6 +16,7 @@ from src.adapters.schemas.admin_schemas import (
     AdminQuestResponse,
     AdminQuizQuestionResponse,
     AdminRestaurantDetailResponse,
+    AdminPaymentListResponse,
     AdminRestaurantRowResponse,
     AdminUserListResponse,
     DashboardResponse,
@@ -24,7 +25,7 @@ from src.adapters.schemas.admin_schemas import (
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
 from src.application.dtos.restaurant import ReviewNoticeDTO
 from src.application.ports.email_verification_notifier import EmailVerificationNotifierProtocol
-from src.domain.enums import ModerationStatus, SubscriptionTier
+from src.domain.enums import ModerationStatus, PaymentProvider, PaymentStatus, PlanType, SubscriptionTier
 from src.infrastructure.di import (
     CreateAdPackageUseCaseDep,
     EmailVerificationNotifierDep,
@@ -35,6 +36,7 @@ from src.infrastructure.di import (
     ListAdminQuestDefinitionsUseCaseDep,
     ListAdminQuizQuestionsUseCaseDep,
     ListAdminRestaurantsUseCaseDep,
+    ListAdminPaymentsUseCaseDep,
     ListAdminUsersUseCaseDep,
     ReviewDishUseCaseDep,
     ReviewRestaurantUseCaseDep,
@@ -113,6 +115,25 @@ async def list_users(
     """``q`` matches name or email; ``tier`` is the effective tier. ``cursor`` is opaque: pass back
     the previous page's ``nextCursor``."""
     return AdminUserListResponse.from_dto(await use_case.execute(q, tier, int(cursor or 0), limit))
+
+
+@router.get("/payments", response_model=AdminPaymentListResponse)
+async def list_payments(
+    use_case: ListAdminPaymentsUseCaseDep,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    status: PaymentStatus | None = None,
+    plan_type: Annotated[PlanType | None, Query(alias="planType")] = None,
+    provider: PaymentProvider | None = None,
+    from_: Annotated[date | None, Query(alias="from")] = None,
+    to: Annotated[date | None, Query()] = None,
+    cursor: Annotated[str | None, Query(pattern=r"^\d{1,9}$")] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> AdminPaymentListResponse:
+    """``q`` matches the payer's email or an exact order code. ``from``/``to`` are Vietnam days (UTC+7),
+    inclusive, on ``createdAt``. ``cursor`` is opaque: pass back the previous page's ``nextCursor``."""
+    return AdminPaymentListResponse.from_dto(
+        await use_case.execute(q, status, plan_type, provider, from_, to, int(cursor or 0), limit)
+    )
 
 
 @router.get("/quizzes", response_model=list[AdminQuizQuestionResponse])

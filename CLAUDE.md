@@ -274,7 +274,7 @@ update it in the same change as any decision.
   (stale → 409); `imageUrl` must be a Cloudinary upload on our cloud (`restaurant_schemas.py`).
 - **Paid placement** (spec `docs/superpowers/specs/2026-10-12-paid-placement-design.md`): `GET /restaurants/mine/ads`,
   `POST /restaurants/mine/ads/checkout {packageId, provider}` (owner, approved restaurant only: 409
-  `restaurant_not_approved`), admin `GET|POST /admin/ad-packages` + `PATCH /admin/ad-packages/{id}` (no delete).
+  `restaurant_not_approved`), admin `GET|POST /admin/ad-packages` + `PATCH /admin/ad-packages/{id}` (no delete). Payment history (read-only, `?cursor=&limit=` like `/admin/users`): owner `GET /restaurants/mine/payments` (own ad payments), admin `GET /admin/payments` (filters `q|status|planType|provider|from|to`, `total`).
   A package is N days for the whole restaurant: `PlanType.AD_PACKAGE` payment with a snapshotted `payments.ad_days`
   (set iff ad_package), and `apply_payment_result` extends `restaurants.featured_until` (from the current end if still
   featured) instead of renewing Premium. `POST /payments/checkout` stays monthly|annual. **Health gate**:

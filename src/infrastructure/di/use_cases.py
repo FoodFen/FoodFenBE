@@ -84,7 +84,9 @@ from src.application.use_cases.get_admin_restaurant import GetAdminRestaurantUse
 from src.application.use_cases.list_admin_quest_definitions import ListAdminQuestDefinitionsUseCase
 from src.application.use_cases.list_admin_quiz_questions import ListAdminQuizQuestionsUseCase
 from src.application.use_cases.list_admin_restaurants import ListAdminRestaurantsUseCase
+from src.application.use_cases.list_admin_payments import ListAdminPaymentsUseCase
 from src.application.use_cases.list_admin_users import ListAdminUsersUseCase
+from src.application.use_cases.list_my_payments import ListMyPaymentsUseCase
 from src.application.use_cases.review_dish import ReviewDishUseCase
 from src.application.use_cases.review_restaurant import ReviewRestaurantUseCase
 from src.infrastructure.config import settings
@@ -812,3 +814,19 @@ def get_update_ad_package_use_case(packages: AdPackageRepositoryDep) -> UpdateAd
 
 
 UpdateAdPackageUseCaseDep = Annotated[UpdateAdPackageUseCase, Depends(get_update_ad_package_use_case)]
+
+
+def get_list_admin_payments_use_case(payments: PaymentRepositoryDep) -> ListAdminPaymentsUseCase:
+    return ListAdminPaymentsUseCase(payments=payments)
+
+
+ListAdminPaymentsUseCaseDep = Annotated[ListAdminPaymentsUseCase, Depends(get_list_admin_payments_use_case)]
+
+
+def get_list_my_payments_use_case(
+    restaurants: RestaurantRepositoryDep, payments: PaymentRepositoryDep
+) -> ListMyPaymentsUseCase:
+    return ListMyPaymentsUseCase(restaurants=restaurants, payments=payments)
+
+
+ListMyPaymentsUseCaseDep = Annotated[ListMyPaymentsUseCase, Depends(get_list_my_payments_use_case)]

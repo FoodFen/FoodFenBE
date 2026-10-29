@@ -157,6 +157,8 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
   (`planType: "ad_package"`); 409 `{error: "restaurant_not_approved"}` unless the restaurant is approved,
   404 for an unknown or inactive package. Status and cancel reuse `GET /payments/{orderCode}` and
   `POST /payments/{orderCode}/cancel`. `POST /payments/checkout` still only accepts `monthly | annual` (422).
+- `GET /restaurants/mine/payments?cursor=&limit=` (limit 1..50, default 20) → `{payments: [{orderCode, amount, status, provider, adDays,
+  createdAt, paidAt}], nextCursor}`: the owner's own `ad_package` payments, newest first; 404 without a restaurant.
 
 **Diner** (any signed-in user, no Premium gate; public = approved dish of an approved restaurant):
 
@@ -187,6 +189,9 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
 - `GET /admin/ad-packages` (all, inactive included: `[{id, days, priceVnd, active, createdAt}]`) ·
   `POST /admin/ad-packages {days, priceVnd, active?}` (201) · `PATCH /admin/ad-packages/{id}`
   `{days?, priceVnd?, active?}` (404 unknown id). `days` and `priceVnd` are positive integers (422).
+- `GET /admin/payments?q=&status=&planType=&provider=&from=&to=&cursor=&limit=` (limit 1..50, default 20) → `{payments, total, nextCursor}`,
+  newest `createdAt` first. `q` = payer email (substring) or exact order code; `from`/`to` are inclusive Vietnam days. Row: `id, orderCode, userId,
+  userEmail, userName, restaurantId, restaurantName` (the last two only for `ad_package` rows) `, planType, provider, amount` (integer VND)`, status, adDays, createdAt, paidAt`.
 - `GET /admin/dashboard?from=&to=`: totals `premiumRevenue` (paid payments except ads), `adRevenue` (paid `ad_package` payments),
   `newUsers`, `newRestaurants`, `foodEntries` (by their own `logged_on` day) and `premiumUsers` (a current count, totals
   only: there is no tier history) + a daily series of the same fields except `premiumUsers`. Days are Vietnam days (UTC+7); default last 30 days.
