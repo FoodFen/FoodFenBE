@@ -23,10 +23,11 @@ class RestaurantRepositoryProtocol(Protocol):
     async def update(self, restaurant: Restaurant) -> None: ...
 
     async def list_for_admin(
-        self, needs_review: bool, status: ModerationStatus | None
-    ) -> list[AdminRestaurantRowDTO]:
-        """Oldest ``updated_at`` first. ``needs_review``: pending restaurants, or approved ones
-        with at least one pending dish."""
+        self, needs_review: bool, status: ModerationStatus | None, q: str | None, offset: int, limit: int
+    ) -> tuple[list[AdminRestaurantRowDTO], int]:
+        """Oldest ``updated_at`` first (id breaks ties): the page ``[offset, offset + limit)`` and the total
+        match count. ``needs_review``: pending restaurants, or approved ones with at least one pending
+        dish. ``q``: substring of the restaurant name, owner name or owner email."""
         ...
 
     async def add_dish(self, dish: Dish) -> None: ...

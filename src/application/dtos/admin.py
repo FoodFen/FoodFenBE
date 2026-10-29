@@ -33,9 +33,18 @@ class AdminRestaurantRowDTO:
 
 
 @dataclass(frozen=True)
+class AdminRestaurantListDTO:
+    restaurants: list[AdminRestaurantRowDTO]
+    total: int
+    next_cursor: str | None
+
+
+@dataclass(frozen=True)
 class AdminRestaurantDetailDTO:
     restaurant: RestaurantOutputDTO
     dishes: list[DishOutputDTO]
+    owner_name: str | None
+    owner_email: str
 
 
 @dataclass(frozen=True)

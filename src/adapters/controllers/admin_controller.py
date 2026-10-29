@@ -17,7 +17,7 @@ from src.adapters.schemas.admin_schemas import (
     AdminQuizQuestionResponse,
     AdminRestaurantDetailResponse,
     AdminPaymentListResponse,
-    AdminRestaurantRowResponse,
+    AdminRestaurantListResponse,
     AdminUserListResponse,
     DashboardResponse,
     ReviewRequest,
@@ -50,13 +50,20 @@ async def _send_notice(notifier: EmailVerificationNotifierProtocol, n: ReviewNot
     await notifier.send_review_result(n.email, n.name, n.restaurant_name, n.approved, n.reason, n.dish_name)
 
 
-@router.get("/restaurants", response_model=list[AdminRestaurantRowResponse])
+@router.get("/restaurants", response_model=AdminRestaurantListResponse)
 async def list_restaurants(
     use_case: ListAdminRestaurantsUseCaseDep,
     needs_review: Annotated[bool, Query(alias="needsReview")] = False,
     status: ModerationStatus | None = None,
-) -> list[AdminRestaurantRowResponse]:
-    return [AdminRestaurantRowResponse.from_dto(r) for r in await use_case.execute(needs_review, status)]
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    cursor: Annotated[str | None, Query(pattern=r"^\d{1,9}$")] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> AdminRestaurantListResponse:
+    """``q`` matches the restaurant name, owner name or owner email (case-insensitive substring).
+    ``cursor`` is opaque: pass back the previous page's ``nextCursor``."""
+    return AdminRestaurantListResponse.from_dto(
+        await use_case.execute(needs_review, status, q, int(cursor or 0), limit)
+    )
 
 
 @router.get("/restaurants/{restaurant_id}", response_model=AdminRestaurantDetailResponse)

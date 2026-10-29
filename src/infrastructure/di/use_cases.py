@@ -684,8 +684,10 @@ def get_list_admin_restaurants_use_case(restaurants: RestaurantRepositoryDep) ->
 ListAdminRestaurantsUseCaseDep = Annotated[ListAdminRestaurantsUseCase, Depends(get_list_admin_restaurants_use_case)]
 
 
-def get_get_admin_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> GetAdminRestaurantUseCase:
-    return GetAdminRestaurantUseCase(restaurants=restaurants)
+def get_get_admin_restaurant_use_case(
+    restaurants: RestaurantRepositoryDep, users: UserRepositoryDep
+) -> GetAdminRestaurantUseCase:
+    return GetAdminRestaurantUseCase(restaurants=restaurants, users=users)
 
 
 GetAdminRestaurantUseCaseDep = Annotated[GetAdminRestaurantUseCase, Depends(get_get_admin_restaurant_use_case)]

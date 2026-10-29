@@ -14,6 +14,7 @@ from src.application.dtos.admin import (
     AdminQuestDTO,
     AdminQuizQuestionDTO,
     AdminRestaurantDetailDTO,
+    AdminRestaurantListDTO,
     AdminRestaurantRowDTO,
     AdminUserListDTO,
     AdminUserRowDTO,
@@ -62,15 +63,33 @@ class AdminRestaurantRowResponse(CamelModel):
         return cls(**vars(dto))
 
 
+class AdminRestaurantListResponse(CamelModel):
+    restaurants: list[AdminRestaurantRowResponse]
+    total: int
+    next_cursor: str | None
+
+    @classmethod
+    def from_dto(cls, dto: AdminRestaurantListDTO) -> AdminRestaurantListResponse:
+        return cls(
+            restaurants=[AdminRestaurantRowResponse.from_dto(r) for r in dto.restaurants],
+            total=dto.total,
+            next_cursor=dto.next_cursor,
+        )
+
+
 class AdminRestaurantDetailResponse(CamelModel):
     restaurant: RestaurantResponse
     dishes: list[DishResponse]
+    owner_name: str | None
+    owner_email: str
 
     @classmethod
     def from_dto(cls, dto: AdminRestaurantDetailDTO) -> AdminRestaurantDetailResponse:
         return cls(
             restaurant=RestaurantResponse.from_dto(dto.restaurant),
             dishes=[DishResponse.from_dto(d) for d in dto.dishes],
+            owner_name=dto.owner_name,
+            owner_email=dto.owner_email,
         )
 
 
