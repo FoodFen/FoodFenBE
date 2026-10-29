@@ -221,8 +221,8 @@ CurrentAdminDep = Annotated[User, Depends(get_current_admin)]
 
 async def _reconcile_premium(user: User, subscriptions, users) -> bool:
     """Whether ``user`` is entitled to Premium right now — reconciling a lapsed
-    subscription first. There is no cron (manual-renewal model), so this is the
-    only place expiry is enforced. Used both by the hard gate below and by
+    subscription first. This lazy check is what enforces expiry; the daily sweep in
+    ``expiry_job.py`` only keeps the stored tier honest in between. Used both by the hard gate below and by
     features that only soft-degrade (e.g. dropping a Premium-only field)
     instead of denying the whole request.
     """

@@ -152,3 +152,15 @@ class AdPackageNotFoundException(EntityNotFoundException):
 
 class RestaurantNotApprovedException(DomainException):
     """Only an approved restaurant can buy placement. Maps to HTTP 409 with error code ``restaurant_not_approved``."""
+
+
+class MascotNotFoundException(EntityNotFoundException):
+    """No such mascot, or it is inactive."""
+
+
+class MascotAlreadyOwnedException(DomainException):
+    """The mascot is already the user's (or is free). Maps to HTTP 409 with error code ``mascot_already_owned``."""
+
+
+class MascotNotOwnedException(DomainException):
+    """The user has not bought this mascot. Maps to HTTP 409 with error code ``mascot_not_owned``."""

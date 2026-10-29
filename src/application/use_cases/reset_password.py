@@ -39,6 +39,6 @@ class ResetPasswordUseCase:
             raise InvalidTokenException("password reset link was already used")
         user.validate_password_strength(data.new_password)
 
-        user.password_hash = self.hasher.hash(data.new_password)
+        user.password_hash = await self.hasher.hash(data.new_password)
         await self.users.update(user)
         await self.refresh_tokens.revoke_all_for_user(user.id, datetime.now(UTC))

@@ -13,6 +13,7 @@ from src.infrastructure.db.models.coin_transaction_model import CoinTransactionO
 from src.infrastructure.db.models.daily_goal_model import DailyGoalORM
 from src.infrastructure.db.models.dish_model import DishORM
 from src.infrastructure.db.models.food_entry_model import FoodEntryORM, IngredientORM
+from src.infrastructure.db.models.mascot_model import MascotORM, UserMascotORM
 from src.infrastructure.db.models.payment_model import PaymentORM
 from src.infrastructure.db.models.quest_definition_model import QuestDefinitionORM
 from src.infrastructure.db.models.quest_model import QuestORM
@@ -40,6 +41,7 @@ __all__ = [
     "DishORM",
     "FoodEntryORM",
     "IngredientORM",
+    "MascotORM",
     "PaymentORM",
     "QuestDefinitionORM",
     "QuestORM",
@@ -51,6 +53,7 @@ __all__ = [
     "SocialIdentityORM",
     "StreakORM",
     "SubscriptionORM",
+    "UserMascotORM",
     "UserORM",
     "WaterLogORM",
     "WeightLogORM",

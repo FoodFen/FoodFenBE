@@ -39,10 +39,15 @@ class FakeRepo:
         self.dish = dish
 
 
+class NoUsers:
+    async def get_by_id(self, _id: int):
+        return None
+
+
 def _cases(repo: FakeRepo):
     return [
-        (ReviewRestaurantUseCase(repo), repo.restaurant, lambda: repo.restaurant),
-        (ReviewDishUseCase(repo), repo.dish, lambda: repo.dish),
+        (ReviewRestaurantUseCase(repo, NoUsers()), repo.restaurant, lambda: repo.restaurant),
+        (ReviewDishUseCase(repo, NoUsers()), repo.dish, lambda: repo.dish),
     ]
 
 
@@ -60,4 +65,5 @@ async def test_stale_expected_updated_at_raises_and_changes_nothing(which):
 async def test_matching_or_absent_expected_updated_at_reviews(which, matching):
     use_case, row, current = _cases(FakeRepo())[which]
     result = await use_case.execute(row.id, ReviewDecision.APPROVED, None, row.updated_at if matching else None)
-    assert result.status == ModerationStatus.APPROVED and current().status == ModerationStatus.APPROVED
+    assert current().status == ModerationStatus.APPROVED
+    assert (result.restaurant if which == 0 else result.dish).status == ModerationStatus.APPROVED

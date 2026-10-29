@@ -40,12 +40,21 @@ class RecordingNotifier:
     def __init__(self) -> None:
         self.sent: list[dict[str, str]] = []
         self.password_resets: list[dict[str, str]] = []
+        self.reviews: list[dict] = []
 
     async def send_verification(self, email: str, name: str | None, token: str) -> None:
         self.sent.append({"email": email, "name": name, "token": token})
 
     async def send_password_reset(self, email: str, name: str | None, token: str) -> None:
         self.password_resets.append({"email": email, "name": name, "token": token})
+
+    async def send_review_result(
+        self, email, name, restaurant_name, approved, reason, dish_name=None
+    ) -> None:
+        self.reviews.append({
+            "email": email, "restaurant": restaurant_name, "approved": approved,
+            "reason": reason, "dish": dish_name,
+        })
 
     @property
     def last_token(self) -> str:

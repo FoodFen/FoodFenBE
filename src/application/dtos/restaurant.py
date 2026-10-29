@@ -183,3 +183,27 @@ class PublicRestaurantDTO:
     longitude: float
     image_url: str | None
     dishes: list[PublicDishDTO]
+
+
+@dataclass(frozen=True)
+class ReviewNoticeDTO:
+    """What the controller needs to email the owner about a review that changed a status."""
+
+    email: str
+    name: str | None
+    restaurant_name: str
+    approved: bool
+    reason: str | None
+    dish_name: str | None = None
+
+
+@dataclass(frozen=True)
+class RestaurantReviewResultDTO:
+    restaurant: RestaurantOutputDTO
+    notice: ReviewNoticeDTO | None
+
+
+@dataclass(frozen=True)
+class DishReviewResultDTO:
+    dish: DishOutputDTO
+    notice: ReviewNoticeDTO | None

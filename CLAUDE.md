@@ -153,7 +153,7 @@ async def create_user(
   OAuth2 spec) exists only as that form's target; it's `include_in_schema=False` and calls the same
   `LoginUseCase` as the real, JSON `POST /auth/sign-in`. Requires `python-multipart`.
 - **Never** log, return, or persist a plaintext password. Hashing is `PasswordHasherProtocol`
-  (bcrypt, cost 12) — the domain never sees bcrypt. No JWT is stored; only the refresh token's `jti` is.
+  (bcrypt, cost 12; `async`, runs bcrypt in `asyncio.to_thread` so it never blocks the loop) — the domain never sees bcrypt. No JWT is stored; only the refresh token's `jti` is.
 - **Never** raise `HTTPException` for auth failures. Raise a `DomainException` subclass
   (`InvalidCredentialsException`/`InvalidTokenException` → 401); `src/adapters/exception_handlers.py`
   maps the type to a status. 401s also carry `WWW-Authenticate: Bearer`.
@@ -224,6 +224,11 @@ Design + defaults: `docs/superpowers/specs/2026-09-30-coins-quests-design.md`.
 - **The catalog is the `quest_definitions` table** (seeded in migration 0012). What each `QuestType`
   *measures* lives in `SQLAlchemyQuestRepository.measure()`; a new type needs an evaluator there.
 - **`PlanType.COIN_REDEEM` is not purchasable** — `CreateCheckoutRequest` only accepts monthly/annual.
+- **Mascots** (spec `docs/superpowers/specs/2026-10-19-mascots-design.md`, `mascot_controller.py`, `CurrentUserDep`):
+  `GET /mascots`, `POST /mascots/{id}/purchase` (`spend` ledger line, same lock as redeem), `PUT /mascots/equipped`.
+  Catalogue is the `mascots` table (seeded in 0026; its PK is the slug the app's artwork keys on — the second
+  deliberate non-UUID PK). `coin_cost == 0` = owned by everyone, no `user_mascots` row. `users.equipped_mascot_id`
+  is not on the `User` entity; only the mascot repository touches it (`user_repository.update` skips it).
 
 ## Quiz
 

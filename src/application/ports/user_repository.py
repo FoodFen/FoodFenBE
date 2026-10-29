@@ -17,3 +17,8 @@ class UserRepositoryProtocol(Protocol):
     async def update(self, user: User) -> User:
         """Persist changes to an existing user. Raise ``UserNotFoundException`` if it is gone."""
         ...
+
+    async def lock(self, user_id: int) -> None:
+        """Hold the user's row until the transaction ends, so concurrent grants for that user
+        (two payments confirmed at once) run one after another instead of racing."""
+        ...

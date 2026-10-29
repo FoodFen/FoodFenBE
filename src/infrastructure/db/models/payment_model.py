@@ -1,4 +1,4 @@
-"""ORM model for payments — one row per PayOS checkout attempt."""
+"""ORM model for payments — one row per checkout attempt (PayOS or MoMo; Premium or an ad package)."""
 
 from __future__ import annotations
 

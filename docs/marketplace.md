@@ -50,6 +50,7 @@ Five pieces, built in this order:
 | 2026-10-12 | Admin creates and edits packages (days, price, active) on the admin web; no delete (deactivate instead); the migration seeds one (7 days, 99 000 VND) | Payments snapshot the days and amount, so an edit never changes a pending order and history survives |
 | 2026-10-12 | Buying while featured extends from the current end; no refund if the admin takes the restaurant down mid-package (its dishes just stop being public, the days keep running) | Simple and predictable; the takedown is the restaurant's own doing |
 | 2026-10-12 | Only an approved restaurant can buy placement; payment goes through the existing PayOS / MoMo checkout (`plan_type = ad_package`), the return URL is FoodFenWeb's `/restaurant/ads` | Reuses the payment flow, status polling and webhooks as they are; ad payments count as `adRevenue`, never `premiumRevenue`, and grant no Premium |
+| 2026-10-29 | The owner is emailed the result of a review, only when the status actually changes: restaurant approved, restaurant rejected or taken down (with the reason), dish rejected or taken down (with dish name and reason). Dish approvals send nothing. The email links to the owner portal (`/restaurant`) | The owner should not have to reopen the portal to find out. Dish approvals are silent because the web admin approves all pending dishes with one request per dish, which would mean an email per dish; a repeated review with the same status is idempotent and sends nothing |
 
 ## Roles and permissions
 
@@ -135,6 +136,9 @@ Only the latest review is kept (status columns on each row); there is no review 
   restaurant down at any time (set it to `rejected` with a reason).
 - Owners delete dishes outright (nothing references a dish yet).
 - **Public** = an `approved` dish of an `approved` restaurant. Nothing else is ever shown to diners.
+- **Owner email**: a review that changes a status emails the owner (restaurant approved or rejected,
+  dish rejected, each with the reason where there is one). Dish approvals and repeated reviews send nothing.
+  Sent from the admin controller as a background task, like the account emails.
 
 ## API
 
