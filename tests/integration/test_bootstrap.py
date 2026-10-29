@@ -114,3 +114,29 @@ async def test_seed_demo_adds_missing_dish_to_already_seeded_restaurant(session)
     back = [d for d, _ in public if d.name == "Gỏi cuốn chay (4 cuốn)"]
     assert len(public) == 18 and len(back) == 1
     assert back[0].diet_tag == DishDiet.VEGAN and back[0].status == ModerationStatus.APPROVED
+
+
+async def test_seed_demo_gives_every_restaurant_and_dish_an_image(session):
+    await seed_demo(session)
+
+    public = await SQLAlchemyRestaurantRepository(session).list_public_dishes()
+    assert len(public) == 18
+    assert all(d.image_url and r.image_url for d, r in public)
+
+
+async def test_seed_demo_backfills_empty_images_but_keeps_existing_ones(session):
+    await seed_demo(session)
+    repo = SQLAlchemyRestaurantRepository(session)
+    public = await repo.list_public_dishes()
+    dish_a, restaurant = public[0]
+    dish_b = public[1][0]
+    restaurant.image_url, dish_a.image_url, dish_b.image_url = None, "", "https://owner.example/own.jpg"
+    await repo.update(restaurant)
+    await repo.update_dish(dish_a)
+    await repo.update_dish(dish_b)
+
+    await seed_demo(session)
+
+    assert (await repo.get_by_id(restaurant.id)).image_url
+    assert (await repo.get_dish(dish_a.id)).image_url
+    assert (await repo.get_dish(dish_b.id)).image_url == "https://owner.example/own.jpg"
