@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field, replace
+from types import EllipsisType
 
 from src.domain.enums import MascotState
 from src.domain.exceptions import (
@@ -19,6 +20,7 @@ FREE_MASCOT_ID = "default"
 HAND_DRAWN_IDS = frozenset({"default", "sprout", "berry", "chili"})
 
 _SLUG = re.compile(r"[a-z0-9_-]{1,32}")
+_COLOR = re.compile(r"#[0-9A-Fa-f]{6}")
 _MAX_NAME = 40
 _MAX_COST = 1_000_000
 
@@ -30,6 +32,7 @@ class Mascot:
     coin_cost: int
     active: bool = True
     images: dict[MascotState, str] = field(default_factory=dict)  # at most one URL per state
+    body_color: str | None = None  # "#RRGGBB" for the circle behind the art; None = the app's theme default
 
     def __post_init__(self) -> None:
         if not _SLUG.fullmatch(self.id):
@@ -39,13 +42,21 @@ class Mascot:
             raise InvalidMascotException(f"name must be at most {_MAX_NAME} characters")
         if not 0 <= self.coin_cost <= _MAX_COST:
             raise InvalidMascotException(f"coin_cost must be between 0 and {_MAX_COST}, got {self.coin_cost!r}")
+        if self.body_color is not None and not _COLOR.fullmatch(self.body_color):
+            raise InvalidMascotException(f"body_color must be #RRGGBB, got {self.body_color!r}")
 
     @classmethod
     def create(
-        cls, id: str, name: str, coin_cost: int, active: bool = False, images: dict[MascotState, str] | None = None
+        cls,
+        id: str,
+        name: str,
+        coin_cost: int,
+        active: bool = False,
+        images: dict[MascotState, str] | None = None,
+        body_color: str | None = None,
     ) -> Mascot:
         """New mascots are drafts (inactive) unless asked otherwise."""
-        mascot = cls(id=id, name=name, coin_cost=coin_cost, active=active, images=dict(images or {}))
+        mascot = cls(id=id, name=name, coin_cost=coin_cost, active=active, images=dict(images or {}), body_color=body_color)
         mascot._check_rules()
         return mascot
 
@@ -55,9 +66,11 @@ class Mascot:
         coin_cost: int | None = None,
         active: bool | None = None,
         images: dict[MascotState, str | None] | None = None,
+        body_color: str | None | EllipsisType = ...,
     ) -> None:
         """Only the given fields change. ``images`` merges per state: a URL sets it, ``None`` removes it,
-        an absent state is untouched. Invalid input raises before anything changes."""
+        an absent state is untouched.
+        ``body_color``: ``...`` keeps it, ``None`` resets it to the app default. Invalid input raises before anything changes."""
         merged = dict(self.images)
         for state, url in (images or {}).items():
             if url is None:
@@ -70,9 +83,11 @@ class Mascot:
             coin_cost=self.coin_cost if coin_cost is None else coin_cost,
             active=self.active if active is None else active,
             images=merged,
+            body_color=self.body_color if body_color is ... else body_color,
         )  # replace() re-runs __post_init__
         changed._check_rules()
         self.name, self.coin_cost, self.active, self.images = changed.name, changed.coin_cost, changed.active, merged
+        self.body_color = changed.body_color
 
     def ensure_deletable(self) -> None:
         if self.id == FREE_MASCOT_ID:

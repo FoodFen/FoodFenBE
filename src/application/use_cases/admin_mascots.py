@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import EllipsisType
 
 from src.application.dtos.mascot import AdminMascotDTO
 from src.application.ports.mascot_repository import MascotRepositoryProtocol
@@ -24,11 +25,17 @@ class CreateMascotUseCase:
     mascots: MascotRepositoryProtocol
 
     async def execute(
-        self, mascot_id: str, name: str, coin_cost: int, active: bool, images: dict[MascotState, str]
+        self,
+        mascot_id: str,
+        name: str,
+        coin_cost: int,
+        active: bool,
+        images: dict[MascotState, str],
+        body_color: str | None,
     ) -> AdminMascotDTO:
         if await self.mascots.get(mascot_id) is not None:
             raise MascotIdTakenException(f"mascot {mascot_id!r} already exists")
-        mascot = Mascot.create(mascot_id, name, coin_cost, active, images)
+        mascot = Mascot.create(mascot_id, name, coin_cost, active, images, body_color)
         await self.mascots.add(mascot)
         return AdminMascotDTO.from_entity(mascot, 0, 0)
 
@@ -44,11 +51,12 @@ class UpdateMascotUseCase:
         coin_cost: int | None,
         active: bool | None,
         images: dict[MascotState, str | None] | None,
+        body_color: str | None | EllipsisType,
     ) -> AdminMascotDTO:
         mascot = await self.mascots.get(mascot_id)
         if mascot is None:
             raise MascotNotFoundException(f"no mascot {mascot_id!r}")
-        mascot.update(name, coin_cost, active, images)
+        mascot.update(name, coin_cost, active, images, body_color)
         await self.mascots.update(mascot)
         return AdminMascotDTO.from_entity(mascot, *await self.mascots.usage(mascot_id))
 

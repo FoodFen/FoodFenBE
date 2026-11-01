@@ -61,6 +61,7 @@ class SQLAlchemyMascotRepository:
     async def update(self, mascot: Mascot) -> None:
         row = await self._session.get(MascotORM, mascot.id)
         row.name, row.coin_cost, row.active = mascot.name, mascot.coin_cost, mascot.active
+        row.body_color = mascot.body_color
         stored = {i.state: i for i in row.images}
         for state, image in stored.items():
             if state not in mascot.images:

@@ -189,7 +189,7 @@ async def list_mascots(use_case: ListAdminMascotsUseCaseDep) -> list[AdminMascot
 @router.post("/mascots", response_model=AdminMascotResponse, status_code=status.HTTP_201_CREATED)
 async def create_mascot(body: CreateMascotRequest, use_case: CreateMascotUseCaseDep) -> AdminMascotResponse:
     return AdminMascotResponse.from_dto(
-        await use_case.execute(body.id, body.name, body.coin_cost, body.active, body.images)
+        await use_case.execute(body.id, body.name, body.coin_cost, body.active, body.images, body.body_color)
     )
 
 
@@ -198,7 +198,15 @@ async def update_mascot(
     mascot_id: str, body: UpdateMascotRequest, use_case: UpdateMascotUseCaseDep
 ) -> AdminMascotResponse:
     return AdminMascotResponse.from_dto(
-        await use_case.execute(mascot_id, body.name, body.coin_cost, body.active, body.images)
+        await use_case.execute(
+            mascot_id,
+            body.name,
+            body.coin_cost,
+            body.active,
+            body.images,
+            # Absent = keep (...), explicit null = reset to the app default.
+            body.body_color if "body_color" in body.model_fields_set else ...,
+        )
     )
 
 

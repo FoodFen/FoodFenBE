@@ -46,9 +46,9 @@ async def test_fresh_user_owns_and_equips_only_the_free_mascot(client, auth):
         "balance": 0,
         "equippedId": "default",
         "mascots": [  # ordered by coinCost, inactive ones not listed
-            {"id": "default", "name": "Fen", "coinCost": 0, "owned": True, "images": {}},
-            {"id": "sprout", "name": "Sprout", "coinCost": 300, "owned": False, "images": {}},
-            {"id": "berry", "name": "Berry", "coinCost": 600, "owned": False, "images": {}},
+            {"id": "default", "name": "Fen", "coinCost": 0, "owned": True, "images": {}, "bodyColor": None},
+            {"id": "sprout", "name": "Sprout", "coinCost": 300, "owned": False, "images": {}, "bodyColor": None},
+            {"id": "berry", "name": "Berry", "coinCost": 600, "owned": False, "images": {}, "bodyColor": None},
         ],
     }
 

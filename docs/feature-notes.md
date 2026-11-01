@@ -144,7 +144,8 @@ Design + defaults: `docs/superpowers/specs/2026-09-30-coins-quests-design.md`.
   `PATCH|DELETE /admin/mascots/{id}` (`images` merges per state, `null` removes) and uploads via `POST /admin/images`
   (no rate limit). Rules live in `Mascot.create/update`: `default` stays active and free and is never deleted; an
   active mascot needs an `idle` image except the hand-drawn `HAND_DRAWN_IDS`; delete only when nobody owns or equips
-  it (else 409 `mascot_in_use`, hide instead). New mascots default to inactive.
+  it (else 409 `mascot_in_use`, hide instead). New mascots default to inactive. `bodyColor` (`mascots.body_color`,
+  0031) is the app's body circle: `#RRGGBB` or null = app theme green; PATCH absent keeps it, `null` resets it.
 
 ## Quiz
 

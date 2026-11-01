@@ -22,6 +22,7 @@ class MascotORM(Base):
     name: Mapped[str] = mapped_column(String(40), nullable=False)
     coin_cost: Mapped[int] = mapped_column(Integer, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    body_color: Mapped[str | None] = mapped_column(String(7), nullable=True)  # "#RRGGBB"; NULL = app theme default
 
     # delete-orphan: the FK's ON DELETE CASCADE isn't enforced everywhere (SQLite tests), the ORM must cover it too.
     images: Mapped[list[MascotImageORM]] = relationship(lazy="selectin", cascade="all, delete-orphan")
@@ -33,6 +34,7 @@ class MascotORM(Base):
             coin_cost=self.coin_cost,
             active=self.active,
             images={i.state: i.url for i in self.images},
+            body_color=self.body_color,
         )
 
     @classmethod
@@ -42,6 +44,7 @@ class MascotORM(Base):
             name=mascot.name,
             coin_cost=mascot.coin_cost,
             active=mascot.active,
+            body_color=mascot.body_color,
             images=[MascotImageORM(state=s, url=u) for s, u in mascot.images.items()],
         )
 

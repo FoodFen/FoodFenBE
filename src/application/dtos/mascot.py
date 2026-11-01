@@ -15,6 +15,7 @@ class MascotOutputDTO:
     coin_cost: int
     owned: bool
     images: dict[MascotState, str]  # only the states that have one
+    body_color: str | None  # "#RRGGBB"; None = the app's theme default
 
 
 @dataclass(frozen=True)
@@ -31,9 +32,10 @@ class AdminMascotDTO:
     coin_cost: int
     active: bool
     images: dict[MascotState, str]
+    body_color: str | None
     owner_count: int  # user_mascots rows
     equipped_count: int  # users with it equipped
 
     @classmethod
     def from_entity(cls, m: Mascot, owner_count: int, equipped_count: int) -> AdminMascotDTO:
-        return cls(m.id, m.name, m.coin_cost, m.active, dict(m.images), owner_count, equipped_count)
+        return cls(m.id, m.name, m.coin_cost, m.active, dict(m.images), m.body_color, owner_count, equipped_count)

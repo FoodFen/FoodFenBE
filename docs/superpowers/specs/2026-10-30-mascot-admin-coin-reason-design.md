@@ -70,6 +70,19 @@ All under the admin router (`get_current_admin`, 403). Item shape everywhere:
   `src/application/use_cases/admin_mascots.py`. Repository port gains `list_all` (with the two counts),
   `get` (any status), `add`, `update`, `delete`.
 
+## Part D — body colour (added 2026-11-01, asked by the mobile session)
+
+Server art is the character only; the app fills a body circle behind it. Admin picks that circle's colour.
+
+- `mascots.body_color`: nullable `String(7)`, `#RRGGBB` (migration `0031`, existing rows NULL). **NULL = the app's
+  theme green** (light/dark differ, so no default hex is stored).
+- Entity `Mascot.body_color: str | None = None`, checked in `__post_init__` against `^#[0-9A-Fa-f]{6}$`
+  (`InvalidMascotException`), stored as given. Request schemas repeat the pattern so bad input is a plain 422.
+- Wire: `bodyColor: string | null` on `MascotResponse` (`GET /mascots`, purchase) and `AdminMascotResponse`.
+  `POST /admin/mascots` takes optional `bodyColor` (default null). `PATCH`: absent = unchanged, explicit `null` =
+  back to default. Pydantic can't tell those apart by value, so the controller passes `...` (Ellipsis, "keep")
+  unless `"body_color" in body.model_fields_set`; `Mascot.update(body_color=...)` defaults to `...` as well.
+
 ## Web admin UX (FoodFenWeb) — "as easy as possible"
 
 Mirrors `features/admin/ad-packages-*`, plus:

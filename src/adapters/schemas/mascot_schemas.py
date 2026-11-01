@@ -18,6 +18,7 @@ class MascotResponse(CamelModel):
     coin_cost: int
     owned: bool
     images: dict[MascotState, str]  # only states that have one; the app falls back to `idle`
+    body_color: str | None  # "#RRGGBB"; null = the app's theme default
 
 
 class MascotsResponse(CamelModel):
@@ -54,6 +55,7 @@ class AdminMascotResponse(CamelModel):
     coin_cost: int
     active: bool
     images: dict[MascotState, str]
+    body_color: str | None
     owner_count: int
     equipped_count: int
 
@@ -68,12 +70,15 @@ class CreateMascotRequest(CamelModel):
     coin_cost: int = Field(ge=0, le=1_000_000)
     active: bool = False  # a draft until the admin has finished the art
     images: dict[MascotState, _ArtUrl] = {}
+    body_color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
 class UpdateMascotRequest(CamelModel):
-    """Partial: an absent (or null) field is left as is. ``images`` merges per state; ``null`` removes a state."""
+    """Partial: an absent (or null) field is left as is. ``images`` merges per state; ``null`` removes a state.
+    ``body_color`` is the exception: an explicit ``null`` resets it (the controller checks ``model_fields_set``)."""
 
     name: str | None = Field(default=None, min_length=1, max_length=40)
     coin_cost: int | None = Field(default=None, ge=0, le=1_000_000)
     active: bool | None = None
     images: dict[MascotState, _ArtUrl | None] | None = None
+    body_color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")

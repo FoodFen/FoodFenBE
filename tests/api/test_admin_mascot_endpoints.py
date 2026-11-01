@@ -40,7 +40,8 @@ async def _credit(user_id: int, amount: int) -> None:
 async def test_list_starts_with_the_seeded_default(client, admin):
     listed = (await client.get("/admin/mascots", headers=admin)).json()
     assert listed == [
-        {"id": "default", "name": "Fen", "coinCost": 0, "active": True, "images": {}, "ownerCount": 0, "equippedCount": 1}
+        {"id": "default", "name": "Fen", "coinCost": 0, "active": True, "images": {}, "bodyColor": None, "ownerCount": 0,
+         "equippedCount": 1}
     ]  # the admin themself has the free mascot equipped
 
 
@@ -70,7 +71,7 @@ async def test_create_returns_201_and_defaults_to_an_inactive_draft(client, admi
     assert resp.status_code == 201
     assert resp.json() == {
         "id": "mochi", "name": "Mochi", "coinCost": 300, "active": False,
-        "images": {}, "ownerCount": 0, "equippedCount": 0,
+        "images": {}, "bodyColor": None, "ownerCount": 0, "equippedCount": 0,
     }
 
 
@@ -121,6 +122,36 @@ async def test_patch_updates_fields(client, admin):
     resp = await client.patch("/admin/mascots/mochi", json={"name": "Moo", "coinCost": 450}, headers=admin)
     assert resp.status_code == 200
     assert (resp.json()["name"], resp.json()["coinCost"], resp.json()["active"]) == ("Moo", 450, False)
+
+
+async def test_body_color_round_trips_through_create_list_and_the_public_catalogue(client, admin, make_user):
+    resp = await _create(client, admin, bodyColor="#A1b2C3", active=True, images={"idle": _img("i")})
+    assert resp.status_code == 201 and resp.json()["bodyColor"] == "#A1b2C3"
+    await _create(client, admin, "plain", coinCost=100)
+    admin_by_id = {m["id"]: m for m in (await client.get("/admin/mascots", headers=admin)).json()}
+    assert (admin_by_id["mochi"]["bodyColor"], admin_by_id["plain"]["bodyColor"]) == ("#A1b2C3", None)
+    user, _ = await make_user("u@example.com")
+    public = {m["id"]: m for m in (await client.get("/mascots", headers=user)).json()["mascots"]}
+    assert (public["mochi"]["bodyColor"], public["default"]["bodyColor"]) == ("#A1b2C3", None)
+
+
+async def test_patch_body_color_absent_keeps_null_resets_value_sets(client, admin):
+    await _create(client, admin, bodyColor="#112233")
+    resp = await client.patch("/admin/mascots/mochi", json={"name": "Moo"}, headers=admin)
+    assert resp.json()["bodyColor"] == "#112233"  # absent = unchanged
+    resp = await client.patch("/admin/mascots/mochi", json={"bodyColor": "#ABCDEF"}, headers=admin)
+    assert resp.json()["bodyColor"] == "#ABCDEF"
+    resp = await client.patch("/admin/mascots/mochi", json={"bodyColor": None}, headers=admin)
+    assert resp.status_code == 200 and resp.json()["bodyColor"] is None  # explicit null = reset
+    assert (await client.get("/admin/mascots", headers=admin)).json()[-1]["bodyColor"] is None
+
+
+async def test_bad_body_color_is_422_on_create_and_patch(client, admin):
+    for bad in ("red", "#12345", "#GGGGGG", "123456"):
+        assert (await _create(client, admin, bodyColor=bad)).status_code == 422
+    await _create(client, admin)
+    resp = await client.patch("/admin/mascots/mochi", json={"bodyColor": "red"}, headers=admin)
+    assert resp.status_code == 422
 
 
 async def test_patch_images_merge_set_remove_untouched(client, admin):

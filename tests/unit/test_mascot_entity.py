@@ -84,6 +84,34 @@ def test_update_cannot_activate_without_idle_but_can_in_the_same_call_as_adding_
     assert m.active
 
 
+def test_body_color_is_optional_and_accepts_rrggbb_as_given():
+    assert Mascot.create("mochi", "Mochi", 0).body_color is None
+    assert Mascot.create("mochi", "Mochi", 0, body_color="#aBc123").body_color == "#aBc123"
+
+
+@pytest.mark.parametrize("color", ["red", "#12345", "#GGGGGG", "123456", "#1234567", ""])
+def test_create_rejects_a_bad_body_color(color):
+    with pytest.raises(InvalidMascotException):
+        Mascot.create("mochi", "Mochi", 0, body_color=color)
+
+
+def test_update_body_color_keep_reset_set():
+    m = Mascot.create("mochi", "Mochi", 0, body_color="#112233")
+    m.update(name="Moo")
+    assert m.body_color == "#112233"
+    m.update(body_color="#ABCDEF")
+    assert m.body_color == "#ABCDEF"
+    m.update(body_color=None)
+    assert m.body_color is None
+
+
+def test_update_with_a_bad_body_color_changes_nothing():
+    m = Mascot.create("mochi", "Mochi", 100, body_color="#112233")
+    with pytest.raises(InvalidMascotException):
+        m.update(name="New", body_color="nope")
+    assert (m.name, m.body_color) == ("Mochi", "#112233")
+
+
 def test_update_rejects_bad_values_and_leaves_the_mascot_unchanged():
     m = Mascot.create("mochi", "Mochi", 100)
     with pytest.raises(InvalidMascotException):
