@@ -164,3 +164,23 @@ class MascotAlreadyOwnedException(DomainException):
 
 class MascotNotOwnedException(DomainException):
     """The user has not bought this mascot. Maps to HTTP 409 with error code ``mascot_not_owned``."""
+
+
+class InvalidMascotException(InvalidAttributeException):
+    """A mascot id, name or price violates a domain invariant. Maps to HTTP 422."""
+
+
+class MascotIdTakenException(DomainException):
+    """A mascot with this id exists. Maps to HTTP 409 with error code ``mascot_id_taken``."""
+
+
+class MascotDefaultLockedException(DomainException):
+    """The free ``default`` mascot can't be hidden, priced or deleted. Maps to HTTP 409 with error code ``mascot_default_locked``."""
+
+
+class MascotMissingIdleImageException(DomainException):
+    """An active mascot needs an ``idle`` image. Maps to HTTP 409 with error code ``mascot_missing_idle_image``."""
+
+
+class MascotInUseException(DomainException):
+    """Someone owns or has equipped the mascot, so it can only be hidden. Maps to HTTP 409 with error code ``mascot_in_use``."""

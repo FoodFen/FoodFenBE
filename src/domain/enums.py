@@ -166,6 +166,21 @@ class CoinReason(StrEnum):
     ADJUSTMENT = "adjustment"
     QUIZ_DAILY = "quiz_daily"
     QUIZ_PRACTICE = "quiz_practice"
+    MASCOT_PURCHASE = "mascot_purchase"
+
+
+class MascotState(StrEnum):
+    """What the app's mascot is doing. `idle` is the base image, used for any state without its own."""
+
+    IDLE = "idle"
+    HUNGRY = "hungry"
+    THIRSTY = "thirsty"
+    EATING = "eating"
+    DRINKING = "drinking"
+    EXERCISING = "exercising"
+    THINKING = "thinking"
+    HAPPY = "happy"
+    CONFUSED = "confused"
 
 
 class UserRole(StrEnum):

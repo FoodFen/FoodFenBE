@@ -1,14 +1,16 @@
-"""ORM models for the mascot catalogue (edited with SQL) and which ones users bought."""
+"""ORM models for the mascot catalogue (managed by admin), its per-state artwork and which ones users bought."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.domain.entities.mascot import Mascot
+from src.domain.enums import MascotState
 from src.infrastructure.db.base import Base
+from src.infrastructure.db.types import enum_column
 
 
 class MascotORM(Base):
@@ -21,8 +23,39 @@ class MascotORM(Base):
     coin_cost: Mapped[int] = mapped_column(Integer, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
 
+    # delete-orphan: the FK's ON DELETE CASCADE isn't enforced everywhere (SQLite tests), the ORM must cover it too.
+    images: Mapped[list[MascotImageORM]] = relationship(lazy="selectin", cascade="all, delete-orphan")
+
     def to_domain(self) -> Mascot:
-        return Mascot(id=self.id, name=self.name, coin_cost=self.coin_cost)
+        return Mascot(
+            id=self.id,
+            name=self.name,
+            coin_cost=self.coin_cost,
+            active=self.active,
+            images={i.state: i.url for i in self.images},
+        )
+
+    @classmethod
+    def from_domain(cls, mascot: Mascot) -> MascotORM:
+        return cls(
+            id=mascot.id,
+            name=mascot.name,
+            coin_cost=mascot.coin_cost,
+            active=mascot.active,
+            images=[MascotImageORM(state=s, url=u) for s, u in mascot.images.items()],
+        )
+
+
+class MascotImageORM(Base):
+    """One image per (mascot, state). `idle` is the base the app falls back to."""
+
+    __tablename__ = "mascot_images"
+
+    mascot_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("mascots.id", ondelete="CASCADE"), primary_key=True
+    )
+    state: Mapped[MascotState] = mapped_column(enum_column(MascotState, "mascot_state"), primary_key=True)
+    url: Mapped[str] = mapped_column(String(2048), nullable=False)
 
 
 class UserMascotORM(Base):

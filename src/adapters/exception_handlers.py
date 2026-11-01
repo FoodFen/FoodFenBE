@@ -21,8 +21,13 @@ from src.domain.exceptions import (
     EntityNotFoundException,
     InsufficientCoinsException,
     InvalidAttributeException,
+    InvalidMascotException,
     InvalidWebhookSignatureException,
     MascotAlreadyOwnedException,
+    MascotDefaultLockedException,
+    MascotIdTakenException,
+    MascotInUseException,
+    MascotMissingIdleImageException,
     MascotNotOwnedException,
     PaymentProviderUnavailableException,
     PremiumRequiredException,
@@ -41,6 +46,7 @@ from src.domain.exceptions import (
 EXCEPTION_STATUS: list[tuple[type[DomainException], int]] = [
     (InvalidWebhookSignatureException, 401),  # a more specific AuthenticationException
     (InvalidAdPackageException, 422),
+    (InvalidMascotException, 422),
     (InvalidAttributeException, 400),  # + InvalidUserAttributeException, WeakPasswordException, InvalidPaymentStateException
     (AuthenticationException, 401),  # + InvalidCredentialsException, InvalidTokenException
     (PremiumRequiredException, 402),
@@ -130,5 +136,9 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(RestaurantNotApprovedException, _restaurant_not_approved_handler)
     app.add_exception_handler(MascotAlreadyOwnedException, _conflict_with_code("mascot_already_owned"))
     app.add_exception_handler(MascotNotOwnedException, _conflict_with_code("mascot_not_owned"))
+    app.add_exception_handler(MascotIdTakenException, _conflict_with_code("mascot_id_taken"))
+    app.add_exception_handler(MascotDefaultLockedException, _conflict_with_code("mascot_default_locked"))
+    app.add_exception_handler(MascotMissingIdleImageException, _conflict_with_code("mascot_missing_idle_image"))
+    app.add_exception_handler(MascotInUseException, _conflict_with_code("mascot_in_use"))
     for exc_type, status_code in EXCEPTION_STATUS:
         app.add_exception_handler(exc_type, _domain_exception_handler(status_code))

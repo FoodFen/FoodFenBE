@@ -43,6 +43,12 @@ from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
 from src.application.use_cases.list_activity_logs import ListActivityLogsUseCase
 from src.application.use_cases.list_chat_messages import ListChatMessagesUseCase
+from src.application.use_cases.admin_mascots import (
+    CreateMascotUseCase,
+    DeleteMascotUseCase,
+    ListAdminMascotsUseCase,
+    UpdateMascotUseCase,
+)
 from src.application.use_cases.equip_mascot import EquipMascotUseCase
 from src.application.use_cases.get_mascots import GetMascotsUseCase
 from src.application.use_cases.list_coin_transactions import ListCoinTransactionsUseCase
@@ -548,6 +554,22 @@ def get_equip_mascot_use_case(mascots: MascotRepositoryDep) -> EquipMascotUseCas
     return EquipMascotUseCase(mascots=mascots)
 
 
+def get_list_admin_mascots_use_case(mascots: MascotRepositoryDep) -> ListAdminMascotsUseCase:
+    return ListAdminMascotsUseCase(mascots=mascots)
+
+
+def get_create_mascot_use_case(mascots: MascotRepositoryDep) -> CreateMascotUseCase:
+    return CreateMascotUseCase(mascots=mascots)
+
+
+def get_update_mascot_use_case(mascots: MascotRepositoryDep) -> UpdateMascotUseCase:
+    return UpdateMascotUseCase(mascots=mascots)
+
+
+def get_delete_mascot_use_case(mascots: MascotRepositoryDep) -> DeleteMascotUseCase:
+    return DeleteMascotUseCase(mascots=mascots)
+
+
 def get_list_plans_use_case(providers: PaymentProvidersDep) -> ListPlansUseCase:
     return ListPlansUseCase(
         monthly_price_vnd=settings.payos_monthly_price_vnd,
@@ -567,6 +589,10 @@ ListCoinBundlesUseCaseDep = Annotated[
 GetMascotsUseCaseDep = Annotated[GetMascotsUseCase, Depends(get_get_mascots_use_case)]
 PurchaseMascotUseCaseDep = Annotated[PurchaseMascotUseCase, Depends(get_purchase_mascot_use_case)]
 EquipMascotUseCaseDep = Annotated[EquipMascotUseCase, Depends(get_equip_mascot_use_case)]
+ListAdminMascotsUseCaseDep = Annotated[ListAdminMascotsUseCase, Depends(get_list_admin_mascots_use_case)]
+CreateMascotUseCaseDep = Annotated[CreateMascotUseCase, Depends(get_create_mascot_use_case)]
+UpdateMascotUseCaseDep = Annotated[UpdateMascotUseCase, Depends(get_update_mascot_use_case)]
+DeleteMascotUseCaseDep = Annotated[DeleteMascotUseCase, Depends(get_delete_mascot_use_case)]
 ListPlansUseCaseDep = Annotated[ListPlansUseCase, Depends(get_list_plans_use_case)]
 
 

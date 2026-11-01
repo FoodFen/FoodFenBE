@@ -33,5 +33,5 @@ class PurchaseMascotUseCase:
         if balance < mascot.coin_cost:
             raise InsufficientCoinsException(f"need {mascot.coin_cost} coins, have {balance}")
         await self.mascots.add_owned(user_id, mascot_id)
-        await self.coins.add(CoinTransaction.create(user_id, -mascot.coin_cost, CoinReason.SPEND))
+        await self.coins.add(CoinTransaction.create(user_id, -mascot.coin_cost, CoinReason.MASCOT_PURCHASE))
         return await GetMascotsUseCase(self.coins, self.mascots).execute(user_id)

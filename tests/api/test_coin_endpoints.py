@@ -236,6 +236,7 @@ async def test_redeem_with_same_client_id_spends_once(client, auth):
     assert bodies[1]["balance"] == 700
     txs = (await client.get("/coins/transactions", headers=headers)).json()["transactions"]
     assert [t["reason"] for t in txs].count("spend") == 1
+    assert "mascot_purchase" not in [t["reason"] for t in txs]
 
 
 async def test_redeem_with_different_client_ids_spends_twice(client, auth):

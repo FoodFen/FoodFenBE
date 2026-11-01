@@ -20,7 +20,7 @@ the server owns only ids, names, prices, ownership and the equipped id.
   the FE contract and the artwork registry key on the string id, a UUID + slug pair is pure
   indirection), `name String(40)`, `coin_cost Integer` (CHECK `>= 0`), `active Boolean` default true.
   Seeded: `default` "Fen" 0 · `sprout` "Sprout" 300 · `berry` "Berry" 600 · `chili` "Chili" 1000
-  (bundles are 600 coins / 10 Premium days). Change prices/names with SQL; deactivate, never delete.
+  (bundles are 600 coins / 10 Premium days). Edit them from the admin (`/admin/mascots`, since 2026-10-30).
 - `user_mascots`: `(user_id FK users ON DELETE CASCADE, mascot_id FK mascots)` composite PK,
   `purchased_at`. Free mascots get **no** row — owned is `coin_cost == 0 OR row exists`.
 - `users.equipped_mascot_id String(32) NOT NULL server_default 'default'` FK `mascots.id`.

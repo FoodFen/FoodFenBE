@@ -46,14 +46,14 @@ async def test_fresh_user_owns_and_equips_only_the_free_mascot(client, auth):
         "balance": 0,
         "equippedId": "default",
         "mascots": [  # ordered by coinCost, inactive ones not listed
-            {"id": "default", "name": "Fen", "coinCost": 0, "owned": True},
-            {"id": "sprout", "name": "Sprout", "coinCost": 300, "owned": False},
-            {"id": "berry", "name": "Berry", "coinCost": 600, "owned": False},
+            {"id": "default", "name": "Fen", "coinCost": 0, "owned": True, "images": {}},
+            {"id": "sprout", "name": "Sprout", "coinCost": 300, "owned": False, "images": {}},
+            {"id": "berry", "name": "Berry", "coinCost": 600, "owned": False, "images": {}},
         ],
     }
 
 
-async def test_purchase_debits_coins_flips_owned_and_writes_a_spend_row(client, auth):
+async def test_purchase_debits_coins_flips_owned_and_writes_a_mascot_purchase_row(client, auth):
     headers, user_id = auth
     await _credit(user_id, 500)
     resp = await client.post("/mascots/sprout/purchase", headers=headers)
@@ -66,9 +66,11 @@ async def test_purchase_debits_coins_flips_owned_and_writes_a_spend_row(client, 
     assert (await client.get("/mascots", headers=headers)).json() == body
     async with async_sessionmaker(engine)() as session:
         spend = (
-            await session.scalars(select(CoinTransactionORM).where(CoinTransactionORM.reason == CoinReason.SPEND))
+            await session.scalars(select(CoinTransactionORM).where(CoinTransactionORM.reason == CoinReason.MASCOT_PURCHASE))
         ).all()
     assert [(t.user_id, t.amount) for t in spend] == [(user_id, -300)]
+    txs = (await client.get("/coins/transactions", headers=headers)).json()["transactions"]
+    assert txs[0]["reason"] == "mascot_purchase"
 
 
 async def test_purchase_with_too_few_coins_is_409_and_changes_nothing(client, auth):

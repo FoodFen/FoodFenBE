@@ -9,8 +9,9 @@ from datetime import date
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile, status
 
+from src.adapters.image_upload import read_image
 from src.adapters.schemas.ad_schemas import AdPackageResponse, CreateAdPackageRequest, UpdateAdPackageRequest
 from src.adapters.schemas.admin_schemas import (
     AdminQuestResponse,
@@ -22,15 +23,22 @@ from src.adapters.schemas.admin_schemas import (
     DashboardResponse,
     ReviewRequest,
 )
+from src.adapters.schemas.image_schemas import ImageUploadResponse
+from src.adapters.schemas.mascot_schemas import AdminMascotResponse, CreateMascotRequest, UpdateMascotRequest
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
 from src.application.dtos.restaurant import ReviewNoticeDTO
 from src.application.ports.email_verification_notifier import EmailVerificationNotifierProtocol
 from src.domain.enums import ModerationStatus, PaymentProvider, PaymentStatus, PlanType, SubscriptionTier
 from src.infrastructure.di import (
     CreateAdPackageUseCaseDep,
+    CreateMascotUseCaseDep,
+    DeleteMascotUseCaseDep,
     EmailVerificationNotifierDep,
     ListAdPackagesUseCaseDep,
+    ListAdminMascotsUseCaseDep,
     UpdateAdPackageUseCaseDep,
+    UpdateMascotUseCaseDep,
+    UploadRestaurantImageUseCaseDep,
     GetAdminDashboardUseCaseDep,
     GetAdminRestaurantUseCaseDep,
     ListAdminQuestDefinitionsUseCaseDep,
@@ -169,3 +177,41 @@ async def update_ad_package(
     package_id: UUID, body: UpdateAdPackageRequest, use_case: UpdateAdPackageUseCaseDep
 ) -> AdPackageResponse:
     return AdPackageResponse.from_dto(await use_case.execute(package_id, body.days, body.price_vnd, body.active))
+
+
+@router.get("/mascots", response_model=list[AdminMascotResponse])
+async def list_mascots(use_case: ListAdminMascotsUseCaseDep) -> list[AdminMascotResponse]:
+    """Every mascot, inactive ones included, cheapest first. ``ownerCount`` / ``equippedCount`` tell the web
+    what hiding or deleting would affect."""
+    return [AdminMascotResponse.from_dto(m) for m in await use_case.execute()]
+
+
+@router.post("/mascots", response_model=AdminMascotResponse, status_code=status.HTTP_201_CREATED)
+async def create_mascot(body: CreateMascotRequest, use_case: CreateMascotUseCaseDep) -> AdminMascotResponse:
+    return AdminMascotResponse.from_dto(
+        await use_case.execute(body.id, body.name, body.coin_cost, body.active, body.images)
+    )
+
+
+@router.patch("/mascots/{mascot_id}", response_model=AdminMascotResponse)
+async def update_mascot(
+    mascot_id: str, body: UpdateMascotRequest, use_case: UpdateMascotUseCaseDep
+) -> AdminMascotResponse:
+    return AdminMascotResponse.from_dto(
+        await use_case.execute(mascot_id, body.name, body.coin_cost, body.active, body.images)
+    )
+
+
+@router.delete("/mascots/{mascot_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_mascot(mascot_id: str, use_case: DeleteMascotUseCaseDep) -> None:
+    """409 ``mascot_in_use`` while anyone owns or has it equipped: hide it instead."""
+    await use_case.execute(mascot_id)
+
+
+@router.post("/images", response_model=ImageUploadResponse)
+async def upload_image(
+    use_case: UploadRestaurantImageUseCaseDep, image: Annotated[UploadFile, File()]
+) -> ImageUploadResponse:
+    """Same checks as ``POST /restaurants/mine/images``, but no rate limit: an admin drops a dozen files at once."""
+    data = await read_image(image)
+    return ImageUploadResponse(url=await use_case.execute(data, image.content_type))

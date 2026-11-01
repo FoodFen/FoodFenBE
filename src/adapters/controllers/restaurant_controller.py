@@ -10,13 +10,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 
+from src.adapters.image_upload import read_image
 from src.adapters.schemas.ad_schemas import CreateAdCheckoutRequest, MyAdPaymentListResponse, MyAdsResponse
+from src.adapters.schemas.image_schemas import ImageUploadResponse
 from src.adapters.schemas.payment_schemas import CheckoutResponse
 from src.adapters.schemas.restaurant_schemas import (
     CreateDishRequest,
     CreateRestaurantRequest,
     DishResponse,
-    ImageUploadResponse,
     PublicRestaurantResponse,
     RestaurantResponse,
     UpdateDishRequest,
@@ -29,7 +30,6 @@ from src.application.dtos.restaurant import (
     UpdateDishInputDTO,
     UpdateRestaurantInputDTO,
 )
-from src.domain.exceptions import UnreadableImageException
 from src.infrastructure.di import (
     CreateAdCheckoutUseCaseDep,
     CreateDishUseCaseDep,
@@ -48,10 +48,6 @@ from src.infrastructure.di import (
 )
 
 router = APIRouter(prefix="/restaurants", tags=["restaurants"])
-
-# Browser-renderable only (no HEIC): these images are shown on the web and in the app.
-_ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
-_MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 
 @router.post("", response_model=RestaurantResponse, status_code=status.HTTP_201_CREATED)
@@ -90,16 +86,7 @@ async def upload_image(
     image: Annotated[UploadFile, File()],
 ) -> ImageUploadResponse:
     """Any signed-in user, so the create form can attach a photo before the restaurant exists."""
-    if image.content_type not in _ALLOWED_IMAGE_TYPES:
-        raise UnreadableImageException(f"unsupported image type: {image.content_type!r}")
-    data = await image.read(_MAX_IMAGE_BYTES + 1)
-    if len(data) > _MAX_IMAGE_BYTES:
-        raise UnreadableImageException("image is larger than 5 MB")
-    if not (
-        data.startswith((b"\xff\xd8\xff", b"\x89PNG"))
-        or (data[:4] == b"RIFF" and data[8:12] == b"WEBP")
-    ):
-        raise UnreadableImageException("file is not a JPEG, PNG or WebP image")
+    data = await read_image(image)
     return ImageUploadResponse(url=await use_case.execute(data, image.content_type))
 
 
