@@ -6,10 +6,12 @@ growing with the app. Split it again (e.g. by slice) if it gets unwieldy.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Annotated
 
 from fastapi import Depends
 
+from src.application.food_catalog_cache import FoodCatalogCache
 from src.application.use_cases.admin_ad_packages import (
     CreateAdPackageUseCase,
     ListAdPackagesUseCase,
@@ -122,6 +124,7 @@ from src.infrastructure.di.repositories import (
     RestaurantRepositoryDep,
     ChatMessageRepositoryDep,
     DailyGoalRepositoryDep,
+    FoodCatalogRepositoryDep,
     FoodEntryRepositoryDep,
     PaymentRepositoryDep,
     RefreshTokenRepositoryDep,
@@ -268,16 +271,38 @@ def get_ai_trial_use_case(usage: AiTrialRepositoryDep) -> AiTrialUseCase:
 AiTrialUseCaseDep = Annotated[AiTrialUseCase, Depends(get_ai_trial_use_case)]
 
 
+@lru_cache
+def get_food_catalog_cache() -> FoodCatalogCache:
+    """Process-wide; catalog edits call ``.invalidate()`` on it."""
+    return FoodCatalogCache()
+
+
 def get_analyze_food_image_use_case(
-    vision: FoodVisionProviderDep, images: ImageStorageDep, trial: AiTrialUseCaseDep
+    vision: FoodVisionProviderDep,
+    images: ImageStorageDep,
+    trial: AiTrialUseCaseDep,
+    catalog: FoodCatalogRepositoryDep,
 ) -> AnalyzeFoodImageUseCase:
-    return AnalyzeFoodImageUseCase(vision=vision, images=images, trial=trial)
+    return AnalyzeFoodImageUseCase(
+        vision=vision,
+        images=images,
+        trial=trial,
+        catalog=catalog,
+        catalog_cache=get_food_catalog_cache(),
+        grounding=settings.food_analysis_grounding,
+    )
 
 
 def get_analyze_food_text_use_case(
-    vision: FoodVisionProviderDep, trial: AiTrialUseCaseDep
+    vision: FoodVisionProviderDep, trial: AiTrialUseCaseDep, catalog: FoodCatalogRepositoryDep
 ) -> AnalyzeFoodTextUseCase:
-    return AnalyzeFoodTextUseCase(vision=vision, trial=trial)
+    return AnalyzeFoodTextUseCase(
+        vision=vision,
+        trial=trial,
+        catalog=catalog,
+        catalog_cache=get_food_catalog_cache(),
+        grounding=settings.food_analysis_grounding,
+    )
 
 
 RegisterUseCaseDep = Annotated[RegisterUserUseCase, Depends(get_register_use_case)]

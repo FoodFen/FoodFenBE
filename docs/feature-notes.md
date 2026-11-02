@@ -202,7 +202,7 @@ update it in the same change as any decision.
 ## Food catalog
 
 Design (owned by the FE repo): `FoodFenFE/docs/superpowers/specs/2026-11-02-catalog-grounded-ai-design.md`.
-Phase 1 only so far: the table and a read port; no endpoint, nothing reads it yet.
+Phases 1-2 are done: the table, a read port, and AI food analysis grounded in it. No catalog endpoint yet.
 
 - **Table** `foods` (`food_model.py`), entity `CatalogFood`, port `FoodCatalogRepositoryProtocol`
   (`list_active()` = non-archived by slug, `get_by_slug()` returns archived foods too; the caller reads `archived`).
@@ -215,3 +215,13 @@ Phase 1 only so far: the table and a read port; no endpoint, nothing reads it ye
   (`FoodFenFE/src/data/catalog/foods.json`, 670 foods). Recipe breakdowns and source notes are not imported.
   From now on the BE table is the source of truth for new foods and edits; never hand-edit both sides.
   Archive, never delete: logged meals reference slugs.
+- **AI grounding** (`POST /ai/food/analyze-image|analyze-text`): the system instruction starts with the catalog block,
+  one `slug | name | aliases | default serving g` line per active food. It is built from `FoodCatalogCache`
+  (process-wide, 10 min TTL, `invalidate()` on any catalog write) and must stay byte-identical between requests,
+  so Gemini's implicit prefix caching can hit. The model returns `catalog_id` per row.
+  `application/food_grounding.py` replaces a known slug's numbers with per-100 g × grams, rounded half-up like
+  JS `Math.round` (kcal int, macros 1 decimal; null fiber stays null). An unknown or null slug keeps the
+  model's estimate. Rows carry `catalogFoodId`, `catalogName`, `verified`, `sourceRef`, `per100g`
+  (null/false when unmatched); `name` stays the model's.
+- **Prompts are code** (`gemini_food_vision_provider.py`); the `GEMINI_FOOD_ANALYSIS_PROMPT` override is gone.
+  `FOOD_ANALYSIS_GROUNDING=false` is the kill switch: old prompt, new fields null/false.

@@ -20,6 +20,7 @@ from src.application.ports.coin_bundle_repository import CoinBundleRepositoryPro
 from src.application.ports.coin_repository import CoinRepositoryProtocol
 from src.application.ports.mascot_repository import MascotRepositoryProtocol
 from src.application.ports.daily_goal_repository import DailyGoalRepositoryProtocol
+from src.application.ports.food_catalog_repository import FoodCatalogRepositoryProtocol
 from src.application.ports.food_entry_repository import FoodEntryRepositoryProtocol
 from src.application.ports.payment_repository import PaymentRepositoryProtocol
 from src.application.ports.quest_repository import QuestRepositoryProtocol
@@ -52,6 +53,9 @@ from src.infrastructure.db.repositories.coin_bundle_repository import (
 from src.infrastructure.db.repositories.mascot_repository import SQLAlchemyMascotRepository
 from src.infrastructure.db.repositories.coin_repository import SQLAlchemyCoinRepository
 from src.infrastructure.db.repositories.daily_goal_repository import SQLAlchemyDailyGoalRepository
+from src.infrastructure.db.repositories.food_catalog_repository import (
+    SQLAlchemyFoodCatalogRepository,
+)
 from src.infrastructure.db.repositories.food_entry_repository import SQLAlchemyFoodEntryRepository
 from src.infrastructure.db.repositories.payment_repository import SQLAlchemyPaymentRepository
 from src.infrastructure.db.repositories.quest_repository import SQLAlchemyQuestRepository
@@ -130,6 +134,15 @@ def get_food_entry_repository(session: SessionDep) -> FoodEntryRepositoryProtoco
 
 
 FoodEntryRepositoryDep = Annotated[FoodEntryRepositoryProtocol, Depends(get_food_entry_repository)]
+
+
+def get_food_catalog_repository(session: SessionDep) -> FoodCatalogRepositoryProtocol:
+    return SQLAlchemyFoodCatalogRepository(session)
+
+
+FoodCatalogRepositoryDep = Annotated[
+    FoodCatalogRepositoryProtocol, Depends(get_food_catalog_repository)
+]
 
 
 def get_daily_goal_repository(session: SessionDep) -> DailyGoalRepositoryProtocol:

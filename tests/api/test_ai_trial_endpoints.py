@@ -104,7 +104,7 @@ async def test_empty_result_does_not_consume_a_trial(client, food_vision_provide
 
 
 async def test_provider_failure_does_not_consume_a_trial(client, food_vision_provider):
-    async def boom(*_args):
+    async def boom(*_args, **_kwargs):
         raise RuntimeError("gemini down")
 
     food_vision_provider.analyze_image = boom

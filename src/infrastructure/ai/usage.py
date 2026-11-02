@@ -11,9 +11,10 @@ def log_usage(call: str, usage) -> None:
     """``usage`` is a response's ``usage_metadata`` (None when the SDK omitted it)."""
     if usage is not None:
         _log.info(
-            "gemini %s tokens: prompt=%s output=%s thoughts=%s",
+            "gemini %s tokens: prompt=%s output=%s thoughts=%s cached=%s",
             call,
             getattr(usage, "prompt_token_count", None),
             getattr(usage, "candidates_token_count", None),
             getattr(usage, "thoughts_token_count", None),
+            getattr(usage, "cached_content_token_count", None),
         )

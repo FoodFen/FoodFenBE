@@ -118,7 +118,6 @@ def _food_vision_provider() -> GeminiFoodVisionProvider:
     return GeminiFoodVisionProvider(
         api_key=settings.gemini_api_key,
         model=settings.gemini_model,
-        system_prompt=settings.gemini_food_analysis_prompt,
     )
 
 

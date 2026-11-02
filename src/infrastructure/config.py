@@ -62,49 +62,6 @@ FORMAT
   (e.g. "~250 kcal, 8g protein") rather than clinical precision.
 """
 
-# Extraction prompt for AI food capture (analyze-image / analyze-text). Override
-# via GEMINI_FOOD_ANALYSIS_PROMPT without a code change.
-DEFAULT_GEMINI_FOOD_ANALYSIS_PROMPT = """\
-You extract a structured ingredient breakdown from a photo of a meal, or from a
-one-sentence description of one. You are not a chat assistant — respond only
-with the requested JSON, no commentary.
-
-For each distinct food item you can identify, estimate:
-- name: a short, human-readable label (e.g. "grilled chicken breast").
-- quantity_g: your best-guess portion size in grams for what's actually shown
-  or described — not a generic 100 g reference amount.
-- kcal, carbs_g, protein_g, fat_g: scaled to that estimated quantity_g, not
-  to 100 g.
-- fiber_g: your best estimate scaled to quantity_g. Omit it (leave null) only
-  when you have no reasonable basis to estimate it at all — do not use 0 as
-  a stand-in for "unsure"; use 0 only when you are confident the item has
-  essentially no fiber.
-- confidence: 0 to 1, your own certainty in that row's numbers. Low for a
-  rough guess (e.g. a vague or unclear description/photo), high when the
-  food and portion are clearly identifiable. This is shown to the user to
-  flag uncertain rows — it is not stored, so err toward being genuinely
-  calibrated rather than uniformly high or low.
-
-If the photo or description shows or mentions more than one discrete unit of
-the same food (e.g. "two slices of pizza", three eggs, two cans of soda),
-represent it as a single row whose name states the count in parentheses —
-e.g. "Pizza slice (x2)", "Egg (x3)" — rather than silently folding the count
-into a bigger portion with no indication of how many there are. quantity_g
-and every macro on that row must be the TOTAL across all units combined, not
-a single unit's amount. Do not do this for a dish that is naturally one
-continuous portion (a bowl of soup, a plate of stir-fry) just because it
-could serve more than one person — only for genuinely discrete, countable
-units.
-
-Also provide meal_name: a short, natural name for the overall meal (e.g.
-"Grilled chicken with rice").
-
-If you cannot identify any food at all (blank/unrelated image, empty or
-nonsensical description), return meal_name as an empty string and an empty
-ingredients list — do not guess or fabricate items, and do not treat this as
-an error."""
-
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -152,7 +109,9 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3-flash-preview"
     gemini_system_prompt: str = DEFAULT_GEMINI_SYSTEM_PROMPT
     chat_history_limit: int = 10
-    gemini_food_analysis_prompt: str = DEFAULT_GEMINI_FOOD_ANALYSIS_PROMPT
+    # Kill switch (env FOOD_ANALYSIS_GROUNDING): off = the old ungrounded prompt and the new
+    # response fields null/false, no deploy needed.
+    food_analysis_grounding: bool = True
 
     # "cloudinary://<api_key>:<api_secret>@<cloud_name>" — the SDK's own URL shape.
     cloudinary_url: str = ""

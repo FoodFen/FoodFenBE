@@ -23,6 +23,7 @@ from src.infrastructure.di import security
 from src.infrastructure.di import (
     get_ai_chat_provider,
     get_email_verification_notifier,
+    get_food_catalog_cache,
     get_food_vision_provider,
     get_image_storage,
     get_payment_providers,
@@ -73,6 +74,14 @@ async def _reset_schema():
     yield
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest_asyncio.fixture(autouse=True)
+def _fresh_food_catalog_cache():
+    """The cache is process-wide: a previous test's catalog (or none) must not leak."""
+    get_food_catalog_cache().invalidate()
+    yield
+    get_food_catalog_cache().invalidate()
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -158,10 +167,10 @@ class FakeFoodVisionProvider:
             image_url=None,
         )
 
-    async def analyze_image(self, image_bytes, content_type, language):
+    async def analyze_image(self, image_bytes, content_type, language, catalog=None):
         return self.result
 
-    async def analyze_text(self, description, language):
+    async def analyze_text(self, description, language, catalog=None):
         return self.result
 
 

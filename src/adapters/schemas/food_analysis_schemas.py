@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import datetime
 from typing import Literal
 
@@ -10,6 +11,14 @@ from pydantic import Field
 from src.adapters.schemas.base import CamelModel
 from src.application.dtos.food_analysis import FoodAnalysisDTO, IngredientSuggestionDTO
 from src.domain.enums import AiTrialMethod
+
+
+class Per100gResponse(CamelModel):
+    kcal: int
+    carbs_g: float
+    protein_g: float
+    fat_g: float
+    fiber_g: float | None
 
 
 class IngredientSuggestionResponse(CamelModel):
@@ -21,6 +30,13 @@ class IngredientSuggestionResponse(CamelModel):
     fat_g: float
     fiber_g: float | None
     confidence: float
+    # Set only when the row is grounded in the food catalog (see application/food_grounding.py).
+    catalog_food_id: str | None
+    catalog_name: str | None
+    verified: bool
+    source_ref: str | None
+    # to_camel would give "per100G"; the contract says "per100g".
+    per100g: Per100gResponse | None = Field(alias="per100g")
 
     @classmethod
     def from_dto(cls, dto: IngredientSuggestionDTO) -> IngredientSuggestionResponse:
@@ -33,6 +49,11 @@ class IngredientSuggestionResponse(CamelModel):
             fat_g=dto.fat_g,
             fiber_g=dto.fiber_g,
             confidence=dto.confidence,
+            catalog_food_id=dto.catalog_food_id,
+            catalog_name=dto.catalog_name,
+            verified=dto.verified,
+            source_ref=dto.source_ref,
+            per100g=Per100gResponse(**asdict(dto.per100g)) if dto.per100g else None,
         )
 
 

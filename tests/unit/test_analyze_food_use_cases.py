@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from catalog_foods import make_food
 
 from src.application.dtos.ai_trial import AiCallerDTO
 from src.application.dtos.food_analysis import FoodAnalysisDTO, IngredientSuggestionDTO
+from src.application.food_catalog_cache import FoodCatalogCache
 from src.application.use_cases.ai_trial import AiTrialUseCase
 from src.application.use_cases.analyze_food_image import AnalyzeFoodImageUseCase
 from src.application.use_cases.analyze_food_text import AnalyzeFoodTextUseCase
@@ -30,16 +32,39 @@ class FakeVisionProvider:
         self._result = result
         self.image_calls: list[tuple[bytes, str, str]] = []
         self.text_calls: list[tuple[str, str]] = []
+        self.catalogs: list = []  # the `catalog` argument of every call
 
     async def analyze_image(
-        self, image_bytes: bytes, content_type: str, language: str
+        self, image_bytes: bytes, content_type: str, language: str, catalog=None
     ) -> FoodAnalysisDTO:
         self.image_calls.append((image_bytes, content_type, language))
+        self.catalogs.append(catalog)
         return self._result
 
-    async def analyze_text(self, description: str, language: str) -> FoodAnalysisDTO:
+    async def analyze_text(self, description: str, language: str, catalog=None) -> FoodAnalysisDTO:
         self.text_calls.append((description, language))
+        self.catalogs.append(catalog)
         return self._result
+
+
+class FakeCatalogRepo:
+    def __init__(self, foods=()) -> None:
+        self.foods = list(foods)
+        self.reads = 0
+
+    async def list_active(self):
+        self.reads += 1
+        return self.foods
+
+    async def get_by_slug(self, slug):
+        raise AssertionError("not used")
+
+
+def _catalog(foods=(), grounding=True) -> dict:
+    """The catalog-related use case fields; a fresh cache per use case."""
+    return dict(
+        catalog=FakeCatalogRepo(foods), catalog_cache=FoodCatalogCache(), grounding=grounding
+    )
 
 
 class FakeTrialUsage:
@@ -69,7 +94,7 @@ class FakeImageStorage:
 async def test_analyze_image_uploads_and_sets_image_url():
     vision = FakeVisionProvider(FoodAnalysisDTO("Pho", [_INGREDIENT], image_url=None))
     storage = FakeImageStorage()
-    uc = AnalyzeFoodImageUseCase(vision=vision, images=storage, trial=_TRIAL)
+    uc = AnalyzeFoodImageUseCase(vision=vision, images=storage, trial=_TRIAL, **_catalog())
 
     result = await uc.execute(_CALLER, b"fake-bytes", "image/jpeg", "en")
 
@@ -100,7 +125,7 @@ async def test_analyze_image_runs_vision_and_upload_concurrently():
     both_started = {"vision": asyncio.Event(), "upload": asyncio.Event()}
 
     class Vision(FakeVisionProvider):
-        async def analyze_image(self, image_bytes, content_type, language):
+        async def analyze_image(self, image_bytes, content_type, language, catalog=None):
             both_started["vision"].set()
             await asyncio.wait_for(both_started["upload"].wait(), 1)  # needs upload to have started
             return self._result
@@ -113,7 +138,7 @@ async def test_analyze_image_runs_vision_and_upload_concurrently():
 
     vision = Vision(FoodAnalysisDTO("Pho", [_INGREDIENT], image_url=None))
     storage = Storage()
-    uc = AnalyzeFoodImageUseCase(vision=vision, images=storage, trial=_TRIAL)
+    uc = AnalyzeFoodImageUseCase(vision=vision, images=storage, trial=_TRIAL, **_catalog())
 
     result = await uc.execute(_CALLER, b"x", "image/jpeg", "en")
 
@@ -128,7 +153,7 @@ async def test_analyze_image_upload_failure_still_returns_analysis_and_consumes_
     usage = _CountingTrialUsage()
     vision = FakeVisionProvider(FoodAnalysisDTO("Pho", [_INGREDIENT], image_url=None))
     uc = AnalyzeFoodImageUseCase(
-        vision=vision, images=BrokenStorage(), trial=AiTrialUseCase(usage=usage)
+        vision=vision, images=BrokenStorage(), trial=AiTrialUseCase(usage=usage), **_catalog()
     )
 
     result = await uc.execute(_FREE_CALLER, b"x", "image/jpeg", "en")
@@ -140,7 +165,7 @@ async def test_analyze_image_upload_failure_still_returns_analysis_and_consumes_
 
 async def test_analyze_image_vision_failure_propagates_and_does_not_consume_trial():
     class BrokenVision(FakeVisionProvider):
-        async def analyze_image(self, image_bytes, content_type, language):
+        async def analyze_image(self, image_bytes, content_type, language, catalog=None):
             raise ValueError("vision down")
 
     usage = _CountingTrialUsage()
@@ -148,6 +173,7 @@ async def test_analyze_image_vision_failure_propagates_and_does_not_consume_tria
         vision=BrokenVision(FoodAnalysisDTO("", [], image_url=None)),
         images=FakeImageStorage(),
         trial=AiTrialUseCase(usage=usage),
+        **_catalog(),
     )
 
     with pytest.raises(ValueError, match="vision down"):
@@ -158,7 +184,7 @@ async def test_analyze_image_vision_failure_propagates_and_does_not_consume_tria
 
 async def test_analyze_text_never_touches_image_storage():
     vision = FakeVisionProvider(FoodAnalysisDTO("Pho", [_INGREDIENT], image_url=None))
-    uc = AnalyzeFoodTextUseCase(vision=vision, trial=_TRIAL)
+    uc = AnalyzeFoodTextUseCase(vision=vision, trial=_TRIAL, **_catalog())
 
     result = await uc.execute(_CALLER, AiTrialMethod.TEXT, "a bowl of beef pho", "vi")
 
@@ -168,9 +194,64 @@ async def test_analyze_text_never_touches_image_storage():
 
 async def test_no_food_recognized_returns_empty_result_not_an_error():
     vision = FakeVisionProvider(FoodAnalysisDTO("", [], image_url=None))
-    uc = AnalyzeFoodTextUseCase(vision=vision, trial=_TRIAL)
+    uc = AnalyzeFoodTextUseCase(vision=vision, trial=_TRIAL, **_catalog())
 
     result = await uc.execute(_CALLER, AiTrialMethod.TEXT, "asdf", "vi")
 
     assert result.meal_name == ""
     assert result.ingredients == []
+
+
+def _model_row(slug: str | None) -> IngredientSuggestionDTO:
+    return IngredientSuggestionDTO(
+        name="pho", quantity_g=550.0, kcal=999, carbs_g=1.0, protein_g=1.0, fat_g=1.0,
+        fiber_g=None, confidence=0.8, catalog_food_id=slug,
+    )
+
+
+async def test_grounding_on_passes_the_catalog_and_grounds_the_result():
+    food = make_food()
+    vision = FakeVisionProvider(FoodAnalysisDTO("Pho", [_model_row("pho-bo")], image_url=None))
+    uc = AnalyzeFoodTextUseCase(vision=vision, trial=_TRIAL, **_catalog([food]))
+
+    result = await uc.execute(_CALLER, AiTrialMethod.TEXT, "pho", "vi")
+
+    assert vision.catalogs == [[food]]
+    assert result.ingredients[0].kcal == 446
+    assert result.ingredients[0].catalog_food_id == "pho-bo"
+
+
+async def test_grounding_on_for_images_too():
+    food = make_food()
+    vision = FakeVisionProvider(FoodAnalysisDTO("Pho", [_model_row("pho-bo")], image_url=None))
+    uc = AnalyzeFoodImageUseCase(
+        vision=vision, images=FakeImageStorage(), trial=_TRIAL, **_catalog([food])
+    )
+
+    result = await uc.execute(_CALLER, b"x", "image/jpeg", "vi")
+
+    assert vision.catalogs == [[food]]
+    assert result.ingredients[0].kcal == 446
+
+
+async def test_grounding_off_sends_no_catalog_and_never_reads_the_repo():
+    vision = FakeVisionProvider(FoodAnalysisDTO("Pho", [_model_row("pho-bo")], image_url=None))
+    kw = _catalog([make_food()], grounding=False)
+    uc = AnalyzeFoodTextUseCase(vision=vision, trial=_TRIAL, **kw)
+
+    result = await uc.execute(_CALLER, AiTrialMethod.TEXT, "pho", "vi")
+
+    assert vision.catalogs == [None]
+    assert kw["catalog"].reads == 0
+    row = result.ingredients[0]
+    assert (row.kcal, row.catalog_name, row.verified, row.per100g) == (999, None, False, None)
+
+
+async def test_empty_catalog_means_ungrounded():
+    vision = FakeVisionProvider(FoodAnalysisDTO("Pho", [_model_row("pho-bo")], image_url=None))
+    uc = AnalyzeFoodTextUseCase(vision=vision, trial=_TRIAL, **_catalog([]))
+
+    result = await uc.execute(_CALLER, AiTrialMethod.TEXT, "pho", "vi")
+
+    assert vision.catalogs == [None]
+    assert result.ingredients[0].kcal == 999
