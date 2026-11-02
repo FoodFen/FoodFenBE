@@ -65,6 +65,6 @@ not zero, same wording as the food section header.
 
 ## Docs
 
-- `CLAUDE.md` → "AI chat" → "User context" bullet: add water, activity, weight and streak.
+- `docs/feature-notes.md` → "AI chat" → "User context" bullet: add water, activity, weight and streak.
 - `2026-10-05-chat-user-context-design.md` "Out of scope": note that water/activity/weight/streak moved
   in via this spec.
