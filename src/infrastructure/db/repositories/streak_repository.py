@@ -14,6 +14,11 @@ class SQLAlchemyStreakRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def get_by_user(self, user_id: int) -> Streak | None:
+        result = await self._session.execute(select(StreakORM).where(StreakORM.user_id == user_id))
+        row = result.scalar_one_or_none()
+        return row.to_domain() if row else None
+
     async def upsert(self, streak: Streak) -> Streak:
         # One row per user_id — a singleton, so "create" always really means
         # "replace whatever's there". Try the insert first (SAVEPOINT-isolated)

@@ -84,6 +84,7 @@ from src.application.use_cases.list_admin_users import ListAdminUsersUseCase
 from src.application.use_cases.review_dish import ReviewDishUseCase
 from src.application.use_cases.review_restaurant import ReviewRestaurantUseCase
 from src.infrastructure.config import settings
+from src.infrastructure.db.repositories.activity_log_repository import SQLAlchemyActivityLogRepository
 from src.infrastructure.db.repositories.chat_message_repository import (
     SQLAlchemyChatMessageRepository,
 )
@@ -91,6 +92,9 @@ from src.infrastructure.db.repositories.daily_goal_repository import SQLAlchemyD
 from src.infrastructure.db.repositories.food_entry_repository import SQLAlchemyFoodEntryRepository
 from src.infrastructure.db.repositories.restaurant_repository import SQLAlchemyRestaurantRepository
 from src.infrastructure.db.repositories.user_repository import SQLAlchemyUserRepository
+from src.infrastructure.db.repositories.streak_repository import SQLAlchemyStreakRepository
+from src.infrastructure.db.repositories.water_log_repository import SQLAlchemyWaterLogRepository
+from src.infrastructure.db.repositories.weight_log_repository import SQLAlchemyWeightLogRepository
 from src.infrastructure.di.database import StreamSessionDep
 from src.infrastructure.di.repositories import (
     AdImpressionRepositoryDep,
@@ -236,6 +240,10 @@ def get_send_chat_message_use_case(
         daily_goals=SQLAlchemyDailyGoalRepository(session),
         food_entries=SQLAlchemyFoodEntryRepository(session),
         restaurants=SQLAlchemyRestaurantRepository(session),
+        water_logs=SQLAlchemyWaterLogRepository(session),
+        activity_logs=SQLAlchemyActivityLogRepository(session),
+        weight_logs=SQLAlchemyWeightLogRepository(session),
+        streaks=SQLAlchemyStreakRepository(session),
         history_limit=settings.chat_history_limit,
     )
 

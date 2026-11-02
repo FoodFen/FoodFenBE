@@ -187,7 +187,8 @@ async def create_user(
   (`user`/`assistant`) only inside that class.
 - **User context** (spec `docs/superpowers/specs/2026-10-05-chat-user-context-design.md`): every
   turn, `SendChatMessageUseCase._build_context` renders profile, goal in force, today's meals and
-  7-day totals (`application/chat_context.py`, stdlib-only) and passes it as `stream_reply(...,
+  7-day totals (`application/chat_context.py`, stdlib-only), then water, activity, weight (30 days) and streak
+  (`render_activity_context`, spec `docs/superpowers/specs/2026-10-14-chat-more-context-design.md`), and passes it as `stream_reply(...,
   context)`; Gemini appends it after the system prompt. Rebuilt per turn, never persisted.
   `POST /chat/messages` takes an optional `date` (client-local day; omitted → the Vietnam, UTC+7, day). A new source (food catalog,
   RAG retriever) adds one section in `_build_context`; the provider doesn't change.
