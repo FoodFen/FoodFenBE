@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from src.application.dtos.admin import AdminPaymentFilterDTO, AdminPaymentRowDTO
 from src.domain.entities.payment import Payment
 from src.domain.enums import PaymentStatus
 
@@ -24,4 +25,14 @@ class PaymentRepositoryProtocol(Protocol):
 
         True only for the one request whose write flipped it (like ``QuestRepository.record``).
         """
+        ...
+
+    async def list_for_admin(
+        self, filters: AdminPaymentFilterDTO, offset: int, limit: int
+    ) -> tuple[list[AdminPaymentRowDTO], int]:
+        """Newest first (id breaks ties): the page ``[offset, offset + limit)`` and the total match count."""
+        ...
+
+    async def list_ad_payments(self, user_id: int, offset: int, limit: int) -> list[Payment]:
+        """The user's ``ad_package`` payments, newest first (id breaks ties)."""
         ...

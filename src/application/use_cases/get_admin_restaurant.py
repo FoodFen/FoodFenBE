@@ -8,19 +8,25 @@ from uuid import UUID
 from src.application.dtos.admin import AdminRestaurantDetailDTO
 from src.application.dtos.restaurant import DishOutputDTO, RestaurantOutputDTO
 from src.application.ports.restaurant_repository import RestaurantRepositoryProtocol
+from src.application.ports.user_repository import UserRepositoryProtocol
 from src.domain.exceptions import RestaurantNotFoundException
 
 
 @dataclass
 class GetAdminRestaurantUseCase:
     restaurants: RestaurantRepositoryProtocol
+    users: UserRepositoryProtocol
 
     async def execute(self, restaurant_id: UUID) -> AdminRestaurantDetailDTO:
         restaurant = await self.restaurants.get_by_id(restaurant_id)
         if restaurant is None:
             raise RestaurantNotFoundException(f"restaurant {restaurant_id} not found")
         dishes = await self.restaurants.list_dishes(restaurant_id)
+        owner = await self.users.get_by_id(restaurant.user_id)
+        assert owner is not None  # restaurants.user_id is a foreign key
         return AdminRestaurantDetailDTO(
             restaurant=RestaurantOutputDTO.from_entity(restaurant),
             dishes=[DishOutputDTO.from_entity(d) for d in dishes],
+            owner_name=owner.name,
+            owner_email=owner.email,
         )

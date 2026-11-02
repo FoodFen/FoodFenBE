@@ -9,29 +9,42 @@ from datetime import date
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile, status
 
+from src.adapters.image_upload import read_image
 from src.adapters.schemas.ad_schemas import AdPackageResponse, CreateAdPackageRequest, UpdateAdPackageRequest
 from src.adapters.schemas.admin_schemas import (
     AdminQuestResponse,
     AdminQuizQuestionResponse,
     AdminRestaurantDetailResponse,
-    AdminRestaurantRowResponse,
+    AdminPaymentListResponse,
+    AdminRestaurantListResponse,
     AdminUserListResponse,
     DashboardResponse,
     ReviewRequest,
 )
+from src.adapters.schemas.image_schemas import ImageUploadResponse
+from src.adapters.schemas.mascot_schemas import AdminMascotResponse, CreateMascotRequest, UpdateMascotRequest
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
-from src.domain.enums import ModerationStatus, SubscriptionTier
+from src.application.dtos.restaurant import ReviewNoticeDTO
+from src.application.ports.email_verification_notifier import EmailVerificationNotifierProtocol
+from src.domain.enums import ModerationStatus, PaymentProvider, PaymentStatus, PlanType, SubscriptionTier
 from src.infrastructure.di import (
     CreateAdPackageUseCaseDep,
+    CreateMascotUseCaseDep,
+    DeleteMascotUseCaseDep,
+    EmailVerificationNotifierDep,
     ListAdPackagesUseCaseDep,
+    ListAdminMascotsUseCaseDep,
     UpdateAdPackageUseCaseDep,
+    UpdateMascotUseCaseDep,
+    UploadRestaurantImageUseCaseDep,
     GetAdminDashboardUseCaseDep,
     GetAdminRestaurantUseCaseDep,
     ListAdminQuestDefinitionsUseCaseDep,
     ListAdminQuizQuestionsUseCaseDep,
     ListAdminRestaurantsUseCaseDep,
+    ListAdminPaymentsUseCaseDep,
     ListAdminUsersUseCaseDep,
     ReviewDishUseCaseDep,
     ReviewRestaurantUseCaseDep,
@@ -41,13 +54,24 @@ from src.infrastructure.di import (
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(get_current_admin)])
 
 
-@router.get("/restaurants", response_model=list[AdminRestaurantRowResponse])
+async def _send_notice(notifier: EmailVerificationNotifierProtocol, n: ReviewNoticeDTO) -> None:
+    await notifier.send_review_result(n.email, n.name, n.restaurant_name, n.approved, n.reason, n.dish_name)
+
+
+@router.get("/restaurants", response_model=AdminRestaurantListResponse)
 async def list_restaurants(
     use_case: ListAdminRestaurantsUseCaseDep,
     needs_review: Annotated[bool, Query(alias="needsReview")] = False,
     status: ModerationStatus | None = None,
-) -> list[AdminRestaurantRowResponse]:
-    return [AdminRestaurantRowResponse.from_dto(r) for r in await use_case.execute(needs_review, status)]
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    cursor: Annotated[str | None, Query(pattern=r"^\d{1,9}$")] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> AdminRestaurantListResponse:
+    """``q`` matches the restaurant name, owner name or owner email (case-insensitive substring).
+    ``cursor`` is opaque: pass back the previous page's ``nextCursor``."""
+    return AdminRestaurantListResponse.from_dto(
+        await use_case.execute(needs_review, status, q, int(cursor or 0), limit)
+    )
 
 
 @router.get("/restaurants/{restaurant_id}", response_model=AdminRestaurantDetailResponse)
@@ -59,16 +83,30 @@ async def get_restaurant(
 
 @router.post("/restaurants/{restaurant_id}/review", response_model=RestaurantResponse)
 async def review_restaurant(
-    restaurant_id: UUID, body: ReviewRequest, use_case: ReviewRestaurantUseCaseDep
+    restaurant_id: UUID,
+    body: ReviewRequest,
+    use_case: ReviewRestaurantUseCaseDep,
+    notifier: EmailVerificationNotifierDep,
+    background_tasks: BackgroundTasks,
 ) -> RestaurantResponse:
     result = await use_case.execute(restaurant_id, body.decision, body.reason, body.expected_updated_at)
-    return RestaurantResponse.from_dto(result)
+    if result.notice is not None:
+        background_tasks.add_task(_send_notice, notifier, result.notice)
+    return RestaurantResponse.from_dto(result.restaurant)
 
 
 @router.post("/dishes/{dish_id}/review", response_model=DishResponse)
-async def review_dish(dish_id: UUID, body: ReviewRequest, use_case: ReviewDishUseCaseDep) -> DishResponse:
+async def review_dish(
+    dish_id: UUID,
+    body: ReviewRequest,
+    use_case: ReviewDishUseCaseDep,
+    notifier: EmailVerificationNotifierDep,
+    background_tasks: BackgroundTasks,
+) -> DishResponse:
     result = await use_case.execute(dish_id, body.decision, body.reason, body.expected_updated_at)
-    return DishResponse.from_dto(result)
+    if result.notice is not None:
+        background_tasks.add_task(_send_notice, notifier, result.notice)
+    return DishResponse.from_dto(result.dish)
 
 
 @router.get("/dashboard", response_model=DashboardResponse)
@@ -92,6 +130,25 @@ async def list_users(
     """``q`` matches name or email; ``tier`` is the effective tier. ``cursor`` is opaque: pass back
     the previous page's ``nextCursor``."""
     return AdminUserListResponse.from_dto(await use_case.execute(q, tier, int(cursor or 0), limit))
+
+
+@router.get("/payments", response_model=AdminPaymentListResponse)
+async def list_payments(
+    use_case: ListAdminPaymentsUseCaseDep,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    status: PaymentStatus | None = None,
+    plan_type: Annotated[PlanType | None, Query(alias="planType")] = None,
+    provider: PaymentProvider | None = None,
+    from_: Annotated[date | None, Query(alias="from")] = None,
+    to: Annotated[date | None, Query()] = None,
+    cursor: Annotated[str | None, Query(pattern=r"^\d{1,9}$")] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> AdminPaymentListResponse:
+    """``q`` matches the payer's email or an exact order code. ``from``/``to`` are Vietnam days (UTC+7),
+    inclusive, on ``createdAt``. ``cursor`` is opaque: pass back the previous page's ``nextCursor``."""
+    return AdminPaymentListResponse.from_dto(
+        await use_case.execute(q, status, plan_type, provider, from_, to, int(cursor or 0), limit)
+    )
 
 
 @router.get("/quizzes", response_model=list[AdminQuizQuestionResponse])
@@ -120,3 +177,49 @@ async def update_ad_package(
     package_id: UUID, body: UpdateAdPackageRequest, use_case: UpdateAdPackageUseCaseDep
 ) -> AdPackageResponse:
     return AdPackageResponse.from_dto(await use_case.execute(package_id, body.days, body.price_vnd, body.active))
+
+
+@router.get("/mascots", response_model=list[AdminMascotResponse])
+async def list_mascots(use_case: ListAdminMascotsUseCaseDep) -> list[AdminMascotResponse]:
+    """Every mascot, inactive ones included, cheapest first. ``ownerCount`` / ``equippedCount`` tell the web
+    what hiding or deleting would affect."""
+    return [AdminMascotResponse.from_dto(m) for m in await use_case.execute()]
+
+
+@router.post("/mascots", response_model=AdminMascotResponse, status_code=status.HTTP_201_CREATED)
+async def create_mascot(body: CreateMascotRequest, use_case: CreateMascotUseCaseDep) -> AdminMascotResponse:
+    return AdminMascotResponse.from_dto(
+        await use_case.execute(body.id, body.name, body.coin_cost, body.active, body.images, body.body_color)
+    )
+
+
+@router.patch("/mascots/{mascot_id}", response_model=AdminMascotResponse)
+async def update_mascot(
+    mascot_id: str, body: UpdateMascotRequest, use_case: UpdateMascotUseCaseDep
+) -> AdminMascotResponse:
+    return AdminMascotResponse.from_dto(
+        await use_case.execute(
+            mascot_id,
+            body.name,
+            body.coin_cost,
+            body.active,
+            body.images,
+            # Absent = keep (...), explicit null = reset to the app default.
+            body.body_color if "body_color" in body.model_fields_set else ...,
+        )
+    )
+
+
+@router.delete("/mascots/{mascot_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_mascot(mascot_id: str, use_case: DeleteMascotUseCaseDep) -> None:
+    """409 ``mascot_in_use`` while anyone owns or has it equipped: hide it instead."""
+    await use_case.execute(mascot_id)
+
+
+@router.post("/images", response_model=ImageUploadResponse)
+async def upload_image(
+    use_case: UploadRestaurantImageUseCaseDep, image: Annotated[UploadFile, File()]
+) -> ImageUploadResponse:
+    """Same checks as ``POST /restaurants/mine/images``, but no rate limit: an admin drops a dozen files at once."""
+    data = await read_image(image)
+    return ImageUploadResponse(url=await use_case.execute(data, image.content_type))

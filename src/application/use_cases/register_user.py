@@ -32,7 +32,7 @@ class RegisterUserUseCase:
         user = User.create(
             email=data.email,
             name=data.name,
-            password_hash=self.hasher.hash(data.password),
+            password_hash=await self.hasher.hash(data.password),
         )
 
         if await self.users.get_by_email(user.email) is not None:

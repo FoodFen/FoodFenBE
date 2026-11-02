@@ -181,3 +181,76 @@ async def test_checkout_cannot_buy_the_coin_plan(client, auth):
     headers, _ = auth
     resp = await client.post("/payments/checkout", json={"planType": "coin_redeem"}, headers=headers)
     assert resp.status_code == 422
+
+
+async def _credit(user_id, amount, reason=CoinReason.ADJUSTMENT, minutes_ago=0):
+    tx = CoinTransaction.create(user_id, amount, reason)
+    tx.created_at -= timedelta(minutes=minutes_ago)
+    await _add(CoinTransactionORM.from_domain(tx))
+    return tx
+
+
+async def test_transactions_require_auth(client):
+    assert (await client.get("/coins/transactions")).status_code == 401
+
+
+async def test_transactions_page_newest_first_without_duplicates_and_only_own(client, auth):
+    headers, user_id = auth
+    txs = [await _credit(user_id, i + 1, minutes_ago=i) for i in range(3)]
+    other = await client.post(
+        "/auth/sign-up",
+        json={"email": "other@example.com", "password": "another-pass-123", "displayName": "Other"},
+    )
+    await _credit(other.json()["user"]["id"], 50)  # someone else's row, never shown
+
+    first = (await client.get("/coins/transactions?limit=2", headers=headers)).json()
+    assert [t["id"] for t in first["transactions"]] == [str(txs[0].id), str(txs[1].id)]
+    assert first["transactions"][0].keys() == {"id", "amount", "reason", "createdAt"}
+    assert first["transactions"][0]["reason"] == "adjustment"
+    second = (
+        await client.get("/coins/transactions", params={"limit": 2, "before": first["nextCursor"]}, headers=headers)
+    ).json()
+    assert [t["id"] for t in second["transactions"]] == [str(txs[2].id)]
+    assert second["nextCursor"] is None
+
+
+async def test_transactions_reject_bad_limit_and_cursor(client, auth):
+    headers, _ = auth
+    for params in ({"limit": 0}, {"limit": 51}):
+        resp = await client.get("/coins/transactions", params=params, headers=headers)
+        assert resp.status_code == 422
+    resp = await client.get("/coins/transactions", params={"before": "garbage"}, headers=headers)
+    assert resp.status_code == 422
+
+
+async def test_redeem_with_same_client_id_spends_once(client, auth):
+    headers, user_id = auth
+    await _add(_bundle(10, 600))
+    await _credit(user_id, 1300)
+    bodies = []
+    for _ in range(2):
+        resp = await client.post("/coins/redeem", json={"days": 10, "clientId": "k1"}, headers=headers)
+        assert resp.status_code == 200
+        bodies.append(resp.json())
+    assert bodies[0] == bodies[1]
+    assert bodies[1]["balance"] == 700
+    txs = (await client.get("/coins/transactions", headers=headers)).json()["transactions"]
+    assert [t["reason"] for t in txs].count("spend") == 1
+    assert "mascot_purchase" not in [t["reason"] for t in txs]
+
+
+async def test_redeem_with_different_client_ids_spends_twice(client, auth):
+    headers, user_id = auth
+    await _add(_bundle(10, 600))
+    await _credit(user_id, 1300)
+    for key in ("a", "b"):
+        assert (await client.post("/coins/redeem", json={"days": 10, "clientId": key}, headers=headers)).status_code == 200
+    txs = (await client.get("/coins/transactions", headers=headers)).json()["transactions"]
+    assert [t["reason"] for t in txs].count("spend") == 2
+
+
+async def test_redeem_rejects_empty_or_long_client_id(client, auth):
+    headers, _ = auth
+    for key in ("", "x" * 65):
+        resp = await client.post("/coins/redeem", json={"days": 10, "clientId": key}, headers=headers)
+        assert resp.status_code == 422

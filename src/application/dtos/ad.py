@@ -8,6 +8,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from src.domain.entities.ad_package import AdPackage
+from src.domain.enums import PaymentProvider, PaymentStatus
 
 
 @dataclass(frozen=True)
@@ -34,3 +35,20 @@ class MyAdsDTO:
     featured_until: datetime | None
     packages: list[AdPackageDTO]  # active only, fewest days first
     impressions: list[AdImpressionDayDTO]  # last 30 Vietnam days, oldest first, zero-filled
+
+
+@dataclass(frozen=True)
+class MyAdPaymentDTO:
+    order_code: int
+    amount: Decimal
+    status: PaymentStatus
+    provider: PaymentProvider
+    ad_days: int
+    created_at: datetime
+    paid_at: datetime | None
+
+
+@dataclass(frozen=True)
+class MyAdPaymentListDTO:
+    payments: list[MyAdPaymentDTO]
+    next_cursor: str | None

@@ -57,6 +57,7 @@ class FakeSubscriptionRepo:
 class FakeUserRepo:
     def __init__(self, user: User) -> None:
         self._user = user
+        self.locked: list[int] = []
 
     async def get_by_id(self, user_id):
         return self._user if user_id == self._user.id else None
@@ -70,6 +71,9 @@ class FakeUserRepo:
     async def update(self, user):
         self._user = user
         return user
+
+    async def lock(self, user_id):
+        self.locked.append(user_id)
 
 
 class FakeProvider:

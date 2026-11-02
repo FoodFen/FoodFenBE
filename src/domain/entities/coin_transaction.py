@@ -24,17 +24,21 @@ class CoinTransaction:
     amount: int
     reason: CoinReason
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    client_id: str | None = None  # idempotency key, set on redeem only
 
     def __post_init__(self) -> None:
         if self.amount == 0:
             raise InvalidAttributeException("amount must not be zero")
 
     @classmethod
-    def create(cls, user_id: int, amount: int, reason: CoinReason) -> CoinTransaction:
+    def create(
+        cls, user_id: int, amount: int, reason: CoinReason, client_id: str | None = None
+    ) -> CoinTransaction:
         return cls(
             id=uuid4(),
             user_id=user_id,
             amount=amount,
             reason=reason,
             created_at=datetime.now(UTC),
+            client_id=client_id,
         )

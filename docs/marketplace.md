@@ -50,6 +50,7 @@ Five pieces, built in this order:
 | 2026-10-12 | Admin creates and edits packages (days, price, active) on the admin web; no delete (deactivate instead); the migration seeds one (7 days, 99 000 VND) | Payments snapshot the days and amount, so an edit never changes a pending order and history survives |
 | 2026-10-12 | Buying while featured extends from the current end; no refund if the admin takes the restaurant down mid-package (its dishes just stop being public, the days keep running) | Simple and predictable; the takedown is the restaurant's own doing |
 | 2026-10-12 | Only an approved restaurant can buy placement; payment goes through the existing PayOS / MoMo checkout (`plan_type = ad_package`), the return URL is FoodFenWeb's `/restaurant/ads` | Reuses the payment flow, status polling and webhooks as they are; ad payments count as `adRevenue`, never `premiumRevenue`, and grant no Premium |
+| 2026-10-29 | The owner is emailed the result of a review, only when the status actually changes: restaurant approved, restaurant rejected or taken down (with the reason), dish rejected or taken down (with dish name and reason). Dish approvals send nothing. The email links to the owner portal (`/restaurant`) | The owner should not have to reopen the portal to find out. Dish approvals are silent because the web admin approves all pending dishes with one request per dish, which would mean an email per dish; a repeated review with the same status is idempotent and sends nothing |
 
 ## Roles and permissions
 
@@ -135,6 +136,9 @@ Only the latest review is kept (status columns on each row); there is no review 
   restaurant down at any time (set it to `rejected` with a reason).
 - Owners delete dishes outright (nothing references a dish yet).
 - **Public** = an `approved` dish of an `approved` restaurant. Nothing else is ever shown to diners.
+- **Owner email**: a review that changes a status emails the owner (restaurant approved or rejected,
+  dish rejected, each with the reason where there is one). Dish approvals and repeated reviews send nothing.
+  Sent from the admin controller as a background task, like the account emails.
 
 ## API
 
@@ -153,6 +157,8 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
   (`planType: "ad_package"`); 409 `{error: "restaurant_not_approved"}` unless the restaurant is approved,
   404 for an unknown or inactive package. Status and cancel reuse `GET /payments/{orderCode}` and
   `POST /payments/{orderCode}/cancel`. `POST /payments/checkout` still only accepts `monthly | annual` (422).
+- `GET /restaurants/mine/payments?cursor=&limit=` (limit 1..50, default 20) → `{payments: [{orderCode, amount, status, provider, adDays,
+  createdAt, paidAt}], nextCursor}`: the owner's own `ad_package` payments, newest first; 404 without a restaurant.
 
 **Diner** (any signed-in user, no Premium gate; public = approved dish of an approved restaurant):
 
@@ -174,7 +180,7 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
 
 **Admin**:
 
-- `GET /admin/restaurants?needsReview=true|status=` · `GET /admin/restaurants/{id}` (profile + full menu)
+- `GET /admin/restaurants?needsReview=true|status=|q=|cursor=|limit=` (limit 1..50, default 20; `q` = case- and accent-insensitive substring of restaurant name, owner name or owner email ("bun cha" finds "Bún Chả", "dau" finds "Đậu"; needs the Postgres `unaccent` extension)) → `{restaurants, total, nextCursor}`, oldest `updatedAt` first · `GET /admin/restaurants/{id}` (profile + full menu + `ownerName`, `ownerEmail`)
 - `POST /admin/restaurants/{id}/review` and `POST /admin/dishes/{id}/review`:
   `{decision: approved|rejected, reason?}` (reason required to reject; also used for takedowns).
   The review queue = `pending` restaurants **or** approved ones with `pending` dishes.
@@ -183,6 +189,9 @@ JWT, so promoting/demoting an admin with SQL takes effect immediately.
 - `GET /admin/ad-packages` (all, inactive included: `[{id, days, priceVnd, active, createdAt}]`) ·
   `POST /admin/ad-packages {days, priceVnd, active?}` (201) · `PATCH /admin/ad-packages/{id}`
   `{days?, priceVnd?, active?}` (404 unknown id). `days` and `priceVnd` are positive integers (422).
+- `GET /admin/payments?q=&status=&planType=&provider=&from=&to=&cursor=&limit=` (limit 1..50, default 20) → `{payments, total, nextCursor}`,
+  newest `createdAt` first. `q` = payer email (substring) or exact order code; `from`/`to` are inclusive Vietnam days. Row: `id, orderCode, userId,
+  userEmail, userName, restaurantId, restaurantName` (the last two only for `ad_package` rows) `, planType, provider, amount` (integer VND)`, status, adDays, createdAt, paidAt`.
 - `GET /admin/dashboard?from=&to=`: totals `premiumRevenue` (paid payments except ads), `adRevenue` (paid `ad_package` payments),
   `newUsers`, `newRestaurants`, `foodEntries` (by their own `logged_on` day) and `premiumUsers` (a current count, totals
   only: there is no tier history) + a daily series of the same fields except `premiumUsers`. Days are Vietnam days (UTC+7); default last 30 days.

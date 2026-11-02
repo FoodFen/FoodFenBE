@@ -10,15 +10,26 @@ from pydantic import Field, ValidationInfo, field_validator
 from src.adapters.schemas.base import CamelModel
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
 from src.application.dtos.admin import (
+    AdminPaymentListDTO,
     AdminQuestDTO,
     AdminQuizQuestionDTO,
     AdminRestaurantDetailDTO,
+    AdminRestaurantListDTO,
     AdminRestaurantRowDTO,
     AdminUserListDTO,
     AdminUserRowDTO,
     DashboardDTO,
 )
-from src.domain.enums import ModerationStatus, QuestCadence, ReviewDecision, SubscriptionTier, UserRole
+from src.domain.enums import (
+    ModerationStatus,
+    PaymentProvider,
+    PaymentStatus,
+    PlanType,
+    QuestCadence,
+    ReviewDecision,
+    SubscriptionTier,
+    UserRole,
+)
 
 
 class ReviewRequest(CamelModel):
@@ -52,15 +63,33 @@ class AdminRestaurantRowResponse(CamelModel):
         return cls(**vars(dto))
 
 
+class AdminRestaurantListResponse(CamelModel):
+    restaurants: list[AdminRestaurantRowResponse]
+    total: int
+    next_cursor: str | None
+
+    @classmethod
+    def from_dto(cls, dto: AdminRestaurantListDTO) -> AdminRestaurantListResponse:
+        return cls(
+            restaurants=[AdminRestaurantRowResponse.from_dto(r) for r in dto.restaurants],
+            total=dto.total,
+            next_cursor=dto.next_cursor,
+        )
+
+
 class AdminRestaurantDetailResponse(CamelModel):
     restaurant: RestaurantResponse
     dishes: list[DishResponse]
+    owner_name: str | None
+    owner_email: str
 
     @classmethod
     def from_dto(cls, dto: AdminRestaurantDetailDTO) -> AdminRestaurantDetailResponse:
         return cls(
             restaurant=RestaurantResponse.from_dto(dto.restaurant),
             dishes=[DishResponse.from_dto(d) for d in dto.dishes],
+            owner_name=dto.owner_name,
+            owner_email=dto.owner_email,
         )
 
 
@@ -148,3 +177,34 @@ class AdminQuestResponse(CamelModel):
     @classmethod
     def from_dto(cls, dto: AdminQuestDTO) -> AdminQuestResponse:
         return cls(**vars(dto))
+
+
+class AdminPaymentRowResponse(CamelModel):
+    id: UUID
+    order_code: int
+    user_id: int
+    user_email: str
+    user_name: str | None
+    restaurant_id: UUID | None
+    restaurant_name: str | None
+    plan_type: PlanType
+    provider: PaymentProvider
+    amount: int  # whole VND
+    status: PaymentStatus
+    ad_days: int | None
+    created_at: datetime
+    paid_at: datetime | None
+
+
+class AdminPaymentListResponse(CamelModel):
+    payments: list[AdminPaymentRowResponse]
+    total: int
+    next_cursor: str | None
+
+    @classmethod
+    def from_dto(cls, dto: AdminPaymentListDTO) -> AdminPaymentListResponse:
+        return cls(
+            payments=[AdminPaymentRowResponse(**{**vars(p), "amount": int(p.amount)}) for p in dto.payments],
+            total=dto.total,
+            next_cursor=dto.next_cursor,
+        )

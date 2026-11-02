@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from src.application.dtos.subscription import SubscriptionOutputDTO
 from src.domain.entities.quest import Quest
-from src.domain.enums import QuestCadence, QuestType, QuestUnit
+from src.domain.enums import CoinReason, QuestCadence, QuestType, QuestUnit
 
 
 @dataclass(frozen=True)
@@ -61,3 +61,17 @@ class CoinBundleOutputDTO:
     id: UUID
     days: int
     coin_cost: int
+
+
+@dataclass(frozen=True)
+class CoinTransactionOutputDTO:
+    id: UUID
+    amount: int
+    reason: CoinReason
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class CoinTransactionsPageDTO:
+    transactions: list[CoinTransactionOutputDTO]
+    next_cursor: str | None

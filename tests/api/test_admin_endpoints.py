@@ -32,7 +32,7 @@ async def test_admin_routes_need_a_token(client):
 async def test_demoted_admin_is_forbidden_immediately(client, make_user, set_role):
     headers, user_id = await make_user("boss@example.com", admin=True)
     first = await client.get("/admin/restaurants", headers=headers)
-    assert first.status_code == 200 and first.json() == []
+    assert first.status_code == 200 and first.json()["restaurants"] == []
     await set_role(user_id, UserRole.USER)
     assert (await client.get("/admin/restaurants", headers=headers)).status_code == 403
 
@@ -66,15 +66,85 @@ async def test_queue_includes_approved_restaurant_with_pending_dish(
     await _review(client, admin, "restaurants", d, "rejected", "fake")
 
     queue = (await client.get("/admin/restaurants?needsReview=true", headers=admin)).json()
-    by_name = {row["name"]: row for row in queue}
+    assert queue["total"] == 2
+    by_name = {row["name"]: row for row in queue["restaurants"]}
     assert set(by_name) == {"A pending", "C new dish"}
     assert (by_name["C new dish"]["dishCount"], by_name["C new dish"]["pendingDishCount"]) == (2, 1)
     assert by_name["A pending"]["ownerEmail"] == "a@x.co"
 
     everything = (await client.get("/admin/restaurants", headers=admin)).json()
-    assert len(everything) == 4
+    assert everything["total"] == 4 and len(everything["restaurants"]) == 4
     rejected = (await client.get("/admin/restaurants?status=rejected", headers=admin)).json()
-    assert [(r["name"], r["rejectionReason"]) for r in rejected] == [("D rejected", "fake")]
+    assert [(r["name"], r["rejectionReason"]) for r in rejected["restaurants"]] == [("D rejected", "fake")]
+
+
+async def test_restaurant_list_search_and_paging(client, make_user, restaurant_body, dish_body):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    for i, name in enumerate(["Pho 24", "Bun Cha 100%", "Com Tam", "Pho Hanoi", "Banh Mi"]):
+        await _restaurant_with(client, make_user, restaurant_body, dish_body, f"owner{i}@x.co", name)
+
+    def get(query):
+        return client.get(f"/admin/restaurants?{query}", headers=admin)
+
+    page1 = (await get("limit=2")).json()
+    assert page1["total"] == 5 and page1["nextCursor"] == "2"
+    page2 = (await get("limit=2&cursor=2")).json()
+    page3 = (await get("limit=2&cursor=4")).json()
+    assert page3["nextCursor"] is None
+    names = [r["name"] for page in (page1, page2, page3) for r in page["restaurants"]]
+    assert sorted(names) == ["Banh Mi", "Bun Cha 100%", "Com Tam", "Pho 24", "Pho Hanoi"]
+
+    by_name = (await get("q=pho")).json()  # case-insensitive
+    assert by_name["total"] == 2 and {r["name"] for r in by_name["restaurants"]} == {"Pho 24", "Pho Hanoi"}
+    by_email = (await get("q=OWNER3@")).json()
+    assert [r["name"] for r in by_email["restaurants"]] == ["Pho Hanoi"]
+    assert (await get("q=100%25")).json()["total"] == 1  # '%' is literal
+    assert (await get("q=%25")).json()["total"] == 1
+    assert (await get("q=nothing")).json() == {"restaurants": [], "total": 0, "nextCursor": None}
+    # q combines with status and pages by the filtered total
+    assert (await get("q=pho&status=approved")).json()["total"] == 0
+    filtered = (await get("q=pho&limit=1")).json()
+    assert filtered["total"] == 2 and filtered["nextCursor"] == "1"
+
+
+async def test_restaurant_list_search_matches_owner_name(client, make_user, restaurant_body, dish_body):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    signup = await client.post(
+        "/auth/sign-up", json={"email": "zed@x.co", "password": "s3cret-pass", "displayName": "Nguyen Van Zed"}
+    )
+    headers = {"Authorization": f"Bearer {signup.json()['accessToken']}"}
+    await client.post("/restaurants", json=restaurant_body, headers=headers)
+    rows = (await client.get("/admin/restaurants?q=van zed", headers=admin)).json()["restaurants"]
+    assert [r["ownerEmail"] for r in rows] == ["zed@x.co"]
+
+
+async def test_restaurant_list_search_ignores_accents(client, make_user, restaurant_body):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    for email, owner, name in (
+        ("a@x.co", "Nguyễn Văn Ân", "Bún Chả Hương Liên"),
+        ("b@x.co", "Lê Bình", "Quán Đậu Phụ"),
+    ):
+        signup = await client.post(
+            "/auth/sign-up", json={"email": email, "password": "s3cret-pass", "displayName": owner}
+        )
+        headers = {"Authorization": f"Bearer {signup.json()['accessToken']}"}
+        await client.post("/restaurants", json={**restaurant_body, "name": name}, headers=headers)
+
+    async def names(q):
+        rows = (await client.get(f"/admin/restaurants?q={q}", headers=admin)).json()["restaurants"]
+        return [r["name"] for r in rows]
+
+    assert await names("bun cha") == ["Bún Chả Hương Liên"]
+    assert await names("dau") == ["Quán Đậu Phụ"]
+    assert await names("ĐẬU") == ["Quán Đậu Phụ"]
+    assert await names("nguyen van an") == ["Bún Chả Hương Liên"]
+    assert await names("Bún Chả") == ["Bún Chả Hương Liên"]
+
+
+async def test_restaurant_list_rejects_bad_paging(client, make_user):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    for query in ("limit=0", "limit=51", "cursor=abc"):
+        assert (await client.get(f"/admin/restaurants?{query}", headers=admin)).status_code == 422
 
 
 async def test_detail_includes_full_menu(client, make_user, restaurant_body, dish_body):
@@ -82,6 +152,7 @@ async def test_detail_includes_full_menu(client, make_user, restaurant_body, dis
     _, rid, dish_ids = await _restaurant_with(client, make_user, restaurant_body, dish_body, "o@x.co", "R", 2)
     detail = (await client.get(f"/admin/restaurants/{rid}", headers=admin)).json()
     assert detail["restaurant"]["id"] == rid
+    assert (detail["ownerName"], detail["ownerEmail"]) == ("U", "o@x.co")
     assert [d["id"] for d in detail["dishes"]] == dish_ids
     assert detail["dishes"][0]["kcal"] == 450
 
@@ -152,3 +223,33 @@ async def test_dashboard_bad_range_is_400(client, make_user):
     admin, _ = await make_user("admin@example.com", admin=True)
     resp = await client.get("/admin/dashboard?from=2026-10-09&to=2026-10-08", headers=admin)
     assert resp.status_code == 400
+
+
+async def test_review_emails_owner_only_when_status_changes(
+    client, make_user, restaurant_body, dish_body, notifier
+):
+    admin, _ = await make_user("admin@example.com", admin=True)
+    _, rid, dishes = await _restaurant_with(client, make_user, restaurant_body, dish_body, "o@x.co", "R", 2)
+
+    await _review(client, admin, "restaurants", rid, "approved")
+    await _review(client, admin, "restaurants", rid, "approved")  # same status: silent
+    await _review(client, admin, "dishes", dishes[0], "approved")  # approvals are silent
+    await _review(client, admin, "dishes", dishes[1], "rejected", "kcal is wrong")
+    await _review(client, admin, "dishes", dishes[1], "rejected", "kcal is wrong")  # same status: silent
+    await _review(client, admin, "restaurants", rid, "rejected", "food safety report")
+
+    assert notifier.reviews == [
+        {"email": "o@x.co", "restaurant": "R", "approved": True, "reason": None, "dish": None},
+        {"email": "o@x.co", "restaurant": "R", "approved": False, "reason": "kcal is wrong", "dish": "Phở bò"},
+        {"email": "o@x.co", "restaurant": "R", "approved": False, "reason": "food safety report", "dish": None},
+    ]
+
+
+async def test_review_message_links_to_owner_portal_and_includes_reason():
+    from src.infrastructure.notifications.email_verification_notifier import _review_message
+
+    subject, body = _review_message("Ann", "Quán Ngon", False, "bad photo", "Phở", "http://x/restaurant")
+    assert "Phở" in subject and "Quán Ngon" in subject
+    assert "Reason: bad photo" in body and "http://x/restaurant" in body
+    subject, body = _review_message(None, "Quán Ngon", True, None, None, "http://x/restaurant")
+    assert "approved" in subject and "visible to diners" in body and "Hi there" in body

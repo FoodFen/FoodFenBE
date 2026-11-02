@@ -43,7 +43,17 @@ from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
 from src.application.use_cases.list_activity_logs import ListActivityLogsUseCase
 from src.application.use_cases.list_chat_messages import ListChatMessagesUseCase
+from src.application.use_cases.admin_mascots import (
+    CreateMascotUseCase,
+    DeleteMascotUseCase,
+    ListAdminMascotsUseCase,
+    UpdateMascotUseCase,
+)
+from src.application.use_cases.equip_mascot import EquipMascotUseCase
+from src.application.use_cases.get_mascots import GetMascotsUseCase
+from src.application.use_cases.list_coin_transactions import ListCoinTransactionsUseCase
 from src.application.use_cases.list_coin_bundles import ListCoinBundlesUseCase
+from src.application.use_cases.purchase_mascot import PurchaseMascotUseCase
 from src.application.use_cases.list_plans import ListPlansUseCase
 from src.application.use_cases.list_daily_goals import ListDailyGoalsUseCase
 from src.application.use_cases.list_food_entries import ListFoodEntriesUseCase
@@ -80,7 +90,9 @@ from src.application.use_cases.get_admin_restaurant import GetAdminRestaurantUse
 from src.application.use_cases.list_admin_quest_definitions import ListAdminQuestDefinitionsUseCase
 from src.application.use_cases.list_admin_quiz_questions import ListAdminQuizQuestionsUseCase
 from src.application.use_cases.list_admin_restaurants import ListAdminRestaurantsUseCase
+from src.application.use_cases.list_admin_payments import ListAdminPaymentsUseCase
 from src.application.use_cases.list_admin_users import ListAdminUsersUseCase
+from src.application.use_cases.list_my_payments import ListMyPaymentsUseCase
 from src.application.use_cases.review_dish import ReviewDishUseCase
 from src.application.use_cases.review_restaurant import ReviewRestaurantUseCase
 from src.infrastructure.config import settings
@@ -103,6 +115,7 @@ from src.infrastructure.di.repositories import (
     AiTrialRepositoryDep,
     ActivityLogRepositoryDep,
     CoinBundleRepositoryDep,
+    MascotRepositoryDep,
     CoinRepositoryDep,
     QuestRepositoryDep,
     QuizRepositoryDep,
@@ -525,8 +538,44 @@ def get_redeem_coins_use_case(
     )
 
 
+def get_list_coin_transactions_use_case(coins: CoinRepositoryDep) -> ListCoinTransactionsUseCase:
+    return ListCoinTransactionsUseCase(coins=coins)
+
+
 def get_list_coin_bundles_use_case(bundles: CoinBundleRepositoryDep) -> ListCoinBundlesUseCase:
     return ListCoinBundlesUseCase(bundles=bundles)
+
+
+def get_get_mascots_use_case(
+    coins: CoinRepositoryDep, mascots: MascotRepositoryDep
+) -> GetMascotsUseCase:
+    return GetMascotsUseCase(coins=coins, mascots=mascots)
+
+
+def get_purchase_mascot_use_case(
+    coins: CoinRepositoryDep, mascots: MascotRepositoryDep
+) -> PurchaseMascotUseCase:
+    return PurchaseMascotUseCase(coins=coins, mascots=mascots)
+
+
+def get_equip_mascot_use_case(mascots: MascotRepositoryDep) -> EquipMascotUseCase:
+    return EquipMascotUseCase(mascots=mascots)
+
+
+def get_list_admin_mascots_use_case(mascots: MascotRepositoryDep) -> ListAdminMascotsUseCase:
+    return ListAdminMascotsUseCase(mascots=mascots)
+
+
+def get_create_mascot_use_case(mascots: MascotRepositoryDep) -> CreateMascotUseCase:
+    return CreateMascotUseCase(mascots=mascots)
+
+
+def get_update_mascot_use_case(mascots: MascotRepositoryDep) -> UpdateMascotUseCase:
+    return UpdateMascotUseCase(mascots=mascots)
+
+
+def get_delete_mascot_use_case(mascots: MascotRepositoryDep) -> DeleteMascotUseCase:
+    return DeleteMascotUseCase(mascots=mascots)
 
 
 def get_list_plans_use_case(providers: PaymentProvidersDep) -> ListPlansUseCase:
@@ -539,9 +588,19 @@ def get_list_plans_use_case(providers: PaymentProvidersDep) -> ListPlansUseCase:
 
 GetQuestsUseCaseDep = Annotated[GetQuestsUseCase, Depends(get_get_quests_use_case)]
 RedeemCoinsUseCaseDep = Annotated[RedeemCoinsUseCase, Depends(get_redeem_coins_use_case)]
+ListCoinTransactionsUseCaseDep = Annotated[
+    ListCoinTransactionsUseCase, Depends(get_list_coin_transactions_use_case)
+]
 ListCoinBundlesUseCaseDep = Annotated[
     ListCoinBundlesUseCase, Depends(get_list_coin_bundles_use_case)
 ]
+GetMascotsUseCaseDep = Annotated[GetMascotsUseCase, Depends(get_get_mascots_use_case)]
+PurchaseMascotUseCaseDep = Annotated[PurchaseMascotUseCase, Depends(get_purchase_mascot_use_case)]
+EquipMascotUseCaseDep = Annotated[EquipMascotUseCase, Depends(get_equip_mascot_use_case)]
+ListAdminMascotsUseCaseDep = Annotated[ListAdminMascotsUseCase, Depends(get_list_admin_mascots_use_case)]
+CreateMascotUseCaseDep = Annotated[CreateMascotUseCase, Depends(get_create_mascot_use_case)]
+UpdateMascotUseCaseDep = Annotated[UpdateMascotUseCase, Depends(get_update_mascot_use_case)]
+DeleteMascotUseCaseDep = Annotated[DeleteMascotUseCase, Depends(get_delete_mascot_use_case)]
 ListPlansUseCaseDep = Annotated[ListPlansUseCase, Depends(get_list_plans_use_case)]
 
 
@@ -659,22 +718,28 @@ def get_list_admin_restaurants_use_case(restaurants: RestaurantRepositoryDep) ->
 ListAdminRestaurantsUseCaseDep = Annotated[ListAdminRestaurantsUseCase, Depends(get_list_admin_restaurants_use_case)]
 
 
-def get_get_admin_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> GetAdminRestaurantUseCase:
-    return GetAdminRestaurantUseCase(restaurants=restaurants)
+def get_get_admin_restaurant_use_case(
+    restaurants: RestaurantRepositoryDep, users: UserRepositoryDep
+) -> GetAdminRestaurantUseCase:
+    return GetAdminRestaurantUseCase(restaurants=restaurants, users=users)
 
 
 GetAdminRestaurantUseCaseDep = Annotated[GetAdminRestaurantUseCase, Depends(get_get_admin_restaurant_use_case)]
 
 
-def get_review_restaurant_use_case(restaurants: RestaurantRepositoryDep) -> ReviewRestaurantUseCase:
-    return ReviewRestaurantUseCase(restaurants=restaurants)
+def get_review_restaurant_use_case(
+    restaurants: RestaurantRepositoryDep, users: UserRepositoryDep
+) -> ReviewRestaurantUseCase:
+    return ReviewRestaurantUseCase(restaurants=restaurants, users=users)
 
 
 ReviewRestaurantUseCaseDep = Annotated[ReviewRestaurantUseCase, Depends(get_review_restaurant_use_case)]
 
 
-def get_review_dish_use_case(restaurants: RestaurantRepositoryDep) -> ReviewDishUseCase:
-    return ReviewDishUseCase(restaurants=restaurants)
+def get_review_dish_use_case(
+    restaurants: RestaurantRepositoryDep, users: UserRepositoryDep
+) -> ReviewDishUseCase:
+    return ReviewDishUseCase(restaurants=restaurants, users=users)
 
 
 ReviewDishUseCaseDep = Annotated[ReviewDishUseCase, Depends(get_review_dish_use_case)]
@@ -785,3 +850,19 @@ def get_update_ad_package_use_case(packages: AdPackageRepositoryDep) -> UpdateAd
 
 
 UpdateAdPackageUseCaseDep = Annotated[UpdateAdPackageUseCase, Depends(get_update_ad_package_use_case)]
+
+
+def get_list_admin_payments_use_case(payments: PaymentRepositoryDep) -> ListAdminPaymentsUseCase:
+    return ListAdminPaymentsUseCase(payments=payments)
+
+
+ListAdminPaymentsUseCaseDep = Annotated[ListAdminPaymentsUseCase, Depends(get_list_admin_payments_use_case)]
+
+
+def get_list_my_payments_use_case(
+    restaurants: RestaurantRepositoryDep, payments: PaymentRepositoryDep
+) -> ListMyPaymentsUseCase:
+    return ListMyPaymentsUseCase(restaurants=restaurants, payments=payments)
+
+
+ListMyPaymentsUseCaseDep = Annotated[ListMyPaymentsUseCase, Depends(get_list_my_payments_use_case)]

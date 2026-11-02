@@ -24,7 +24,7 @@ class RedeemCoinsUseCase:
     subscriptions: SubscriptionRepositoryProtocol
     users: UserRepositoryProtocol
 
-    async def execute(self, user_id: int, days: int) -> RedeemOutputDTO:
+    async def execute(self, user_id: int, days: int, client_id: str | None = None) -> RedeemOutputDTO:
         costs = {b.days: b.coin_cost for b in await self.bundles.list_active()}
         cost = costs.get(days)
         if cost is None:
@@ -34,9 +34,15 @@ class RedeemCoinsUseCase:
             raise UserNotFoundException(f"no user {user_id}")
 
         balance = await self.coins.balance(user_id, for_update=True)
+        if client_id is not None and await self.coins.get_by_client_id(user_id, client_id):
+            # Replay: the key identifies the request, whatever `days` says this time.
+            current = await self.subscriptions.get_by_user_id(user_id)
+            return RedeemOutputDTO(
+                balance=balance, subscription=SubscriptionOutputDTO.from_entity(current)
+            )
         if balance < cost:
             raise InsufficientCoinsException(f"need {cost} coins, have {balance}")
-        await self.coins.add(CoinTransaction.create(user_id, -cost, CoinReason.SPEND))
+        await self.coins.add(CoinTransaction.create(user_id, -cost, CoinReason.SPEND, client_id))
 
         existing = await self.subscriptions.get_by_user_id(user_id)
         subscription = await self.subscriptions.save(

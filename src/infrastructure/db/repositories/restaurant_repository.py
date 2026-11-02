@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from uuid import UUID
 
 from sqlalchemy import and_, case, delete, func, or_, select
@@ -46,8 +47,8 @@ class SQLAlchemyRestaurantRepository:
         await self._session.flush()
 
     async def list_for_admin(
-        self, needs_review: bool, status: ModerationStatus | None
-    ) -> list[AdminRestaurantRowDTO]:
+        self, needs_review: bool, status: ModerationStatus | None, q: str | None, offset: int, limit: int
+    ) -> tuple[list[AdminRestaurantRowDTO], int]:
         dish_count = func.count(DishORM.id)
         pending_count = func.coalesce(
             func.sum(case((DishORM.status == ModerationStatus.PENDING, 1), else_=0)), 0
@@ -63,10 +64,20 @@ class SQLAlchemyRestaurantRepository:
             .join(UserORM, UserORM.id == RestaurantORM.user_id)
             .outerjoin(DishORM, DishORM.restaurant_id == RestaurantORM.id)
             .group_by(RestaurantORM.id, UserORM.id)
-            .order_by(RestaurantORM.updated_at)
         )
         if status is not None:
             stmt = stmt.where(RestaurantORM.status == status)
+        if q and q.strip():
+            escaped = re.sub(r"([\\%_])", r"\\\1", q.strip())
+            pattern = func.unaccent(func.lower(f"%{escaped}%"))
+            stmt = stmt.where(
+                or_(
+                    *(
+                        func.unaccent(func.lower(col)).like(pattern, escape="\\")
+                        for col in (RestaurantORM.name, UserORM.name, UserORM.email)
+                    )
+                )
+            )
         if needs_review:
             stmt = stmt.having(
                 or_(
@@ -74,7 +85,12 @@ class SQLAlchemyRestaurantRepository:
                     and_(RestaurantORM.status == ModerationStatus.APPROVED, pending_count > 0),
                 )
             )
-        rows = (await self._session.execute(stmt)).all()
+        total = await self._session.scalar(select(func.count()).select_from(stmt.subquery()))
+        rows = (
+            await self._session.execute(
+                stmt.order_by(RestaurantORM.updated_at, RestaurantORM.id).offset(offset).limit(limit)
+            )
+        ).all()
         return [
             AdminRestaurantRowDTO(
                 id=r.id, name=r.name, status=r.status, owner_name=owner_name,
@@ -82,7 +98,7 @@ class SQLAlchemyRestaurantRepository:
                 updated_at=r.updated_at, rejection_reason=r.rejection_reason,
             )
             for r, owner_name, owner_email, dishes, pending in rows
-        ]
+        ], int(total or 0)
 
     async def add_dish(self, dish: Dish) -> None:
         self._session.add(DishORM.from_domain(dish))

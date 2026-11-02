@@ -89,3 +89,35 @@ async def test_patch_null_calorie_calc_mode_returns_400_not_500(client, signed_u
     resp = await client.patch("/users/me", json={"calorieCalcMode": None}, headers=headers)
 
     assert resp.status_code == 400
+
+
+async def test_patch_macro_overrides_set_then_null_clears_only_the_sent_one(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    resp = await client.patch(
+        "/users/me", json={"proteinGPerKg": 1.6, "fatShare": 0.3}, headers=headers
+    )
+    assert resp.status_code == 200
+    assert resp.json()["proteinGPerKg"] == 1.6
+    assert resp.json()["fatShare"] == 0.3
+
+    resp = await client.patch("/users/me", json={"fatShare": None}, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["fatShare"] is None
+    assert resp.json()["proteinGPerKg"] == 1.6  # omitted -> unchanged
+
+
+async def test_patch_macro_override_out_of_range_returns_400(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    assert (await client.patch("/users/me", json={"proteinGPerKg": 2.5}, headers=headers)).status_code == 400
+    assert (await client.patch("/users/me", json={"fatShare": 0.1}, headers=headers)).status_code == 400
+
+
+async def test_me_returns_null_macro_overrides_for_a_fresh_user(client, signed_up):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    body = (await client.get("/auth/me", headers=headers)).json()
+
+    assert body["proteinGPerKg"] is None
+    assert body["fatShare"] is None

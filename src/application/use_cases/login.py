@@ -34,7 +34,7 @@ class LoginUseCase:
             reason = "no such user"
         elif user.password_hash is None:
             reason = "account has no password (social sign-in only)"
-        elif not self.hasher.verify(data.password, user.password_hash):
+        elif not await self.hasher.verify(data.password, user.password_hash):
             reason = "wrong password"
         else:
             reason = None

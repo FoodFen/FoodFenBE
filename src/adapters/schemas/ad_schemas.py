@@ -8,8 +8,8 @@ from uuid import UUID
 from pydantic import Field
 
 from src.adapters.schemas.base import CamelModel
-from src.application.dtos.ad import AdPackageDTO, MyAdsDTO
-from src.domain.enums import PaymentProvider
+from src.application.dtos.ad import AdPackageDTO, MyAdPaymentListDTO, MyAdsDTO
+from src.domain.enums import PaymentProvider, PaymentStatus
 
 
 class OwnerAdPackageResponse(CamelModel):
@@ -69,3 +69,25 @@ class UpdateAdPackageRequest(CamelModel):
     days: int | None = Field(default=None, gt=0, le=3650)
     price_vnd: int | None = Field(default=None, gt=0, le=999_999_999_999)
     active: bool | None = None
+
+
+class MyAdPaymentResponse(CamelModel):
+    order_code: int
+    amount: int  # whole VND
+    status: PaymentStatus
+    provider: PaymentProvider
+    ad_days: int
+    created_at: datetime
+    paid_at: datetime | None
+
+
+class MyAdPaymentListResponse(CamelModel):
+    payments: list[MyAdPaymentResponse]
+    next_cursor: str | None
+
+    @classmethod
+    def from_dto(cls, dto: MyAdPaymentListDTO) -> MyAdPaymentListResponse:
+        return cls(
+            payments=[MyAdPaymentResponse(**{**vars(p), "amount": int(p.amount)}) for p in dto.payments],
+            next_cursor=dto.next_cursor,
+        )

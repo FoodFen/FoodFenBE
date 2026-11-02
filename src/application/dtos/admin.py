@@ -4,10 +4,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from src.application.dtos.restaurant import DishOutputDTO, RestaurantOutputDTO
-from src.domain.enums import ModerationStatus, QuestCadence, SubscriptionTier, UserRole
+from src.domain.enums import (
+    ModerationStatus,
+    PaymentProvider,
+    PaymentStatus,
+    PlanType,
+    QuestCadence,
+    SubscriptionTier,
+    UserRole,
+)
 
 
 @dataclass(frozen=True)
@@ -24,9 +33,18 @@ class AdminRestaurantRowDTO:
 
 
 @dataclass(frozen=True)
+class AdminRestaurantListDTO:
+    restaurants: list[AdminRestaurantRowDTO]
+    total: int
+    next_cursor: str | None
+
+
+@dataclass(frozen=True)
 class AdminRestaurantDetailDTO:
     restaurant: RestaurantOutputDTO
     dishes: list[DishOutputDTO]
+    owner_name: str | None
+    owner_email: str
 
 
 @dataclass(frozen=True)
@@ -87,3 +105,40 @@ class AdminQuestDTO:
     reward_coins: int
     cadence: QuestCadence
     active: bool
+
+
+@dataclass(frozen=True)
+class AdminPaymentFilterDTO:
+    """All optional. ``start`` inclusive, ``end`` exclusive (Vietnam-day bounds as UTC instants)."""
+
+    q: str | None = None
+    status: PaymentStatus | None = None
+    plan_type: PlanType | None = None
+    provider: PaymentProvider | None = None
+    start: datetime | None = None
+    end: datetime | None = None
+
+
+@dataclass(frozen=True)
+class AdminPaymentRowDTO:
+    id: UUID
+    order_code: int
+    user_id: int
+    user_email: str
+    user_name: str | None
+    restaurant_id: UUID | None  # the payer's restaurant, only for ad_package payments
+    restaurant_name: str | None
+    plan_type: PlanType
+    provider: PaymentProvider
+    amount: Decimal
+    status: PaymentStatus
+    ad_days: int | None
+    created_at: datetime
+    paid_at: datetime | None
+
+
+@dataclass(frozen=True)
+class AdminPaymentListDTO:
+    payments: list[AdminPaymentRowDTO]
+    total: int
+    next_cursor: str | None

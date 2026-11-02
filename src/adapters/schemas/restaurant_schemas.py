@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated
-from urllib.parse import urlparse
 from uuid import UUID
 
-from pydantic import AfterValidator, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from src.adapters.schemas.base import CamelModel, MoneyField
+from src.adapters.schemas.image_schemas import CloudinaryImageUrl
 from src.application.dtos.restaurant import (
     DishOutputDTO,
     PublicDishDTO,
@@ -21,19 +20,6 @@ from src.application.dtos.restaurant import (
     RestaurantOutputDTO,
 )
 from src.domain.enums import DishDiet, ModerationStatus
-from src.infrastructure.config import settings  # a leaf module: just the cloud name, no wiring
-
-
-def _cloudinary_only(url: str) -> str:
-    """Only images uploaded through this app: ``POST /restaurants/mine/images`` hands out these URLs.
-    Fails closed: no ``CLOUDINARY_URL`` configured means no ``imageUrl`` is accepted (``null`` still is)."""
-    cloud = urlparse(settings.cloudinary_url).hostname  # same parse as CloudinaryImageStorage
-    if not cloud or not url.startswith(f"https://res.cloudinary.com/{cloud}/image/upload/"):
-        raise ValueError("must be an image uploaded through POST /restaurants/mine/images")
-    return url
-
-
-CloudinaryImageUrl = Annotated[str, AfterValidator(_cloudinary_only)]
 
 
 def _not_null(value):
@@ -240,7 +226,3 @@ class UpdateDishRequest(CamelModel):
     @classmethod
     def reject_null_required(cls, value):
         return _not_null(value)
-
-
-class ImageUploadResponse(CamelModel):
-    url: str  # absolute (Cloudinary secure_url)

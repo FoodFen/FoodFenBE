@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import src.infrastructure.db.models  # noqa: F401 — registers every table
 from src.domain.entities.user import User
-from src.domain.enums import ModerationStatus, UserRole
+from src.domain.enums import DishDiet, ModerationStatus, UserRole
 from src.domain.exceptions import WeakPasswordException
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.bootstrap import ensure_admin, seed_demo
@@ -49,7 +49,7 @@ async def test_ensure_admin_creates_admin_with_working_password(session):
 
     boss = await SQLAlchemyUserRepository(session).get_by_email("boss@example.com")
     assert boss.role == UserRole.ADMIN
-    assert BcryptPasswordHasher().verify("s3cret-pass", boss.password_hash)
+    assert await BcryptPasswordHasher().verify("s3cret-pass", boss.password_hash)
 
 
 async def test_ensure_admin_promotes_existing_user_and_keeps_password(session):
@@ -82,6 +82,61 @@ async def test_seed_demo_twice_does_not_duplicate(session):
     await seed_demo(session)
 
     public = await SQLAlchemyRestaurantRepository(session).list_public_dishes()
-    assert len({r.id for _, r in public}) == 3 and len(public) == 15
+    assert len({r.id for _, r in public}) == 3 and len(public) == 18
     assert all(r.status == d.status == ModerationStatus.APPROVED for d, r in public)
     assert await session.scalar(select(func.count(RestaurantORM.id))) == 3
+
+
+_NEW_DISHES = {
+    "Gỏi cuốn chay (4 cuốn)": DishDiet.VEGAN,
+    "Đậu hũ sốt cà chua + cơm": DishDiet.VEGAN,
+    "Mì xào trứng rau củ (chay)": DishDiet.VEGETARIAN,
+}
+
+
+async def test_seed_demo_diet_tags(session):
+    await seed_demo(session)
+
+    public = await SQLAlchemyRestaurantRepository(session).list_public_dishes()
+    assert {d.name: d.diet_tag for d, _ in public if d.name in _NEW_DISHES} == _NEW_DISHES
+    assert all(d.diet_tag == DishDiet.NONE for d, _ in public if d.name not in _NEW_DISHES)
+
+
+async def test_seed_demo_adds_missing_dish_to_already_seeded_restaurant(session):
+    await seed_demo(session)
+    repo = SQLAlchemyRestaurantRepository(session)
+    gone = next(d for d, _ in await repo.list_public_dishes() if d.name == "Gỏi cuốn chay (4 cuốn)")
+    await repo.delete_dish(gone.id)
+
+    await seed_demo(session)
+
+    public = await repo.list_public_dishes()
+    back = [d for d, _ in public if d.name == "Gỏi cuốn chay (4 cuốn)"]
+    assert len(public) == 18 and len(back) == 1
+    assert back[0].diet_tag == DishDiet.VEGAN and back[0].status == ModerationStatus.APPROVED
+
+
+async def test_seed_demo_gives_every_restaurant_and_dish_an_image(session):
+    await seed_demo(session)
+
+    public = await SQLAlchemyRestaurantRepository(session).list_public_dishes()
+    assert len(public) == 18
+    assert all(d.image_url and r.image_url for d, r in public)
+
+
+async def test_seed_demo_backfills_empty_images_but_keeps_existing_ones(session):
+    await seed_demo(session)
+    repo = SQLAlchemyRestaurantRepository(session)
+    public = await repo.list_public_dishes()
+    dish_a, restaurant = public[0]
+    dish_b = public[1][0]
+    restaurant.image_url, dish_a.image_url, dish_b.image_url = None, "", "https://owner.example/own.jpg"
+    await repo.update(restaurant)
+    await repo.update_dish(dish_a)
+    await repo.update_dish(dish_b)
+
+    await seed_demo(session)
+
+    assert (await repo.get_by_id(restaurant.id)).image_url
+    assert (await repo.get_dish(dish_a.id)).image_url
+    assert (await repo.get_dish(dish_b.id)).image_url == "https://owner.example/own.jpg"

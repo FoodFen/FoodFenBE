@@ -267,6 +267,19 @@ def test_user_rejects_negative_weekly_rate():
         User(email="a@b.co", name="A", weekly_rate_kg=-0.5)
 
 
+@pytest.mark.parametrize(
+    ("field", "ok", "bad"),
+    [("protein_g_per_kg", (0.8, 1.6, 2.0), (0.79, 2.01)), ("fat_share", (0.2, 0.3, 0.35), (0.19, 0.36))],
+)
+def test_user_macro_overrides_are_range_checked(field, ok, bad):
+    assert getattr(User(email="a@b.co", name="A"), field) is None
+    for value in ok:
+        assert getattr(User(email="a@b.co", name="A", **{field: value}), field) == value
+    for value in bad:
+        with pytest.raises(InvalidUserAttributeException):
+            User(email="a@b.co", name="A", **{field: value})
+
+
 def test_food_entry_rejects_blank_client_id():
     with pytest.raises(InvalidAttributeException):
         FoodEntry.create(

@@ -26,6 +26,8 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 _EARLIEST_BIRTH_YEAR = 1900
 _MIN_PASSWORD_LEN = 8
+_PROTEIN_G_PER_KG_RANGE = (0.8, 2.0)
+_FAT_SHARE_RANGE = (0.2, 0.35)
 _MAX_PASSWORD_BYTES = 72  # bcrypt silently truncates beyond this
 
 
@@ -65,6 +67,8 @@ class User:
     calorie_left_mode: CalorieLeftMode | None = None
     subscription_tier: SubscriptionTier = SubscriptionTier.FREE
     weekly_rate_kg: float | None = None
+    protein_g_per_kg: float | None = None  # None = auto (client computes)
+    fat_share: float | None = None  # share of kcal from fat; None = auto
     role: UserRole = UserRole.USER
 
     def __post_init__(self) -> None:
@@ -97,6 +101,15 @@ class User:
 
         if self.weekly_rate_kg is not None:
             require_non_negative(self.weekly_rate_kg, "weekly_rate_kg", InvalidUserAttributeException)
+
+        for value, label, (low, high) in (
+            (self.protein_g_per_kg, "protein_g_per_kg", _PROTEIN_G_PER_KG_RANGE),
+            (self.fat_share, "fat_share", _FAT_SHARE_RANGE),
+        ):
+            if value is not None and not low <= value <= high:
+                raise InvalidUserAttributeException(
+                    f"{label} must be between {low} and {high}, got {value!r}"
+                )
 
     @property
     def is_premium(self) -> bool:

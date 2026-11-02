@@ -6,17 +6,21 @@ read them at import. The shims below paper over where SQLite differs from the Po
 
 import itertools
 import os
+import unicodedata
 from datetime import timezone
 
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 # A fake cloud: restaurant/dish imageUrl is only accepted from it (fails closed when unset).
 os.environ["CLOUDINARY_URL"] = "cloudinary://k:s@testcloud"
+# Never send real email from tests, whatever EMAIL_BACKEND the developer's .env sets.
+os.environ["EMAIL_BACKEND"] = "console"
 
 from sqlalchemy import event, types  # noqa: E402
 from sqlalchemy.dialects.sqlite import DATETIME  # noqa: E402
 from sqlalchemy.dialects.sqlite.aiosqlite import SQLiteDialect_aiosqlite  # noqa: E402
 from sqlalchemy.engine import Engine  # noqa: E402
 
+from src.infrastructure.db.models.mascot_model import MascotORM  # noqa: E402
 from src.infrastructure.db.models.payment_model import PaymentORM  # noqa: E402
 
 
@@ -24,6 +28,19 @@ from src.infrastructure.db.models.payment_model import PaymentORM  # noqa: E402
 def _enable_foreign_keys(dbapi_connection, _record) -> None:
     # SQLite ignores FKs (and so ON DELETE CASCADE) unless asked, per connection.
     dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
+
+def _unaccent(text: str | None) -> str | None:
+    # Postgres `unaccent` (extension, migration 0028) has no SQLite twin; mimic it, including d-stroke -> d.
+    if text is None:
+        return None
+    text = text.replace("đ", "d").replace("Đ", "D")
+    return "".join(c for c in unicodedata.normalize("NFD", text) if not unicodedata.combining(c))
+
+
+@event.listens_for(Engine, "connect")
+def _register_unaccent(dbapi_connection, _record) -> None:
+    dbapi_connection.create_function("unaccent", 1, _unaccent, deterministic=True)
 
 
 class _UTCDateTime(DATETIME):
@@ -44,3 +61,9 @@ def _fake_identity(_mapper, _conn, row: PaymentORM) -> None:
     # `order_code` is a non-PK IDENTITY column on Postgres; SQLite has no equivalent.
     if row.order_code is None:
         row.order_code = next(_order_codes)
+
+
+@event.listens_for(MascotORM.__table__, "after_create")
+def _seed_free_mascot(_table, connection, **_kw) -> None:
+    # users.equipped_mascot_id defaults to 'default' and is an FK; migration 0026 seeds that row, create_all does not.
+    connection.execute(MascotORM.__table__.insert().values(id="default", name="Fen", coin_cost=0, active=True))
