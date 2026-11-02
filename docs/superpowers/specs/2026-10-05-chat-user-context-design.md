@@ -128,4 +128,5 @@ grows past a handful of lines.
 ## Out of scope
 
 Function calling, embeddings/pgvector, a food catalog, context caching (3 indexed queries take
-milliseconds; Gemini takes seconds), and water/activity/weight/streak data.
+milliseconds; Gemini takes seconds). Water/activity/weight/streak data was listed here too and has since
+moved in: see `2026-10-14-chat-more-context-design.md`.

@@ -221,3 +221,43 @@ async def test_context_lists_public_dishes_and_omits_the_section_without_any(
     await client.post("/chat/messages", json={"message": "hi"}, headers=reader)
 
     assert "DISHES" in ai_chat_provider.last_context and dish_id in ai_chat_provider.last_context
+
+
+async def test_chat_context_includes_water_activity_weight_and_streak(client, signed_up, ai_chat_provider):
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+    day = "2026-10-04"
+    posts = [
+        ("/daily-goals", {"targetKcal": 2000, "targetCarbsG": 200.0, "targetProteinG": 150.0,
+                          "targetFatG": 60.0, "targetWaterMl": 2500, "effectiveDate": "2026-10-01", "clientId": "g1"}),
+        ("/water-logs", {"amountMl": 350, "clientId": "w1", "loggedOn": day}),
+        ("/activity-logs", {"activityType": "Chạy bộ", "caloriesBurned": 300, "clientId": "a1", "loggedOn": day}),
+        ("/weight-logs", {"weight": 61.2, "clientId": "k1", "recordedAt": day}),
+        ("/streak", {"currentStreak": 4, "longestStreak": 6, "lastActiveDate": day}),
+    ]
+    for path, body in posts:
+        assert (await client.post(path, json=body, headers=headers)).status_code == 200
+
+    resp = await client.post("/chat/messages", json={"message": "how am I doing?", "date": day}, headers=headers)
+
+    assert resp.status_code == 200
+    ctx = ai_chat_provider.last_context
+    assert "350 ml of 2500 ml goal" in ctx
+    assert "Chạy bộ 300 kcal" in ctx
+    assert "- Latest: 61.2 on 2026-10-04" in ctx
+    assert "Current: 4 days (longest 6)" in ctx
+
+
+async def test_chat_context_activity_sections_exclude_other_users(client, signed_up, ai_chat_provider):
+    other = await client.post(
+        "/auth/sign-up",
+        json={"email": "chatother@example.com", "password": "s3cret-pass", "displayName": "Other"},
+    )
+    other_headers = {"Authorization": f"Bearer {other.json()['accessToken']}"}
+    await client.post(
+        "/water-logs", json={"amountMl": 777, "clientId": "w9", "loggedOn": "2026-10-04"}, headers=other_headers
+    )
+    headers = {"Authorization": f"Bearer {signed_up['accessToken']}"}
+
+    await client.post("/chat/messages", json={"message": "hi", "date": "2026-10-04"}, headers=headers)
+
+    assert "777" not in ai_chat_provider.last_context

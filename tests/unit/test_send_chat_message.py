@@ -8,7 +8,11 @@ from uuid import uuid4
 from src.application.dtos.chat import ChatStreamDone, ChatStreamError, ChatStreamToken
 from src.application.use_cases.send_chat_message import SendChatMessageUseCase
 from src.domain.entities.chat_message import ChatMessage
+from src.domain.entities.activity_log import ActivityLog
+from src.domain.entities.streak import Streak
 from src.domain.entities.user import User
+from src.domain.entities.water_log import WaterLog
+from src.domain.entities.weight_log import WeightLog
 from src.domain.enums import ChatRole
 
 
@@ -48,6 +52,26 @@ class FakeFoodEntryRepo:
         return []
 
 
+class FakeLogRepo:
+    """Stands in for the water / activity / weight repos: returns its rows, records the ranges asked for."""
+
+    def __init__(self, rows=()) -> None:
+        self.rows = list(rows)
+        self.calls: list[tuple[int, date, date]] = []
+
+    async def list_by_date_range(self, user_id, from_date, to_date):
+        self.calls.append((user_id, from_date, to_date))
+        return self.rows
+
+
+class FakeStreakRepo:
+    def __init__(self, streak=None) -> None:
+        self.streak = streak
+
+    async def get_by_user(self, user_id):
+        return self.streak
+
+
 class FakeRestaurantRepo:
     def __init__(self, pairs=()) -> None:
         self.pairs = list(pairs)
@@ -70,7 +94,10 @@ class FakeProvider:
             yield delta
 
 
-def _use_case(repo, provider, *, history_limit=10, users=None, food_entries=None, restaurants=None):
+def _use_case(
+    repo, provider, *, history_limit=10, users=None, food_entries=None, restaurants=None,
+    water=None, activities=None, weights=None, streaks=None,
+):
     return SendChatMessageUseCase(
         chat_messages=repo,
         provider=provider,
@@ -78,6 +105,10 @@ def _use_case(repo, provider, *, history_limit=10, users=None, food_entries=None
         daily_goals=FakeDailyGoalRepo(),
         food_entries=food_entries or FakeFoodEntryRepo(),
         restaurants=restaurants or FakeRestaurantRepo(),
+        water_logs=water or FakeLogRepo(),
+        activity_logs=activities or FakeLogRepo(),
+        weight_logs=weights or FakeLogRepo(),
+        streaks=streaks or FakeStreakRepo(),
         history_limit=history_limit,
     )
 
@@ -248,3 +279,30 @@ async def test_context_has_a_dishes_section_only_when_something_is_public():
 
     assert "DISHES" in seen[0] and str(pair[0].id) in seen[0]
     assert "DISHES" not in seen[1]
+
+
+async def test_context_has_water_activity_weight_and_streak_sections_for_the_right_windows():
+    seen: list[str] = []
+
+    class RecordingProvider:
+        async def stream_reply(self, history, user_message, context):
+            seen.append(context)
+            yield "ok"
+
+    today = date(2026, 10, 4)
+    water = FakeLogRepo([WaterLog.create(1, 600, client_id="w", logged_on=today)])
+    acts = FakeLogRepo([ActivityLog.create(1, "Bơi", 200, client_id="a", logged_on=today)])
+    weights = FakeLogRepo([WeightLog.create(1, 64.2, today, client_id="k")])
+    streak = Streak(id=uuid4(), user_id=1, current_streak=3, longest_streak=9, last_active_date=today)
+    uc = _use_case(
+        FakeChatMessageRepo(), RecordingProvider(), water=water, activities=acts, weights=weights,
+        streaks=FakeStreakRepo(streak),
+    )
+
+    await _collect(uc, user_id=1, message="hi", today=today)
+
+    assert "600 ml" in seen[0] and "Bơi 200 kcal" in seen[0]
+    assert "- Latest: 64.2 on 2026-10-04" in seen[0] and "Current: 3 days (longest 9)" in seen[0]
+    assert water.calls == [(1, date(2026, 9, 28), today)] == acts.calls
+    assert weights.calls == [(1, date(2026, 9, 5), today)]
+    assert seen[0].index("MEALS TODAY") < seen[0].index("WATER")

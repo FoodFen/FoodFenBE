@@ -8,6 +8,8 @@ from src.domain.entities.streak import Streak
 
 
 class StreakRepositoryProtocol(Protocol):
+    async def get_by_user(self, user_id: int) -> Streak | None: ...
+
     async def upsert(self, streak: Streak) -> Streak:
         """One row per user_id — replaces it if one already exists,
         creates it (preserving the given id) otherwise."""

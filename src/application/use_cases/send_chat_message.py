@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
-from src.application.chat_context import WINDOW_DAYS, render_user_context
+from src.application.chat_context import WEIGHT_WINDOW_DAYS, WINDOW_DAYS, render_activity_context, render_user_context
 from src.application.chat_dishes import MarkerStripper, pick_candidates, render_dishes, to_cards, valid_ids
 from src.application.dish_fit import rank_dishes, remaining_on
 from src.application.dtos.chat import (
@@ -27,10 +27,14 @@ from src.application.dtos.chat import (
 )
 from src.application.ports.ai_chat_provider import AiChatProviderProtocol
 from src.application.ports.chat_message_repository import ChatMessageRepositoryProtocol
+from src.application.ports.activity_log_repository import ActivityLogRepositoryProtocol
 from src.application.ports.daily_goal_repository import DailyGoalRepositoryProtocol
 from src.application.ports.food_entry_repository import FoodEntryRepositoryProtocol
 from src.application.ports.restaurant_repository import RestaurantRepositoryProtocol
+from src.application.ports.streak_repository import StreakRepositoryProtocol
 from src.application.ports.user_repository import UserRepositoryProtocol
+from src.application.ports.water_log_repository import WaterLogRepositoryProtocol
+from src.application.ports.weight_log_repository import WeightLogRepositoryProtocol
 from src.domain.entities.chat_message import ChatMessage
 from src.domain.entities.dish import Dish
 from src.domain.entities.restaurant import Restaurant
@@ -54,6 +58,10 @@ class SendChatMessageUseCase:
     daily_goals: DailyGoalRepositoryProtocol
     food_entries: FoodEntryRepositoryProtocol
     restaurants: RestaurantRepositoryProtocol
+    water_logs: WaterLogRepositoryProtocol
+    activity_logs: ActivityLogRepositoryProtocol
+    weight_logs: WeightLogRepositoryProtocol
+    streaks: StreakRepositoryProtocol
     history_limit: int
 
     async def execute(
@@ -104,7 +112,20 @@ class SendChatMessageUseCase:
         entries = await self.food_entries.list_by_date_range(
             user_id, today - timedelta(days=WINDOW_DAYS - 1), today
         )
-        sections = [render_user_context(user, goals, entries, today)]
+        week_start = today - timedelta(days=WINDOW_DAYS - 1)
+        sections = [
+            render_user_context(user, goals, entries, today),
+            render_activity_context(
+                goals,
+                await self.water_logs.list_by_date_range(user_id, week_start, today),
+                await self.activity_logs.list_by_date_range(user_id, week_start, today),
+                await self.weight_logs.list_by_date_range(
+                    user_id, today - timedelta(days=WEIGHT_WINDOW_DAYS - 1), today
+                ),
+                await self.streaks.get_by_user(user_id),
+                today,
+            ),
+        ]
 
         public = {d.id: (d, r) for d, r in await self.restaurants.list_public_dishes()}
         diet = user.diet_type if user else None

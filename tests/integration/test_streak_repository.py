@@ -122,3 +122,15 @@ async def test_upsert_does_not_touch_another_users_streak(session):
     await session.commit()
     assert a_row.user_id == user_a.id
     assert a_row.current_streak == 3
+
+
+async def test_get_by_user_returns_the_row_or_none(session):
+    user = await _make_user(session)
+    repo = SQLAlchemyStreakRepository(session)
+    assert await repo.get_by_user(user.id) is None
+
+    await repo.upsert(Streak(id=__import__("uuid").uuid4(), user_id=user.id, current_streak=2, longest_streak=3))
+    await session.commit()
+
+    found = await repo.get_by_user(user.id)
+    assert found is not None and found.current_streak == 2

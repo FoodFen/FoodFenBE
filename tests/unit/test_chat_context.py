@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
-from src.application.chat_context import WINDOW_DAYS, render_user_context
+from src.application.chat_context import WINDOW_DAYS, render_activity_context, render_user_context
 from src.domain.entities.daily_goal import DailyGoal
+from src.domain.entities.activity_log import ActivityLog
 from src.domain.entities.food_entry import FoodEntry
+from src.domain.entities.streak import Streak
 from src.domain.entities.user import User
+from src.domain.entities.water_log import WaterLog
+from src.domain.entities.weight_log import WeightLog
 from src.domain.enums import ActivityLevel, DietType, Gender, InputMethod, MealType
 
 TODAY = date(2026, 10, 5)
@@ -149,3 +153,110 @@ def test_age_not_rendered_when_date_precedes_birth_year():
     text = render_user_context(_user(birth_year=2006), [], [], date(2000, 1, 1))
 
     assert "Age" not in text
+
+
+def _water(day: date, ml: int) -> WaterLog:
+    return WaterLog.create(1, ml, client_id=f"w-{day}-{ml}", logged_on=day)
+
+
+def _act(name: str, day: date, kcal: int) -> ActivityLog:
+    return ActivityLog.create(1, name, kcal, client_id=f"a-{name}-{day}", logged_on=day)
+
+
+def _weight(day: date, kg: float) -> WeightLog:
+    return WeightLog.create(1, kg, day, client_id=f"k-{day}")
+
+
+def _render(goals=(), water=(), acts=(), weights=(), streak=None) -> str:
+    return render_activity_context(list(goals), list(water), list(acts), list(weights), streak, TODAY)
+
+
+def test_empty_activity_context_has_all_four_sections_with_empty_states():
+    text = _render()
+
+    assert "WATER\n- Today (2026-10-05): not logged yet, no goal" in text
+    assert "ACTIVITY (kcal burned)\n- Today: not logged yet" in text
+    assert "WEIGHT (kg)\n- no weigh-ins in the last 30 days" in text
+    assert "STREAK\n- none yet" in text
+    assert text.count("\n\n") == 3
+
+
+def test_water_today_against_the_goal_in_force_and_last_days():
+    goals = [_goal(date(2026, 9, 1), 2000), _goal(date(2026, 10, 20), 1500)]  # 2nd not in force yet
+    water = [_water(TODAY, 750), _water(TODAY, 500), _water(date(2026, 10, 3), 1800), _water(date(2026, 9, 1), 999)]
+
+    text = _render(goals, water)
+
+    assert "- Today (2026-10-05): 1250 ml of 2000 ml goal" in text
+    assert "2026-10-03: 1800 ml" in text
+    assert "2026-10-04: not logged" in text
+    assert "2026-10-05: 1250 ml (so far)" in text
+    assert "2026-09-29: not logged" in text and "999" not in text
+
+
+def test_water_without_a_goal_says_no_goal():
+    assert "- Today (2026-10-05): 400 ml, no goal" in _render(water=[_water(TODAY, 400)])
+
+
+def test_activity_lists_todays_items_and_daily_totals():
+    acts = [_act("Chạy bộ", TODAY, 250), _act("Steps", TODAY, 70), _act("Yoga", date(2026, 10, 3), 90)]
+
+    text = _render(acts=acts)
+
+    assert "- Today: 320 kcal — Chạy bộ 250 kcal, Steps 70 kcal" in text
+    assert "2026-10-03: 90 kcal" in text
+    assert "2026-10-04: not logged" in text
+    assert "2026-10-05: 320 kcal (so far)" in text
+
+
+def test_activity_list_is_capped_and_names_are_truncated():
+    acts = [_act(f"A{i:02d}", TODAY, 10) for i in range(13)]
+
+    line = next(l for l in _render(acts=acts).splitlines() if l.startswith("- Today: "))
+
+    assert "A09 10 kcal" in line and "A10" not in line
+    assert line.endswith("… and 3 more")
+    assert "x" * 61 not in _render(acts=[_act("x" * 100, TODAY, 5)])
+
+
+def test_weight_latest_and_change_over_the_window():
+    weights = [
+        _weight(date(2026, 9, 5), 80.0),  # 30-day window starts 09-06
+        _weight(date(2026, 9, 16), 70.0),
+        _weight(date(2026, 10, 3), 69.0),
+        _weight(date(2026, 10, 4), 68.4),
+    ]
+
+    text = _render(weights=weights)
+
+    assert "- Latest: 68.4 on 2026-10-04" in text
+    assert "- Change over the last 30 days: -1.6 kg (70.0 on 2026-09-16 → 68.4)" in text
+
+
+def test_single_weigh_in_has_no_change_line():
+    text = _render(weights=[_weight(date(2026, 10, 4), 68.4)])
+
+    assert "- Latest: 68.4 on 2026-10-04" in text
+    assert "Change" not in text
+
+
+def test_weight_gain_is_signed():
+    assert "+1.5 kg" in _render(weights=[_weight(date(2026, 9, 20), 60.0), _weight(TODAY, 61.5)])
+
+
+def test_streak_current_and_longest():
+    streak = Streak(id=Streak.create(1).id, user_id=1, current_streak=5, longest_streak=12, last_active_date=TODAY)
+
+    assert "STREAK\n- Current: 5 days (longest 12)" in _render(streak=streak)
+
+
+def test_broken_streak_shows_zero():
+    streak = Streak(
+        id=Streak.create(1).id, user_id=1, current_streak=5, longest_streak=12, last_active_date=date(2026, 10, 1)
+    )
+
+    assert "- Current: 0 days (longest 12)" in _render(streak=streak)
+
+
+def test_zeroed_streak_row_is_none_yet():
+    assert "STREAK\n- none yet" in _render(streak=Streak.create(1))

@@ -9,14 +9,21 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date, timedelta
 
+from src.application.account_status import shown_streak
+from src.domain.entities.activity_log import ActivityLog
 from src.domain.entities.daily_goal import DailyGoal
 from src.domain.entities.food_entry import FoodEntry
+from src.domain.entities.streak import Streak
 from src.domain.entities.user import User
+from src.domain.entities.water_log import WaterLog
+from src.domain.entities.weight_log import WeightLog
 from src.domain.enums import UnitSystem
 
 WINDOW_DAYS = 7
 MAX_MEALS_LISTED = 15
 MAX_NAME_CHARS = 60
+MAX_ACTIVITIES_LISTED = 10
+WEIGHT_WINDOW_DAYS = 30
 
 
 def render_user_context(
@@ -25,6 +32,20 @@ def render_user_context(
     """``entries`` should cover ``today - (WINDOW_DAYS - 1) .. today``; anything outside is ignored."""
     return "\n\n".join(
         [_profile(user, today), _goal(goals, today), _meals_today(entries, today), _last_days(entries, today)]
+    )
+
+
+def render_activity_context(
+    goals: list[DailyGoal],
+    water: list[WaterLog],
+    activities: list[ActivityLog],
+    weights: list[WeightLog],
+    streak: Streak | None,
+    today: date,
+) -> str:
+    """Water and activity cover ``WINDOW_DAYS`` ending ``today``, weight ``WEIGHT_WINDOW_DAYS``; outside is ignored."""
+    return "\n\n".join(
+        [_water(goals, water, today), _activity(activities, today), _weight(weights, today), _streak(streak, today)]
     )
 
 
@@ -103,3 +124,64 @@ def _last_days(entries: list[FoodEntry], today: date) -> str:
         partial = " (so far)" if day == today else ""
         lines.append(f"- {day.isoformat()}: {totals}{partial}")
     return "\n".join([f"LAST {WINDOW_DAYS} DAYS (daily totals; 'not logged' means unknown, not zero)", *lines])
+
+
+def _by_day(rows, amount) -> dict[date, int]:
+    totals: dict[date, int] = defaultdict(int)
+    for r in rows:
+        totals[r.logged_on] += amount(r)
+    return totals
+
+
+def _daily_line(totals: dict[date, int], today: date, unit: str) -> str:
+    parts = []
+    for offset in range(WINDOW_DAYS - 1, -1, -1):
+        day = today - timedelta(days=offset)
+        value = f"{totals[day]} {unit}" if day in totals else "not logged"
+        parts.append(f"{day.isoformat()}: {value}" + (" (so far)" if day == today and day in totals else ""))
+    return f"- Last {WINDOW_DAYS} days: " + ", ".join(parts)
+
+
+def _water(goals: list[DailyGoal], water: list[WaterLog], today: date) -> str:
+    totals = _by_day(water, lambda w: w.amount_ml)
+    in_force = [g for g in goals if g.effective_date <= today]
+    goal = max(in_force, key=lambda g: g.effective_date).target_water_ml if in_force else None
+    if today not in totals:
+        now = "not logged yet" + (", no goal" if goal is None else f" (goal {goal} ml)")
+    else:
+        now = f"{totals[today]} ml" + (", no goal" if goal is None else f" of {goal} ml goal")
+    return "\n".join(["WATER", f"- Today ({today.isoformat()}): {now}", _daily_line(totals, today, "ml")])
+
+
+def _activity(activities: list[ActivityLog], today: date) -> str:
+    totals = _by_day(activities, lambda a: a.calories_burned)
+    todays = sorted((a for a in activities if a.logged_on == today), key=lambda a: a.logged_at)
+    if not todays:
+        now = "not logged yet"
+    else:
+        items = [f"{a.activity_type[:MAX_NAME_CHARS]} {a.calories_burned} kcal" for a in todays[:MAX_ACTIVITIES_LISTED]]
+        if len(todays) > MAX_ACTIVITIES_LISTED:
+            items.append(f"… and {len(todays) - MAX_ACTIVITIES_LISTED} more")
+        now = f"{totals[today]} kcal — " + ", ".join(items)
+    return "\n".join(["ACTIVITY (kcal burned)", f"- Today: {now}", _daily_line(totals, today, "kcal")])
+
+
+def _weight(weights: list[WeightLog], today: date) -> str:
+    start = today - timedelta(days=WEIGHT_WINDOW_DAYS - 1)
+    logs = sorted((w for w in weights if start <= w.recorded_at <= today), key=lambda w: w.recorded_at)
+    if not logs:
+        return f"WEIGHT (kg)\n- no weigh-ins in the last {WEIGHT_WINDOW_DAYS} days"
+    first, last = logs[0], logs[-1]
+    lines = ["WEIGHT (kg)", f"- Latest: {last.weight:.1f} on {last.recorded_at.isoformat()}"]
+    if len(logs) > 1:
+        lines.append(
+            f"- Change over the last {WEIGHT_WINDOW_DAYS} days: {last.weight - first.weight:+.1f} kg "
+            f"({first.weight:.1f} on {first.recorded_at.isoformat()} → {last.weight:.1f})"
+        )
+    return "\n".join(lines)
+
+
+def _streak(streak: Streak | None, today: date) -> str:
+    if streak is None or streak.longest_streak == 0:
+        return "STREAK\n- none yet"
+    return f"STREAK\n- Current: {shown_streak(streak, today)} days (longest {streak.longest_streak})"
