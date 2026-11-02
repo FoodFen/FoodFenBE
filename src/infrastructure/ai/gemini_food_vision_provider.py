@@ -173,10 +173,10 @@ class GeminiFoodVisionProvider:
                 # No tools configured — see gemini_chat_provider.py for why this
                 # is set explicitly rather than left on the SDK's noisy default.
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-                # Fixed-schema extraction: reasoning tokens are billed as output and buy nothing.
-                thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL),
-                # A realistic meal is a few hundred tokens; the cap only stops a runaway reply.
-                max_output_tokens=1024,
+                # LOW, not MINIMAL: newer models (gemini-3.8-flash) reject MINIMAL with a 400. Same level as chat.
+                thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW),
+                # Headroom for LOW thinking plus a few hundred tokens of JSON; the cap only stops a runaway reply.
+                max_output_tokens=4096,
             ),
         )
         log_usage("food-analysis", response.usage_metadata)

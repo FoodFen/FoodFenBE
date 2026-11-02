@@ -54,7 +54,7 @@ def _client(models: _FakeModels) -> SimpleNamespace:
     return SimpleNamespace(aio=SimpleNamespace(models=models))
 
 
-async def test_food_extraction_uses_minimal_thinking_and_capped_output():
+async def test_food_extraction_uses_low_thinking_and_capped_output():
     models = _FakeModels(parsed=_AnalysisSchema(meal_name="Pho", ingredients=[]))
     provider = GeminiFoodVisionProvider(
         api_key="", model="m", client=_client(models)
@@ -63,8 +63,8 @@ async def test_food_extraction_uses_minimal_thinking_and_capped_output():
     await provider.analyze_text("pho", "en")
 
     config = models.kwargs["config"]
-    assert config.thinking_config.thinking_level == types.ThinkingLevel.MINIMAL
-    assert config.max_output_tokens == 1024
+    assert config.thinking_config.thinking_level == types.ThinkingLevel.LOW
+    assert config.max_output_tokens == 4096
 
 
 async def test_food_extraction_logs_token_usage(caplog):
