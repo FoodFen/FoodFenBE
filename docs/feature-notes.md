@@ -198,3 +198,20 @@ update it in the same change as any decision.
 - Dashboard buckets rows into Vietnam days in `get_admin_dashboard.py` (Python, not SQL; see its
   `ponytail:` note).
 
+
+## Food catalog
+
+Design (owned by the FE repo): `FoodFenFE/docs/superpowers/specs/2026-11-02-catalog-grounded-ai-design.md`.
+Phase 1 only so far: the table and a read port; no endpoint, nothing reads it yet.
+
+- **Table** `foods` (`food_model.py`), entity `CatalogFood`, port `FoodCatalogRepositoryProtocol`
+  (`list_active()` = non-archived by slug, `get_by_slug()` returns archived foods too; the caller reads `archived`).
+- **`slug` is the public id**, unique and immutable: the Mobile bundle and its local
+  `ingredient.catalog_food_id` reference foods by it. The UUID PK is `uuid5("foodfen:food:<slug>")`, the same in every env.
+- **`verified` is derived** (`source_kind != legacy`), never stored. `source_ref` is null exactly for `legacy`
+  (DB CHECK + entity invariant); recipe foods carry the literal `recipe`.
+- **Per-100 g numbers**; `fiber_g` null means "no value", never 0.
+- **Seed**: migration 0033 loads `alembic/data/foods.json`, a verbatim copy of the Mobile build
+  (`FoodFenFE/src/data/catalog/foods.json`, 670 foods). Recipe breakdowns and source notes are not imported.
+  From now on the BE table is the source of truth for new foods and edits; never hand-edit both sides.
+  Archive, never delete: logged meals reference slugs.

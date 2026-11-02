@@ -205,3 +205,29 @@ class ModerationStatus(StrEnum):
 class ReviewDecision(StrEnum):
     APPROVED = "approved"
     REJECTED = "rejected"
+
+
+class FoodSourceKind(StrEnum):
+    """Where a catalog food's numbers come from. `legacy` = unverified (no source reference)."""
+
+    NIN = "nin"
+    USDA = "usda"
+    RECIPE = "recipe"
+    LABEL = "label"
+    TEAM = "team"
+    LEGACY = "legacy"
+
+
+class FoodCategory(StrEnum):
+    AN_VAT = "an-vat"
+    BANH_MI = "banh-mi"
+    BUN_TRON = "bun-tron"
+    CHE_TRANG_MIENG = "che-trang-mieng"
+    CHIEN_NUONG = "chien-nuong"
+    COM = "com"
+    DO_UONG = "do-uong"
+    MON_MAN = "mon-man"
+    MON_NUOC = "mon-nuoc"
+    NGUYEN_LIEU = "nguyen-lieu"
+    RAU_CHAY = "rau-chay"
+    TRAI_CAY = "trai-cay"

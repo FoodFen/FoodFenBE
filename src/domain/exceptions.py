@@ -184,3 +184,7 @@ class MascotMissingIdleImageException(DomainException):
 
 class MascotInUseException(DomainException):
     """Someone owns or has equipped the mascot, so it can only be hidden. Maps to HTTP 409 with error code ``mascot_in_use``."""
+
+
+class InvalidCatalogFoodException(InvalidAttributeException):
+    """A catalog food's slug, name, nutrition, source or servings violates a domain invariant. Maps to HTTP 422."""

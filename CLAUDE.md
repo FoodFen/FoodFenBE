@@ -124,6 +124,7 @@ short). Read the matching section first, and update it in the same change as any
 - **AI chat** (SSE contract, persistence order, cursor, user context, dish cards)
 - **Coins & quests** (balance, redeem idempotency, history, quests, mascots)
 - **Quiz** (payout race, practice cap, content rules)
+- **Food catalog** (`foods` table, slug id, derived `verified`, seed from the Mobile bundle)
 - **Restaurants & admin** (moderation, owner routes, paid placement, dashboard) — also `docs/marketplace.md`
 
 ## Commands
