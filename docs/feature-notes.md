@@ -202,7 +202,7 @@ update it in the same change as any decision.
 ## Food catalog
 
 Design (owned by the FE repo): `FoodFenFE/docs/superpowers/specs/2026-11-02-catalog-grounded-ai-design.md`.
-Phases 1-2 are done: the table, a read port, and AI food analysis grounded in it. No catalog endpoint yet.
+Phases 1-3 are done: the table, a read port, AI food analysis grounded in it, and the admin API (below).
 
 - **Table** `foods` (`food_model.py`), entity `CatalogFood`, port `FoodCatalogRepositoryProtocol`
   (`list_active()` = non-archived by slug, `get_by_slug()` returns archived foods too; the caller reads `archived`).
@@ -231,3 +231,41 @@ Phases 1-2 are done: the table, a read port, and AI food analysis grounded in it
   (null/false when unmatched); `name` stays the model's.
 - **Prompts are code** (`gemini_food_vision_provider.py`); the `GEMINI_FOOD_ANALYSIS_PROMPT` override is gone.
   `FOOD_ANALYSIS_GROUNDING=false` is the kill switch: old prompt, new fields null/false.
+
+### Admin catalog (Phase 3)
+
+All under `/admin` (admin-only, camelCase), in `admin_controller.py`; use cases in `use_cases/admin_foods.py`.
+
+- **Routes**: `GET/POST /admin/foods`, `GET/PATCH /admin/foods/{slug}`, `POST .../archive|unarchive`,
+  `GET .../changes`, `GET /admin/food-misses`, `POST /admin/food-misses/{id}/ignore|reopen`. Paging is the
+  same opaque offset `cursor` / `limit` as `/admin/users`.
+- **Validation lives in `CatalogFood.__post_init__`** (422 `InvalidCatalogFoodException`): name 1-120, `name_en`
+  <=120 (blank -> null), aliases <=20 of 1-80 chars (trimmed, exact duplicates dropped), `kcal` 0-900, carbs /
+  protein / fat 0-100 with a sum <=100, fiber null or 0-100, 1-10 servings (label 1-40, grams 1-5000, exactly one
+  default). A test loads the whole seed through the entity, so a future seed cannot break the list.
+- **Names**: two foods never share a folded name (`fold()`, archived included): 409 `food_name_taken` on create /
+  rename; unarchive 409s while another active food has the name. The slug is built from the folded name on create
+  (`-2`, `-3` on a clash) and never changes. `name_en` is the English name (migration 0034 backfilled 654 of 670
+  from the first new-word ASCII alias; the alias also stays in `aliases`). It is not in the prompt's catalog block.
+- **Source rules**: create -> `team` / `"team"` (verified). A PATCH that changes any of kcal / carbs / protein /
+  fat / fiber -> `team` / `"team"`, legacy foods included; any other edit keeps the source, so renaming a legacy
+  food leaves it unverified. `fiberG: null` clears fiber (not tracked), `0` is a value; `nameEn: null` clears it;
+  other `null`s in a PATCH are ignored. A PATCH that changes nothing writes nothing (no change row).
+- **`food_changes`** (append-only): one row per create / update / archive / unarchive (archive and unarchive only
+  when the state flips), written in the request's transaction. `before` / `after` are full snapshots of the editable
+  fields + source + `archived` (before null for create); the Web diffs them. Admin FK is `SET NULL`.
+- **`food_misses`**: one row per `miss_key` = `fold` of the name minus a `(x3)` suffix and trailing punctuation
+  (`application/food_names.py`, shared by recording and matching). Written by both analyze use cases on the grounded
+  path only, for rows with no catalog id, via `food_grounding.record_misses`: one multi-row upsert per analysis
+  (`count + 1`, `last_seen_at`; never touches `name`, `language`, `status`) inside a SAVEPOINT, and a failure is logged
+  and swallowed. Nothing about the user or the image is stored. An `ignored` / `resolved` key keeps its status.
+  Creating a food, or saving a new name / English name / alias, resolves every open miss whose key is one of the food's
+  keys; `missId` on create also resolves that miss (unknown or not open: ignored). `existingFood` on the list is the
+  active food whose keys include the miss key, computed per read.
+- **Cache**: create / patch / archive / unarchive carry `invalidate_food_catalog_after_write`, a yield dependency
+  in the default request scope: its teardown runs after the response, i.e. after `SessionDep`'s function-scope
+  commit, and not when the endpoint raised (tested: commit, then invalidate). The next analysis rebuilds the
+  catalog block; the explicit Gemini cache re-keys itself on the new text. One instance on prod: if it scales out,
+  the others pick the change up within the 600 s TTL.
+- **List/search** is in memory over `list_all()` (folded name / English name / aliases / slug, sorted by folded
+  name). Move it to SQL if the catalog grows large.

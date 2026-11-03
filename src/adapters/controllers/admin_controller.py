@@ -13,6 +13,15 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
 
 from src.adapters.image_upload import read_image
 from src.adapters.schemas.ad_schemas import AdPackageResponse, CreateAdPackageRequest, UpdateAdPackageRequest
+from src.adapters.schemas.admin_food_schemas import (
+    AdminFoodListResponse,
+    AdminFoodResponse,
+    CreateFoodRequest,
+    FoodChangeResponse,
+    FoodMissListResponse,
+    FoodMissResponse,
+    UpdateFoodRequest,
+)
 from src.adapters.schemas.admin_schemas import (
     AdminQuestResponse,
     AdminQuizQuestionResponse,
@@ -26,11 +35,30 @@ from src.adapters.schemas.admin_schemas import (
 from src.adapters.schemas.image_schemas import ImageUploadResponse
 from src.adapters.schemas.mascot_schemas import AdminMascotResponse, CreateMascotRequest, UpdateMascotRequest
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
+from src.application.dtos.food_admin import FoodServingDTO
 from src.application.dtos.restaurant import ReviewNoticeDTO
 from src.application.ports.email_verification_notifier import EmailVerificationNotifierProtocol
-from src.domain.enums import ModerationStatus, PaymentProvider, PaymentStatus, PlanType, SubscriptionTier
+from src.domain.enums import (
+    FoodCategory,
+    FoodMissStatus,
+    ModerationStatus,
+    PaymentProvider,
+    PaymentStatus,
+    PlanType,
+    SubscriptionTier,
+)
 from src.infrastructure.di import (
     CreateAdPackageUseCaseDep,
+    CreateFoodUseCaseDep,
+    CurrentAdminDep,
+    GetAdminFoodUseCaseDep,
+    ListAdminFoodsUseCaseDep,
+    ListFoodChangesUseCaseDep,
+    ListFoodMissesUseCaseDep,
+    SetFoodArchivedUseCaseDep,
+    SetFoodMissStatusUseCaseDep,
+    UpdateFoodUseCaseDep,
+    invalidate_food_catalog_after_write,
     CreateMascotUseCaseDep,
     DeleteMascotUseCaseDep,
     EmailVerificationNotifierDep,
@@ -223,3 +251,86 @@ async def upload_image(
     """Same checks as ``POST /restaurants/mine/images``, but no rate limit: an admin drops a dozen files at once."""
     data = await read_image(image)
     return ImageUploadResponse(url=await use_case.execute(data, image.content_type))
+
+
+# Catalog writes: the cache is dropped after the response, i.e. after the session committed (see the dependency).
+_invalidates_catalog = [Depends(invalidate_food_catalog_after_write)]
+
+
+@router.get("/foods", response_model=AdminFoodListResponse)
+async def list_foods(
+    use_case: ListAdminFoodsUseCaseDep,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    category: FoodCategory | None = None,
+    verified: bool | None = None,
+    archived: bool = False,
+    cursor: Annotated[str | None, Query(pattern=r"^\d{1,9}$")] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> AdminFoodListResponse:
+    """``q`` matches the name, English name, an alias or the slug (accent- and case-insensitive); ``archived=true``
+    lists only archived foods. Sorted by name. ``cursor`` is opaque: pass back the previous page's ``nextCursor``."""
+    return AdminFoodListResponse.from_dto(await use_case.execute(q, category, verified, archived, int(cursor or 0), limit))
+
+
+@router.post("/foods", response_model=AdminFoodResponse, status_code=status.HTTP_201_CREATED, dependencies=_invalidates_catalog)
+async def create_food(body: CreateFoodRequest, use_case: CreateFoodUseCaseDep, admin: CurrentAdminDep) -> AdminFoodResponse:
+    """409 ``food_name_taken`` when any food (archived too) has the same name once accents and case are ignored.
+    ``missId`` marks that unmatched name resolved; an unknown or not-open one is ignored."""
+    return AdminFoodResponse.from_dto(
+        await use_case.execute(
+            admin.id, body.name, body.name_en, body.aliases, body.category, body.kcal, body.carbs_g, body.protein_g,
+            body.fat_g, body.fiber_g, [FoodServingDTO(**vars(s)) for s in body.servings], body.miss_id,
+        )
+    )
+
+
+@router.get("/foods/{slug}", response_model=AdminFoodResponse)
+async def get_food(slug: str, use_case: GetAdminFoodUseCaseDep) -> AdminFoodResponse:
+    return AdminFoodResponse.from_dto(await use_case.execute(slug))
+
+
+@router.patch("/foods/{slug}", response_model=AdminFoodResponse, dependencies=_invalidates_catalog)
+async def update_food(
+    slug: str, body: UpdateFoodRequest, use_case: UpdateFoodUseCaseDep, admin: CurrentAdminDep
+) -> AdminFoodResponse:
+    return AdminFoodResponse.from_dto(await use_case.execute(admin.id, slug, body.to_dto()))
+
+
+@router.post("/foods/{slug}/archive", response_model=AdminFoodResponse, dependencies=_invalidates_catalog)
+async def archive_food(slug: str, use_case: SetFoodArchivedUseCaseDep, admin: CurrentAdminDep) -> AdminFoodResponse:
+    """Idempotent: a change row only when the state flips."""
+    return AdminFoodResponse.from_dto(await use_case.execute(admin.id, slug, True))
+
+
+@router.post("/foods/{slug}/unarchive", response_model=AdminFoodResponse, dependencies=_invalidates_catalog)
+async def unarchive_food(slug: str, use_case: SetFoodArchivedUseCaseDep, admin: CurrentAdminDep) -> AdminFoodResponse:
+    """409 ``food_name_taken`` while another active food has the same name."""
+    return AdminFoodResponse.from_dto(await use_case.execute(admin.id, slug, False))
+
+
+@router.get("/foods/{slug}/changes", response_model=list[FoodChangeResponse])
+async def list_food_changes(slug: str, use_case: ListFoodChangesUseCaseDep) -> list[FoodChangeResponse]:
+    """Newest first, with the admin's email and the before / after snapshots (``before`` null for a create)."""
+    return [FoodChangeResponse.from_dto(c) for c in await use_case.execute(slug)]
+
+
+@router.get("/food-misses", response_model=FoodMissListResponse)
+async def list_food_misses(
+    use_case: ListFoodMissesUseCaseDep,
+    status: FoodMissStatus = FoodMissStatus.OPEN,
+    cursor: Annotated[str | None, Query(pattern=r"^\d{1,9}$")] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> FoodMissListResponse:
+    """Names the AI could not match, most frequent first. ``existingFood`` is the active food that already answers
+    to the name (computed now, not stored). ``cursor`` is opaque: pass back the previous page's ``nextCursor``."""
+    return FoodMissListResponse.from_dto(await use_case.execute(status, int(cursor or 0), limit))
+
+
+@router.post("/food-misses/{miss_id}/ignore", response_model=FoodMissResponse)
+async def ignore_food_miss(miss_id: UUID, use_case: SetFoodMissStatusUseCaseDep) -> FoodMissResponse:
+    return FoodMissResponse.from_dto(await use_case.execute(miss_id, FoodMissStatus.IGNORED))
+
+
+@router.post("/food-misses/{miss_id}/reopen", response_model=FoodMissResponse)
+async def reopen_food_miss(miss_id: UUID, use_case: SetFoodMissStatusUseCaseDep) -> FoodMissResponse:
+    return FoodMissResponse.from_dto(await use_case.execute(miss_id, FoodMissStatus.OPEN))
