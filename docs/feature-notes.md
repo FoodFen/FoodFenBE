@@ -217,8 +217,14 @@ Phases 1-2 are done: the table, a read port, and AI food analysis grounded in it
   Archive, never delete: logged meals reference slugs.
 - **AI grounding** (`POST /ai/food/analyze-image|analyze-text`): the system instruction starts with the catalog block,
   one `slug | name | aliases | default serving g` line per active food. It is built from `FoodCatalogCache`
-  (process-wide, 10 min TTL, `invalidate()` on any catalog write) and must stay byte-identical between requests,
-  so Gemini's implicit prefix caching can hit. The model returns `catalog_id` per row.
+  (process-wide, 10 min TTL, `invalidate()` on any catalog write) and must stay byte-identical between requests.
+  The model returns `catalog_id` per row.
+- **Explicit Gemini cache** (implicit caching never hit on gemini-3.8-flash): the catalog block + rules are a
+  `caches.create` cached content (1 h TTL), created lazily per process, recreated 5 min before expiry or when the
+  catalog text changes (old ones just expire). A request that finds the cache gone recreates it and retries once; if
+  creation fails, the request goes uncached with the same prefix as `system_instruction`. The per-request language
+  sentence lives in `contents`, never in the cached prefix. Check hits in the logs: `cache created` once, then
+  `cached=` ≈ the prompt size on each call.
   `application/food_grounding.py` replaces a known slug's numbers with per-100 g × grams, rounded half-up like
   JS `Math.round` (kcal int, macros 1 decimal; null fiber stays null). An unknown or null slug keeps the
   model's estimate. Rows carry `catalogFoodId`, `catalogName`, `verified`, `sourceRef`, `per100g`

@@ -5,21 +5,32 @@ JSON is validated and parsed for us — no hand-rolled parsing of free text.
 
 With a catalog the model only recognises foods and grams and names a catalog id; the server
 computes the nutrition (see ``application/food_grounding.py``). The catalog block is the very start
-of the system instruction and identical across requests and languages, so Gemini's implicit prefix
-caching can reuse it.
+of the prompt and identical across requests and languages, so it is stored once as an explicit
+Gemini context cache (implicit caching never hit on gemini-3.8-flash) and referenced per request;
+the language instruction travels in ``contents`` instead.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import asyncio
+import hashlib
+import logging
+import time
+from collections.abc import Callable, Sequence
 
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 from pydantic import BaseModel
 
 from src.application.dtos.food_analysis import FoodAnalysisDTO, IngredientSuggestionDTO
 from src.domain.entities.catalog_food import CatalogFood
 from src.infrastructure.ai.usage import log_usage
+
+
+_log = logging.getLogger("foodfenbe.ai")
+
+_CACHE_TTL_SECONDS = 3600
+_CACHE_REFRESH_MARGIN_SECONDS = 300
 
 
 class _IngredientSchema(BaseModel):
@@ -135,9 +146,14 @@ class GeminiFoodVisionProvider:
         api_key: str,
         model: str,
         client: genai.Client | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._model = model
         self._client = client or genai.Client(api_key=api_key)
+        self._clock = clock
+        # (prefix_key, cache name, expires_at on self._clock); old caches just expire server-side.
+        self._cache: tuple[str, str, float] | None = None
+        self._cache_lock = asyncio.Lock()
 
     async def analyze_image(
         self,
@@ -154,20 +170,42 @@ class GeminiFoodVisionProvider:
     ) -> FoodAnalysisDTO:
         return await self._generate([description], language, catalog)
 
-    async def _generate(
-        self, contents: list, language: str, catalog: Sequence[CatalogFood] | None
-    ) -> FoodAnalysisDTO:
-        language_name = _LANGUAGE_NAMES.get(language, language)
-        prompt = f"{_catalog_block(catalog)}\n\n{_GROUNDED_PROMPT}" if catalog else _LEGACY_PROMPT
-        system_instruction = (
-            f"{prompt}\n\nRespond entirely in {language_name}. Do not mix "
-            "languages within mealName or any ingredient name."
-        )
-        response = await self._client.aio.models.generate_content(
+    async def _cache_for(self, prefix: str) -> str | None:
+        """Name of a live cache holding ``prefix``, creating one if needed; None if that fails."""
+        key = hashlib.sha256(prefix.encode()).hexdigest()
+        async with self._cache_lock:
+            cached = self._cache
+            if cached and cached[0] == key and cached[2] - self._clock() > _CACHE_REFRESH_MARGIN_SECONDS:
+                return cached[1]
+            try:
+                cache = await self._client.aio.caches.create(
+                    model=self._model,
+                    config=types.CreateCachedContentConfig(
+                        system_instruction=prefix,
+                        ttl=f"{_CACHE_TTL_SECONDS}s",
+                        display_name="food-analysis-catalog",
+                    ),
+                )
+            except Exception:
+                _log.warning("gemini food-analysis cache creation failed", exc_info=True)
+                return None
+            self._cache = (key, cache.name, self._clock() + _CACHE_TTL_SECONDS)
+            usage = getattr(cache, "usage_metadata", None)
+            _log.info(
+                "gemini food-analysis cache created: name=%s tokens=%s ttl=%ss",
+                cache.name,
+                getattr(usage, "total_token_count", None),
+                _CACHE_TTL_SECONDS,
+            )
+            return cache.name
+
+    def _call(self, contents: list, system_instruction: str | None, cache_name: str | None):
+        return self._client.aio.models.generate_content(
             model=self._model,
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
+                cached_content=cache_name,
                 response_mime_type="application/json",
                 response_schema=_AnalysisSchema,
                 # No tools configured — see gemini_chat_provider.py for why this
@@ -179,6 +217,33 @@ class GeminiFoodVisionProvider:
                 max_output_tokens=4096,
             ),
         )
+
+    async def _generate(
+        self, contents: list, language: str, catalog: Sequence[CatalogFood] | None
+    ) -> FoodAnalysisDTO:
+        language_name = _LANGUAGE_NAMES.get(language, language)
+        language_rule = (
+            f"Respond entirely in {language_name}. Do not mix "
+            "languages within mealName or any ingredient name."
+        )
+        if not catalog:
+            response = await self._call(contents, f"{_LEGACY_PROMPT}\n\n{language_rule}", None)
+        else:
+            prefix = f"{_catalog_block(catalog)}\n\n{_GROUNDED_PROMPT}"
+            contents = [*contents, language_rule]
+            name = await self._cache_for(prefix)
+            try:
+                response = await self._call(contents, None if name else prefix, name)
+            except errors.ClientError as e:
+                # The cache expired or was deleted server-side: drop it, make a new one and retry
+                # once. Any other error, or a failure on the retry, propagates.
+                if not name or not (e.code in (403, 404) or "cache" in str(e).lower()):
+                    raise
+                async with self._cache_lock:
+                    if self._cache and self._cache[1] == name:
+                        self._cache = None
+                name = await self._cache_for(prefix)
+                response = await self._call(contents, None if name else prefix, name)
         log_usage("food-analysis", response.usage_metadata)
         parsed: _AnalysisSchema = response.parsed
         return FoodAnalysisDTO(
