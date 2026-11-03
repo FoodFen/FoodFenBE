@@ -9,8 +9,9 @@ from dataclasses import dataclass, replace
 from src.application.dtos.ai_trial import AiCallerDTO
 from src.application.dtos.food_analysis import FoodAnalysisDTO
 from src.application.food_catalog_cache import FoodCatalogCache
-from src.application.food_grounding import ground
+from src.application.food_grounding import ground, record_misses
 from src.application.ports.food_catalog_repository import FoodCatalogRepositoryProtocol
+from src.application.ports.food_miss_repository import FoodMissRepositoryProtocol
 from src.application.ports.food_vision_provider import FoodVisionProviderProtocol
 from src.application.ports.image_storage import ImageStorageProtocol
 from src.application.use_cases.ai_trial import AiTrialUseCase
@@ -26,6 +27,7 @@ class AnalyzeFoodImageUseCase:
     trial: AiTrialUseCase
     catalog: FoodCatalogRepositoryProtocol
     catalog_cache: FoodCatalogCache
+    misses: FoodMissRepositoryProtocol
     grounding: bool
 
     async def execute(
@@ -41,6 +43,7 @@ class AnalyzeFoodImageUseCase:
         )
         if foods:
             result = ground(result, foods)
+            await record_misses(self.misses, result, language)
         if result.ingredients:  # an empty analysis is a miss, not a spent trial
             await self.trial.consume(caller, AiTrialMethod.IMAGE)
         return replace(result, image_url=image_url)

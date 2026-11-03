@@ -126,6 +126,7 @@ from src.infrastructure.di.repositories import (
     DailyGoalRepositoryDep,
     FoodCatalogRepositoryDep,
     FoodEntryRepositoryDep,
+    FoodMissRepositoryDep,
     PaymentRepositoryDep,
     RefreshTokenRepositoryDep,
     SocialIdentityRepositoryDep,
@@ -282,6 +283,7 @@ def get_analyze_food_image_use_case(
     images: ImageStorageDep,
     trial: AiTrialUseCaseDep,
     catalog: FoodCatalogRepositoryDep,
+    misses: FoodMissRepositoryDep,
 ) -> AnalyzeFoodImageUseCase:
     return AnalyzeFoodImageUseCase(
         vision=vision,
@@ -289,18 +291,23 @@ def get_analyze_food_image_use_case(
         trial=trial,
         catalog=catalog,
         catalog_cache=get_food_catalog_cache(),
+        misses=misses,
         grounding=settings.food_analysis_grounding,
     )
 
 
 def get_analyze_food_text_use_case(
-    vision: FoodVisionProviderDep, trial: AiTrialUseCaseDep, catalog: FoodCatalogRepositoryDep
+    vision: FoodVisionProviderDep,
+    trial: AiTrialUseCaseDep,
+    catalog: FoodCatalogRepositoryDep,
+    misses: FoodMissRepositoryDep,
 ) -> AnalyzeFoodTextUseCase:
     return AnalyzeFoodTextUseCase(
         vision=vision,
         trial=trial,
         catalog=catalog,
         catalog_cache=get_food_catalog_cache(),
+        misses=misses,
         grounding=settings.food_analysis_grounding,
     )
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 
 import pytest
 from catalog_foods import make_food
@@ -60,10 +61,24 @@ class FakeCatalogRepo:
         raise AssertionError("not used")
 
 
-def _catalog(foods=(), grounding=True) -> dict:
+class FakeMisses:
+    def __init__(self, fail: bool = False) -> None:
+        self.fail = fail
+        self.recorded: list[tuple[list[tuple[str, str]], str]] = []  # (entries, language) per call
+
+    async def record(self, misses, language, at):
+        if self.fail:
+            raise RuntimeError("db down")
+        self.recorded.append((list(misses), language))
+
+
+def _catalog(foods=(), grounding=True, misses=None) -> dict:
     """The catalog-related use case fields; a fresh cache per use case."""
     return dict(
-        catalog=FakeCatalogRepo(foods), catalog_cache=FoodCatalogCache(), grounding=grounding
+        catalog=FakeCatalogRepo(foods),
+        catalog_cache=FoodCatalogCache(),
+        misses=misses or FakeMisses(),
+        grounding=grounding,
     )
 
 
@@ -255,3 +270,68 @@ async def test_empty_catalog_means_ungrounded():
 
     assert vision.catalogs == [None]
     assert result.ingredients[0].kcal == 999
+
+
+def _named(name: str, slug: str | None = None) -> IngredientSuggestionDTO:
+    return replace(_model_row(slug), name=name)
+
+
+async def test_unmatched_rows_are_recorded_with_normalised_keys():
+    kw = _catalog([make_food()])
+    result = FoodAnalysisDTO(
+        "Meal",
+        [_named("Egg (x3)"), _named("Bánh xèo!"), _named("pho", "pho-bo"), _named("egg"), _named("ghost", "nope"), _named(" (x2)")],
+        image_url=None,
+    )
+    uc = AnalyzeFoodTextUseCase(vision=FakeVisionProvider(result), trial=_TRIAL, **kw)
+
+    await uc.execute(_CALLER, AiTrialMethod.TEXT, "x", "en")
+
+    # matched "pho" is not recorded; "egg" twice in one analysis is one sighting (first display name wins);
+    # a name that is only a count suffix has an empty key and is dropped.
+    assert kw["misses"].recorded == [([("egg", "Egg"), ("banh xeo", "Bánh xèo"), ("ghost", "ghost")], "en")]
+
+
+async def test_image_analysis_records_misses_too():
+    kw = _catalog([make_food()])
+    vision = FakeVisionProvider(FoodAnalysisDTO("M", [_named("Egg")], image_url=None))
+    uc = AnalyzeFoodImageUseCase(vision=vision, images=FakeImageStorage(), trial=_TRIAL, **kw)
+
+    await uc.execute(_CALLER, b"x", "image/jpeg", "vi")
+
+    assert kw["misses"].recorded == [([("egg", "Egg")], "vi")]
+
+
+async def test_fully_matched_analysis_records_nothing():
+    kw = _catalog([make_food()])
+    uc = AnalyzeFoodTextUseCase(
+        vision=FakeVisionProvider(FoodAnalysisDTO("M", [_named("pho", "pho-bo")], image_url=None)), trial=_TRIAL, **kw
+    )
+
+    await uc.execute(_CALLER, AiTrialMethod.TEXT, "x", "vi")
+
+    assert kw["misses"].recorded == []
+
+
+async def test_grounding_off_or_empty_catalog_records_nothing():
+    for kw in (_catalog([make_food()], grounding=False), _catalog([])):
+        uc = AnalyzeFoodTextUseCase(
+            vision=FakeVisionProvider(FoodAnalysisDTO("M", [_named("Egg")], image_url=None)), trial=_TRIAL, **kw
+        )
+        await uc.execute(_CALLER, AiTrialMethod.TEXT, "x", "vi")
+        assert kw["misses"].recorded == []
+
+
+async def test_a_failing_miss_record_does_not_fail_the_analysis_or_skip_the_trial():
+    usage = _CountingTrialUsage()
+    kw = _catalog([make_food()], misses=FakeMisses(fail=True))
+    uc = AnalyzeFoodTextUseCase(
+        vision=FakeVisionProvider(FoodAnalysisDTO("M", [_named("Egg")], image_url=None)),
+        trial=AiTrialUseCase(usage=usage),
+        **kw,
+    )
+
+    result = await uc.execute(_FREE_CALLER, AiTrialMethod.TEXT, "x", "vi")
+
+    assert [r.name for r in result.ingredients] == ["Egg"]
+    assert usage.increments == 1
