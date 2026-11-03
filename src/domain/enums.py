@@ -231,3 +231,18 @@ class FoodCategory(StrEnum):
     NGUYEN_LIEU = "nguyen-lieu"
     RAU_CHAY = "rau-chay"
     TRAI_CAY = "trai-cay"
+
+
+class FoodChangeAction(StrEnum):
+    CREATE = "create"
+    UPDATE = "update"
+    ARCHIVE = "archive"
+    UNARCHIVE = "unarchive"
+
+
+class FoodMissStatus(StrEnum):
+    """An AI-unmatched food name: ``open`` until an admin ignores it or adds the food (``resolved``)."""
+
+    OPEN = "open"
+    IGNORED = "ignored"
+    RESOLVED = "resolved"

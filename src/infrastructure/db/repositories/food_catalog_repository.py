@@ -20,3 +20,15 @@ class SQLAlchemyFoodCatalogRepository:
     async def get_by_slug(self, slug: str) -> CatalogFood | None:
         row = await self._session.scalar(select(FoodORM).where(FoodORM.slug == slug))
         return row.to_domain() if row else None
+
+    async def list_all(self) -> list[CatalogFood]:
+        return [row.to_domain() for row in await self._session.scalars(select(FoodORM))]
+
+    async def add(self, food: CatalogFood) -> None:
+        self._session.add(FoodORM.from_domain(food))
+        await self._session.flush()
+
+    async def update(self, food: CatalogFood) -> None:
+        row = await self._session.get(FoodORM, food.id)
+        row.apply(food)
+        await self._session.flush()

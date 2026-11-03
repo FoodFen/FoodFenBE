@@ -21,7 +21,9 @@ from src.application.ports.coin_repository import CoinRepositoryProtocol
 from src.application.ports.mascot_repository import MascotRepositoryProtocol
 from src.application.ports.daily_goal_repository import DailyGoalRepositoryProtocol
 from src.application.ports.food_catalog_repository import FoodCatalogRepositoryProtocol
+from src.application.ports.food_change_repository import FoodChangeRepositoryProtocol
 from src.application.ports.food_entry_repository import FoodEntryRepositoryProtocol
+from src.application.ports.food_miss_repository import FoodMissRepositoryProtocol
 from src.application.ports.payment_repository import PaymentRepositoryProtocol
 from src.application.ports.quest_repository import QuestRepositoryProtocol
 from src.application.ports.quiz_repository import QuizRepositoryProtocol
@@ -56,7 +58,9 @@ from src.infrastructure.db.repositories.daily_goal_repository import SQLAlchemyD
 from src.infrastructure.db.repositories.food_catalog_repository import (
     SQLAlchemyFoodCatalogRepository,
 )
+from src.infrastructure.db.repositories.food_change_repository import SQLAlchemyFoodChangeRepository
 from src.infrastructure.db.repositories.food_entry_repository import SQLAlchemyFoodEntryRepository
+from src.infrastructure.db.repositories.food_miss_repository import SQLAlchemyFoodMissRepository
 from src.infrastructure.db.repositories.payment_repository import SQLAlchemyPaymentRepository
 from src.infrastructure.db.repositories.quest_repository import SQLAlchemyQuestRepository
 from src.infrastructure.db.repositories.quiz_repository import SQLAlchemyQuizRepository
@@ -143,6 +147,20 @@ def get_food_catalog_repository(session: SessionDep) -> FoodCatalogRepositoryPro
 FoodCatalogRepositoryDep = Annotated[
     FoodCatalogRepositoryProtocol, Depends(get_food_catalog_repository)
 ]
+
+
+def get_food_change_repository(session: SessionDep) -> FoodChangeRepositoryProtocol:
+    return SQLAlchemyFoodChangeRepository(session)
+
+
+FoodChangeRepositoryDep = Annotated[FoodChangeRepositoryProtocol, Depends(get_food_change_repository)]
+
+
+def get_food_miss_repository(session: SessionDep) -> FoodMissRepositoryProtocol:
+    return SQLAlchemyFoodMissRepository(session)
+
+
+FoodMissRepositoryDep = Annotated[FoodMissRepositoryProtocol, Depends(get_food_miss_repository)]
 
 
 def get_daily_goal_repository(session: SessionDep) -> DailyGoalRepositoryProtocol:
