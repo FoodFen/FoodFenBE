@@ -24,13 +24,17 @@ async def _credit(user_id: int, amount: int) -> None:
 
 
 @pytest_asyncio.fixture
-async def auth(signed_up):
+async def shop():
     # "default" is seeded for every test schema (tests/conftest.py); add the paid ones.
     await _add(
         MascotORM(id="berry", name="Berry", coin_cost=600, active=True),
         MascotORM(id="sprout", name="Sprout", coin_cost=300, active=True),
         MascotORM(id="retired", name="Retired", coin_cost=100, active=False),
     )
+
+
+@pytest_asyncio.fixture
+async def auth(signed_up, shop):
     return {"Authorization": f"Bearer {signed_up['accessToken']}"}, signed_up["user"]["id"]
 
 
@@ -144,7 +148,22 @@ async def test_a_deactivated_equipped_mascot_reads_as_default(client, auth):
     assert "sprout" not in _owned(body)
 
 
-async def test_mascot_endpoints_require_auth(client):
-    assert (await client.get("/mascots")).status_code == 401
+async def test_guest_sees_the_whole_shop_as_a_brand_new_account_would(client, auth):
+    headers, _ = auth
+    signed_in = (await client.get("/mascots", headers=headers)).json()  # fresh user, same shop
+    resp = await client.get("/mascots")  # no Authorization header
+    assert resp.status_code == 200
+    assert resp.json() == signed_in
+    assert resp.json()["balance"] == 0
+    assert resp.json()["equippedId"] == "default"
+    assert _owned(resp.json()) == {"default": True, "sprout": False, "berry": False}
+
+
+async def test_get_mascots_with_a_bad_token_is_still_401_not_a_guest_answer(client, shop):
+    resp = await client.get("/mascots", headers={"Authorization": "Bearer garbage"})
+    assert resp.status_code == 401
+
+
+async def test_purchase_and_equip_require_auth(client):
     assert (await client.post("/mascots/sprout/purchase")).status_code == 401
     assert (await client.put("/mascots/equipped", json={"mascotId": "sprout"})).status_code == 401

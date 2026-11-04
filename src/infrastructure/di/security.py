@@ -207,6 +207,21 @@ async def get_current_user(
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 
+async def get_optional_user(
+    token: Annotated[str | None, Depends(_oauth2_scheme)],
+    tokens: TokenServiceDep,
+    users: UserRepositoryDep,
+) -> User | None:
+    """No bearer → ``None`` (a guest). A bearer that is present but bad still raises 401 so the
+    client's refresh flow keeps working; never degrade a bad token to a guest answer."""
+    if token is None:
+        return None
+    return await _user_from_token(token, tokens, users)
+
+
+OptionalUserDep = Annotated[User | None, Depends(get_optional_user)]
+
+
 async def get_current_admin(user: CurrentUserDep) -> User:
     """Role is read from the user row loaded per request, never from the JWT: promoting or
     demoting an admin with SQL takes effect on the next request."""
