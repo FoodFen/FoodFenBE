@@ -21,6 +21,7 @@ from src.adapters.controllers.mascot_controller import router as mascot_router
 from src.adapters.controllers.daily_goal_controller import router as daily_goal_router
 from src.adapters.controllers.dish_controller import router as dish_router
 from src.adapters.controllers.food_analysis_controller import router as food_analysis_router
+from src.adapters.controllers.food_catalog_controller import router as food_catalog_router
 from src.adapters.controllers.food_entry_controller import router as food_entry_router
 from src.adapters.controllers.payment_controller import router as payment_router
 from src.adapters.controllers.quiz_controller import router as quiz_router
@@ -68,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(food_analysis_router)
     app.include_router(food_entry_router)
+    app.include_router(food_catalog_router)
     app.include_router(payment_router)
     app.include_router(subscription_router)
     app.include_router(daily_goal_router)

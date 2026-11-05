@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +25,12 @@ class SQLAlchemyFoodCatalogRepository:
 
     async def list_all(self) -> list[CatalogFood]:
         return [row.to_domain() for row in await self._session.scalars(select(FoodORM))]
+
+    async def list_changed(self, since: datetime | None) -> list[CatalogFood]:
+        query = select(FoodORM).order_by(FoodORM.slug)
+        if since is not None:
+            query = query.where(FoodORM.updated_at >= since)
+        return [row.to_domain() for row in await self._session.scalars(query)]
 
     async def add(self, food: CatalogFood) -> None:
         self._session.add(FoodORM.from_domain(food))

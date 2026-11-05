@@ -211,6 +211,12 @@ Phases 1-3 are done: the table, a read port, AI food analysis grounded in it, an
   `ingredient.catalog_food_id` reference foods by it. The UUID PK is `uuid5("foodfen:food:<slug>")`, the same in every env.
 - **`verified` is derived** (`source_kind != legacy`), never stored. `source_ref` is null exactly for `legacy`
   (DB CHECK + entity invariant); recipe foods carry the literal `recipe`.
+- **`GET /foods?updatedSince=<iso>`** (Phase 4, public, no auth): `{foods: Food[], serverTime}`. Foods with
+  `updated_at >= updatedSince` (inclusive), archived included; no `updatedSince` = every food. `updatedSince` must carry
+  an offset (`Z`/`+07:00`), else 422. `serverTime` is read **before** the query so the client's next cursor never skips a
+  concurrent write. No paging, no `FoodCatalogCache` (it holds active foods only). Every admin write, archive and
+  unarchive included, bumps `updated_at`: keep that true or the delta misses the change. No index on `updated_at`
+  (~700 rows).
 - **Per-100 g numbers**; `fiber_g` null means "no value", never 0.
 - **Seed**: migration 0033 loads `alembic/data/foods.json`, a verbatim copy of the Mobile build
   (`FoodFenFE/src/data/catalog/foods.json`, 670 foods). Recipe breakdowns and source notes are not imported.

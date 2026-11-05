@@ -45,6 +45,7 @@ from src.application.use_cases.get_my_subscription import GetMySubscriptionUseCa
 from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
 from src.application.use_cases.list_activity_logs import ListActivityLogsUseCase
+from src.application.use_cases.list_catalog_foods import ListCatalogFoodsUseCase
 from src.application.use_cases.list_chat_messages import ListChatMessagesUseCase
 from src.application.use_cases.admin_foods import (
     CreateFoodUseCase,
@@ -633,6 +634,10 @@ def get_list_admin_foods_use_case(foods: FoodCatalogRepositoryDep) -> ListAdminF
     return ListAdminFoodsUseCase(foods=foods)
 
 
+def get_list_catalog_foods_use_case(foods: FoodCatalogRepositoryDep) -> ListCatalogFoodsUseCase:
+    return ListCatalogFoodsUseCase(foods=foods)
+
+
 def get_get_admin_food_use_case(foods: FoodCatalogRepositoryDep, users: UserRepositoryDep) -> GetAdminFoodUseCase:
     return GetAdminFoodUseCase(foods=foods, users=users)
 
@@ -703,6 +708,7 @@ CreateMascotUseCaseDep = Annotated[CreateMascotUseCase, Depends(get_create_masco
 UpdateMascotUseCaseDep = Annotated[UpdateMascotUseCase, Depends(get_update_mascot_use_case)]
 DeleteMascotUseCaseDep = Annotated[DeleteMascotUseCase, Depends(get_delete_mascot_use_case)]
 ListAdminFoodsUseCaseDep = Annotated[ListAdminFoodsUseCase, Depends(get_list_admin_foods_use_case)]
+ListCatalogFoodsUseCaseDep = Annotated[ListCatalogFoodsUseCase, Depends(get_list_catalog_foods_use_case)]
 GetAdminFoodUseCaseDep = Annotated[GetAdminFoodUseCase, Depends(get_get_admin_food_use_case)]
 CreateFoodUseCaseDep = Annotated[CreateFoodUseCase, Depends(get_create_food_use_case)]
 UpdateFoodUseCaseDep = Annotated[UpdateFoodUseCase, Depends(get_update_food_use_case)]
