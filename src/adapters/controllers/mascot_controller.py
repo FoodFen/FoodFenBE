@@ -13,6 +13,7 @@ from src.infrastructure.di import (
     CurrentUserDep,
     EquipMascotUseCaseDep,
     GetMascotsUseCaseDep,
+    OptionalUserDep,
     PurchaseMascotUseCaseDep,
 )
 
@@ -20,8 +21,8 @@ router = APIRouter(prefix="/mascots", tags=["mascots"])
 
 
 @router.get("", response_model=MascotsResponse)
-async def get_mascots(user: CurrentUserDep, use_case: GetMascotsUseCaseDep) -> MascotsResponse:
-    return MascotsResponse.from_dto(await use_case.execute(user.id))
+async def get_mascots(user: OptionalUserDep, use_case: GetMascotsUseCaseDep) -> MascotsResponse:
+    return MascotsResponse.from_dto(await use_case.execute(user.id if user else None))
 
 
 @router.put("/equipped", response_model=EquipMascotResponse)
