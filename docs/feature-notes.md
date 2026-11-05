@@ -250,6 +250,13 @@ All under `/admin` (admin-only, camelCase), in `admin_controller.py`; use cases 
   <=120 (blank -> null), aliases <=20 of 1-80 chars (trimmed, exact duplicates dropped), `kcal` 0-900, carbs /
   protein / fat 0-100 with a sum <=100, fiber null or 0-100, 1-10 servings (label 1-40, grams 1-5000, exactly one
   default). A test loads the whole seed through the entity, so a future seed cannot break the list.
+  Each violation is a 422 `{message, code, field?}`: `code` is a stable snake_case id (the Web translates it to
+  vi/en; `message` stays English for logs), `field` the camelCase wire field (`servings.1.grams`), absent when no
+  single field is at fault. Codes: `name_required`, `name_too_long`, `name_en_too_long`, `too_many_aliases`,
+  `alias_too_long`, `kcal_out_of_range`, `macro_out_of_range` (field `carbsG`/`proteinG`/`fatG`),
+  `macros_sum_over_100`, `fiber_out_of_range`, `servings_count_out_of_range`, `serving_label_out_of_range`,
+  `serving_grams_out_of_range`, `servings_need_one_default`, plus internal `slug_invalid`, `source_ref_mismatch`.
+  A new rule gets a new code in the entity and a row in `_RULE_CODES` (`tests/api/test_admin_food_endpoints.py`).
 - **Names**: two foods never share a folded name (`fold()`, archived included): 409 `food_name_taken` on create /
   rename; unarchive 409s while another active food has the name. The slug is built from the folded name on create
   (`-2`, `-3` on a clash) and never changes. `name_en` is the English name (migration 0034 backfilled 654 of 670

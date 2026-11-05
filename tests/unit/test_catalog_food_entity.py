@@ -124,3 +124,17 @@ def test_every_seed_food_is_valid_for_the_entity():
             **{**row, "category": FoodCategory(row["category"]), "source_kind": FoodSourceKind(row["source_kind"]),
                "servings": [CatalogServing(**s) for s in row["servings"]], "name_en": None}
         )
+
+
+@pytest.mark.parametrize(
+    "over, code, field",
+    [
+        ({"slug": "Bad Slug"}, "slug_invalid", "slug"),
+        ({"source_kind": FoodSourceKind.LEGACY}, "source_ref_mismatch", None),
+        ({"source_ref": None}, "source_ref_mismatch", None),
+    ],
+)
+def test_internal_rules_carry_a_code(over, code, field):
+    with pytest.raises(InvalidCatalogFoodException) as e:
+        _food(**over)
+    assert (e.value.code, e.value.field) == (code, field)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import pytest
 import pytest_asyncio
 
 from src.application.dtos.food_analysis import IngredientSuggestionDTO
@@ -173,6 +174,47 @@ async def test_create_validation_is_422(client, admin):
         assert resp.status_code == 422, over
     assert (await client.post("/admin/foods", json={"name": "x"}, headers=admin)).status_code == 422
     assert (await client.get("/admin/foods", headers=admin)).json()["total"] == 0
+
+
+_BAD_SERVING = {"label": "b", "grams": 5, "default": False}
+_RULE_CODES = [  # every catalog rule: the request override, the code and the camelCase field the Web translates
+    ({"name": "  "}, "name_required", "name"),
+    ({"name": "x" * 121}, "name_too_long", "name"),
+    ({"nameEn": "x" * 121}, "name_en_too_long", "nameEn"),
+    ({"aliases": [f"a{i}" for i in range(21)]}, "too_many_aliases", "aliases"),
+    ({"aliases": ["x" * 81]}, "alias_too_long", "aliases"),
+    ({"kcal": 901}, "kcal_out_of_range", "kcal"),
+    ({"kcal": -1}, "kcal_out_of_range", "kcal"),
+    ({"carbsG": 101}, "macro_out_of_range", "carbsG"),
+    ({"proteinG": -1}, "macro_out_of_range", "proteinG"),
+    ({"fatG": 101}, "macro_out_of_range", "fatG"),
+    ({"carbsG": 60, "proteinG": 30, "fatG": 20}, "macros_sum_over_100", None),
+    ({"fiberG": 101}, "fiber_out_of_range", "fiberG"),
+    ({"servings": []}, "servings_count_out_of_range", "servings"),
+    ({"servings": [{"label": f"s{i}", "grams": 5, "default": i == 0} for i in range(11)]},
+     "servings_count_out_of_range", "servings"),
+    ({"servings": [_SERVING, {**_BAD_SERVING, "label": " "}]}, "serving_label_out_of_range", "servings.1.label"),
+    ({"servings": [{**_SERVING, "grams": 0}]}, "serving_grams_out_of_range", "servings.0.grams"),
+    ({"servings": [_SERVING, {**_BAD_SERVING, "grams": 5001}]}, "serving_grams_out_of_range", "servings.1.grams"),
+    ({"servings": [{**_SERVING, "default": False}]}, "servings_need_one_default", "servings"),
+    ({"servings": [_SERVING, {**_BAD_SERVING, "default": True}]}, "servings_need_one_default", "servings"),
+]
+
+
+@pytest.mark.parametrize("over, code, field", _RULE_CODES)
+async def test_catalog_rule_violations_carry_code_and_field(client, admin, over, code, field):
+    body = (await _create(client, admin, **over)).json()
+    assert body["code"] == code and body.get("field") == field
+    assert body["message"]
+    await _create(client, admin)  # the patch needs a food
+    patched = await client.patch("/admin/foods/bun-cha", json=over, headers=admin)
+    assert patched.status_code == 422 and patched.json()["code"] == code and patched.json().get("field") == field
+
+
+async def test_catalog_rule_violation_status_is_422(client, admin):
+    resp = await _create(client, admin, kcal=901)
+    assert resp.status_code == 422
+    assert resp.json() == {"message": "kcal must be from 0 to 900, got 901", "code": "kcal_out_of_range", "field": "kcal"}
 
 
 async def test_create_cleans_aliases_and_drops_duplicates(client, admin):

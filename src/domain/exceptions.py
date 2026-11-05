@@ -187,7 +187,15 @@ class MascotInUseException(DomainException):
 
 
 class InvalidCatalogFoodException(InvalidAttributeException):
-    """A catalog food's slug, name, nutrition, source or servings violates a domain invariant. Maps to HTTP 422."""
+    """A catalog food's slug, name, nutrition, source or servings violates a domain invariant. Maps to HTTP 422.
+
+    ``code`` is the stable snake_case id of the broken rule; ``field`` is the offending field in snake_case
+    (``servings.0.grams``), or None when no single field is at fault. The handler puts both on the wire."""
+
+    def __init__(self, message: str, code: str, field: str | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.field = field
 
 
 class FoodNotFoundException(EntityNotFoundException):

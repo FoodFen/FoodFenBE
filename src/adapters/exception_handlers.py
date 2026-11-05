@@ -11,6 +11,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic.alias_generators import to_camel
 
 from src.domain.exceptions import (
     AdminRequiredException,
@@ -43,12 +44,11 @@ from src.domain.exceptions import (
 
 # Domain exception type -> HTTP status. Registration order is irrelevant: Starlette
 # resolves a raised exception against the most specific registered base via its MRO.
-# UserAlreadyExistsException is handled separately below (it needs a field-keyed
-# `errors` body, not just a message) so it is deliberately not listed here.
+# UserAlreadyExistsException (field-keyed `errors` body) and InvalidCatalogFoodException (`code` + `field`)
+# are handled separately below, so they are deliberately not listed here.
 EXCEPTION_STATUS: list[tuple[type[DomainException], int]] = [
     (InvalidWebhookSignatureException, 401),  # a more specific AuthenticationException
     (InvalidAdPackageException, 422),
-    (InvalidCatalogFoodException, 422),
     (InvalidMascotException, 422),
     (InvalidAttributeException, 400),  # + InvalidUserAttributeException, WeakPasswordException, InvalidPaymentStateException
     (AuthenticationException, 401),  # + InvalidCredentialsException, InvalidTokenException
@@ -80,6 +80,14 @@ async def _duplicate_email_handler(_: Request, exc: UserAlreadyExistsException) 
     return JSONResponse(
         status_code=400, content={"message": message, "errors": {"email": message}}
     )
+
+
+async def _invalid_catalog_food_handler(_: Request, exc: InvalidCatalogFoodException) -> JSONResponse:
+    """422 with a stable machine ``code`` (and the camelCase wire ``field``), so the admin UI can translate it."""
+    content: dict[str, str] = {"message": str(exc), "code": exc.code}
+    if exc.field:
+        content["field"] = ".".join(to_camel(part) for part in exc.field.split("."))
+    return JSONResponse(status_code=422, content=content)
 
 
 async def _ai_trial_exhausted_handler(_: Request, exc: AiTrialExhaustedException) -> JSONResponse:
@@ -134,6 +142,7 @@ async def _validation_error_handler(_: Request, exc: RequestValidationError) -> 
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(RequestValidationError, _validation_error_handler)
     app.add_exception_handler(UserAlreadyExistsException, _duplicate_email_handler)
+    app.add_exception_handler(InvalidCatalogFoodException, _invalid_catalog_food_handler)
     app.add_exception_handler(AiTrialExhaustedException, _ai_trial_exhausted_handler)
     app.add_exception_handler(QuizAlreadySubmittedException, _quiz_already_submitted_handler)
     app.add_exception_handler(RestaurantNotApprovedException, _restaurant_not_approved_handler)
