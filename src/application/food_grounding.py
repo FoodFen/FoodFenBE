@@ -6,12 +6,15 @@ import logging
 import math
 from collections.abc import Mapping
 from dataclasses import replace
+from datetime import UTC, datetime
 
 from src.application.dtos.food_analysis import (
     FoodAnalysisDTO,
     IngredientSuggestionDTO,
     NutritionPer100gDTO,
 )
+from src.application.food_names import clean_name, miss_key
+from src.application.ports.food_miss_repository import FoodMissRepositoryProtocol
 from src.domain.entities.catalog_food import CatalogFood
 
 _log = logging.getLogger("foodfenbe.food_analysis")
@@ -77,3 +80,18 @@ def ground(result: FoodAnalysisDTO, catalog: Mapping[str, CatalogFood]) -> FoodA
         rows.append(grounded)
     _log.info("matched=%d unmatched=%d", matched, len(rows) - matched)
     return replace(result, ingredients=rows)
+
+
+async def record_misses(misses: FoodMissRepositoryProtocol, grounded: FoodAnalysisDTO, language: str) -> None:
+    """Count the rows grounding left unmatched, one sighting per distinct name per analysis. Nothing about
+    the user or the image is kept. A failure is logged and swallowed: the analysis is the product."""
+    entries: dict[str, str] = {}  # key -> display name; the first sighting's name wins
+    for row in grounded.ingredients:
+        if row.catalog_food_id is None and (key := miss_key(row.name)):
+            entries.setdefault(key, clean_name(row.name)[:120])
+    if not entries:
+        return
+    try:
+        await misses.record(list(entries.items()), language, datetime.now(UTC))
+    except Exception:
+        _log.warning("food miss recording failed", exc_info=True)

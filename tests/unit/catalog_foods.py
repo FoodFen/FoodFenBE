@@ -13,7 +13,7 @@ NOW = datetime(2026, 11, 1, tzinfo=UTC)
 
 def make_food(slug: str = "pho-bo", **over) -> CatalogFood:
     base = dict(
-        id=uuid4(), slug=slug, name="Phở bò", aliases=["pho", "beef noodle soup"],
+        id=uuid4(), slug=slug, name="Phở bò", name_en="Beef pho", aliases=["pho", "beef noodle soup"],
         category=FoodCategory.MON_NUOC, source_kind=FoodSourceKind.NIN, source_ref="nin:1",
         kcal=81, carbs_g=10.2, protein_g=4.5, fat_g=2.4, fiber_g=0.2,
         servings=[CatalogServing("1 tô", 550, True), CatalogServing("nửa tô", 275)],

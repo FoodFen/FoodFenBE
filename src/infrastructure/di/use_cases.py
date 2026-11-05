@@ -6,6 +6,7 @@ growing with the app. Split it again (e.g. by slice) if it gets unwieldy.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from functools import lru_cache
 from typing import Annotated
 
@@ -45,6 +46,16 @@ from src.application.use_cases.get_payment_status import GetPaymentStatusUseCase
 from src.application.use_cases.handle_payment_webhook import HandlePaymentWebhookUseCase
 from src.application.use_cases.list_activity_logs import ListActivityLogsUseCase
 from src.application.use_cases.list_chat_messages import ListChatMessagesUseCase
+from src.application.use_cases.admin_foods import (
+    CreateFoodUseCase,
+    GetAdminFoodUseCase,
+    ListAdminFoodsUseCase,
+    ListFoodChangesUseCase,
+    ListFoodMissesUseCase,
+    SetFoodArchivedUseCase,
+    SetFoodMissStatusUseCase,
+    UpdateFoodUseCase,
+)
 from src.application.use_cases.admin_mascots import (
     CreateMascotUseCase,
     DeleteMascotUseCase,
@@ -125,7 +136,9 @@ from src.infrastructure.di.repositories import (
     ChatMessageRepositoryDep,
     DailyGoalRepositoryDep,
     FoodCatalogRepositoryDep,
+    FoodChangeRepositoryDep,
     FoodEntryRepositoryDep,
+    FoodMissRepositoryDep,
     PaymentRepositoryDep,
     RefreshTokenRepositoryDep,
     SocialIdentityRepositoryDep,
@@ -277,11 +290,19 @@ def get_food_catalog_cache() -> FoodCatalogCache:
     return FoodCatalogCache()
 
 
+async def invalidate_food_catalog_after_write() -> AsyncIterator[None]:
+    """Request scope (the default), so the teardown runs after the response, i.e. after ``SessionDep``'s
+    function-scope commit. Skipped when the endpoint raised: nothing was written."""
+    yield
+    get_food_catalog_cache().invalidate()
+
+
 def get_analyze_food_image_use_case(
     vision: FoodVisionProviderDep,
     images: ImageStorageDep,
     trial: AiTrialUseCaseDep,
     catalog: FoodCatalogRepositoryDep,
+    misses: FoodMissRepositoryDep,
 ) -> AnalyzeFoodImageUseCase:
     return AnalyzeFoodImageUseCase(
         vision=vision,
@@ -289,18 +310,23 @@ def get_analyze_food_image_use_case(
         trial=trial,
         catalog=catalog,
         catalog_cache=get_food_catalog_cache(),
+        misses=misses,
         grounding=settings.food_analysis_grounding,
     )
 
 
 def get_analyze_food_text_use_case(
-    vision: FoodVisionProviderDep, trial: AiTrialUseCaseDep, catalog: FoodCatalogRepositoryDep
+    vision: FoodVisionProviderDep,
+    trial: AiTrialUseCaseDep,
+    catalog: FoodCatalogRepositoryDep,
+    misses: FoodMissRepositoryDep,
 ) -> AnalyzeFoodTextUseCase:
     return AnalyzeFoodTextUseCase(
         vision=vision,
         trial=trial,
         catalog=catalog,
         catalog_cache=get_food_catalog_cache(),
+        misses=misses,
         grounding=settings.food_analysis_grounding,
     )
 
@@ -603,6 +629,56 @@ def get_delete_mascot_use_case(mascots: MascotRepositoryDep) -> DeleteMascotUseC
     return DeleteMascotUseCase(mascots=mascots)
 
 
+def get_list_admin_foods_use_case(foods: FoodCatalogRepositoryDep) -> ListAdminFoodsUseCase:
+    return ListAdminFoodsUseCase(foods=foods)
+
+
+def get_get_admin_food_use_case(foods: FoodCatalogRepositoryDep, users: UserRepositoryDep) -> GetAdminFoodUseCase:
+    return GetAdminFoodUseCase(foods=foods, users=users)
+
+
+def get_create_food_use_case(
+    foods: FoodCatalogRepositoryDep,
+    changes: FoodChangeRepositoryDep,
+    misses: FoodMissRepositoryDep,
+    users: UserRepositoryDep,
+) -> CreateFoodUseCase:
+    return CreateFoodUseCase(foods=foods, changes=changes, misses=misses, users=users)
+
+
+def get_update_food_use_case(
+    foods: FoodCatalogRepositoryDep,
+    changes: FoodChangeRepositoryDep,
+    misses: FoodMissRepositoryDep,
+    users: UserRepositoryDep,
+) -> UpdateFoodUseCase:
+    return UpdateFoodUseCase(foods=foods, changes=changes, misses=misses, users=users)
+
+
+def get_set_food_archived_use_case(
+    foods: FoodCatalogRepositoryDep, changes: FoodChangeRepositoryDep, users: UserRepositoryDep
+) -> SetFoodArchivedUseCase:
+    return SetFoodArchivedUseCase(foods=foods, changes=changes, users=users)
+
+
+def get_list_food_changes_use_case(
+    foods: FoodCatalogRepositoryDep, changes: FoodChangeRepositoryDep
+) -> ListFoodChangesUseCase:
+    return ListFoodChangesUseCase(foods=foods, changes=changes)
+
+
+def get_list_food_misses_use_case(
+    foods: FoodCatalogRepositoryDep, misses: FoodMissRepositoryDep
+) -> ListFoodMissesUseCase:
+    return ListFoodMissesUseCase(foods=foods, misses=misses)
+
+
+def get_set_food_miss_status_use_case(
+    foods: FoodCatalogRepositoryDep, misses: FoodMissRepositoryDep
+) -> SetFoodMissStatusUseCase:
+    return SetFoodMissStatusUseCase(foods=foods, misses=misses)
+
+
 def get_list_plans_use_case(providers: PaymentProvidersDep) -> ListPlansUseCase:
     return ListPlansUseCase(
         monthly_price_vnd=settings.payos_monthly_price_vnd,
@@ -626,6 +702,14 @@ ListAdminMascotsUseCaseDep = Annotated[ListAdminMascotsUseCase, Depends(get_list
 CreateMascotUseCaseDep = Annotated[CreateMascotUseCase, Depends(get_create_mascot_use_case)]
 UpdateMascotUseCaseDep = Annotated[UpdateMascotUseCase, Depends(get_update_mascot_use_case)]
 DeleteMascotUseCaseDep = Annotated[DeleteMascotUseCase, Depends(get_delete_mascot_use_case)]
+ListAdminFoodsUseCaseDep = Annotated[ListAdminFoodsUseCase, Depends(get_list_admin_foods_use_case)]
+GetAdminFoodUseCaseDep = Annotated[GetAdminFoodUseCase, Depends(get_get_admin_food_use_case)]
+CreateFoodUseCaseDep = Annotated[CreateFoodUseCase, Depends(get_create_food_use_case)]
+UpdateFoodUseCaseDep = Annotated[UpdateFoodUseCase, Depends(get_update_food_use_case)]
+SetFoodArchivedUseCaseDep = Annotated[SetFoodArchivedUseCase, Depends(get_set_food_archived_use_case)]
+ListFoodChangesUseCaseDep = Annotated[ListFoodChangesUseCase, Depends(get_list_food_changes_use_case)]
+ListFoodMissesUseCaseDep = Annotated[ListFoodMissesUseCase, Depends(get_list_food_misses_use_case)]
+SetFoodMissStatusUseCaseDep = Annotated[SetFoodMissStatusUseCase, Depends(get_set_food_miss_status_use_case)]
 ListPlansUseCaseDep = Annotated[ListPlansUseCase, Depends(get_list_plans_use_case)]
 
 

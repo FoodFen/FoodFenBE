@@ -188,3 +188,15 @@ class MascotInUseException(DomainException):
 
 class InvalidCatalogFoodException(InvalidAttributeException):
     """A catalog food's slug, name, nutrition, source or servings violates a domain invariant. Maps to HTTP 422."""
+
+
+class FoodNotFoundException(EntityNotFoundException):
+    """No catalog food has this slug."""
+
+
+class FoodMissNotFoundException(EntityNotFoundException):
+    """No such unmatched food name."""
+
+
+class FoodNameTakenException(DomainException):
+    """Another catalog food has this (folded) name. Maps to HTTP 409 with error code ``food_name_taken``."""

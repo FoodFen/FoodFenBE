@@ -20,6 +20,7 @@ class FoodORM(UUIDPrimaryKey, Base):
 
     slug: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
+    name_en: Mapped[str | None] = mapped_column(String(120), nullable=True)
     aliases: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     category: Mapped[FoodCategory] = mapped_column(enum_column(FoodCategory, "food_category"), nullable=False)
     source_kind: Mapped[FoodSourceKind] = mapped_column(enum_column(FoodSourceKind, "food_source_kind"), nullable=False)
@@ -42,6 +43,7 @@ class FoodORM(UUIDPrimaryKey, Base):
             id=self.id,
             slug=self.slug,
             name=self.name,
+            name_en=self.name_en,
             aliases=list(self.aliases),
             category=self.category,
             source_kind=self.source_kind,
@@ -57,3 +59,17 @@ class FoodORM(UUIDPrimaryKey, Base):
             updated_at=self.updated_at,
             updated_by_admin_id=self.updated_by_admin_id,
         )
+
+    @classmethod
+    def from_domain(cls, f: CatalogFood) -> FoodORM:
+        row = cls(id=f.id, slug=f.slug, created_at=f.created_at)
+        row.apply(f)
+        return row
+
+    def apply(self, f: CatalogFood) -> None:
+        """Copy every mutable field of ``f`` (``slug`` and ``created_at`` never change)."""
+        self.name, self.name_en, self.aliases, self.category = f.name, f.name_en, list(f.aliases), f.category
+        self.source_kind, self.source_ref = f.source_kind, f.source_ref
+        self.kcal, self.carbs_g, self.protein_g, self.fat_g, self.fiber_g = f.kcal, f.carbs_g, f.protein_g, f.fat_g, f.fiber_g
+        self.servings = [{"label": s.label, "grams": s.grams, "default": s.default} for s in f.servings]
+        self.archived, self.updated_at, self.updated_by_admin_id = f.archived, f.updated_at, f.updated_by_admin_id

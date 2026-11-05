@@ -15,3 +15,13 @@ class FoodCatalogRepositoryProtocol(Protocol):
     async def get_by_slug(self, slug: str) -> CatalogFood | None:
         """Archived foods included; the caller reads ``archived``."""
         ...
+
+    async def list_all(self) -> list[CatalogFood]:
+        """Every food, archived included, in no particular order."""
+        ...
+
+    async def add(self, food: CatalogFood) -> None: ...
+
+    async def update(self, food: CatalogFood) -> None:
+        """Write every mutable field of ``food`` (looked up by ``id``)."""
+        ...

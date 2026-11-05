@@ -19,7 +19,9 @@ from src.domain.exceptions import (
     AuthenticationException,
     DomainException,
     EntityNotFoundException,
+    FoodNameTakenException,
     InsufficientCoinsException,
+    InvalidCatalogFoodException,
     InvalidAttributeException,
     InvalidMascotException,
     InvalidWebhookSignatureException,
@@ -46,6 +48,7 @@ from src.domain.exceptions import (
 EXCEPTION_STATUS: list[tuple[type[DomainException], int]] = [
     (InvalidWebhookSignatureException, 401),  # a more specific AuthenticationException
     (InvalidAdPackageException, 422),
+    (InvalidCatalogFoodException, 422),
     (InvalidMascotException, 422),
     (InvalidAttributeException, 400),  # + InvalidUserAttributeException, WeakPasswordException, InvalidPaymentStateException
     (AuthenticationException, 401),  # + InvalidCredentialsException, InvalidTokenException
@@ -140,5 +143,6 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(MascotDefaultLockedException, _conflict_with_code("mascot_default_locked"))
     app.add_exception_handler(MascotMissingIdleImageException, _conflict_with_code("mascot_missing_idle_image"))
     app.add_exception_handler(MascotInUseException, _conflict_with_code("mascot_in_use"))
+    app.add_exception_handler(FoodNameTakenException, _conflict_with_code("food_name_taken"))
     for exc_type, status_code in EXCEPTION_STATUS:
         app.add_exception_handler(exc_type, _domain_exception_handler(status_code))
