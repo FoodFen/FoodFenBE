@@ -213,6 +213,17 @@ update it in the same change as any decision.
   `{message, code, field?}` (field camelCased). Catalog foods, trial limits and nutrition tips subclass it.
 
 
+## Nutrition tips
+
+- Short bilingual tips the app shows on loading screens. Table `nutrition_tips` (migration 0036, no seed):
+  `text_vi`, `text_en`, `is_active` (default true), `created_at`, `updated_at`.
+- `NutritionTip` trims both texts and rejects empty (422 `text_required`) or over 300 chars (`text_too_long`), `field`
+  `textVi` / `textEn` on the wire (shared `InvalidFieldException` body). Unknown id on PATCH / DELETE is 404.
+- Public `GET /nutrition-tips` (no auth, contract fixed): `{items: [{id, textVi, textEn}]}`, active only, newest first.
+- Admin `GET /admin/nutrition-tips` (all, newest first; adds `isActive`, `createdAt`, `updatedAt`), `POST` (201,
+  `isActive` defaults true), `PATCH /{id}` (all fields optional), `DELETE /{id}` (204, hard delete).
+
+
 ## Food catalog
 
 Design (owned by the FE repo): `FoodFenFE/docs/superpowers/specs/2026-11-02-catalog-grounded-ai-design.md`.

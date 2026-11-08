@@ -19,6 +19,7 @@ from src.application.ports.chat_message_repository import ChatMessageRepositoryP
 from src.application.ports.coin_bundle_repository import CoinBundleRepositoryProtocol
 from src.application.ports.coin_repository import CoinRepositoryProtocol
 from src.application.ports.mascot_repository import MascotRepositoryProtocol
+from src.application.ports.nutrition_tip_repository import NutritionTipRepositoryProtocol
 from src.application.ports.daily_goal_repository import DailyGoalRepositoryProtocol
 from src.application.ports.food_catalog_repository import FoodCatalogRepositoryProtocol
 from src.application.ports.food_change_repository import FoodChangeRepositoryProtocol
@@ -53,6 +54,7 @@ from src.infrastructure.db.repositories.coin_bundle_repository import (
     SQLAlchemyCoinBundleRepository,
 )
 from src.infrastructure.db.repositories.mascot_repository import SQLAlchemyMascotRepository
+from src.infrastructure.db.repositories.nutrition_tip_repository import SQLAlchemyNutritionTipRepository
 from src.infrastructure.db.repositories.coin_repository import SQLAlchemyCoinRepository
 from src.infrastructure.db.repositories.daily_goal_repository import SQLAlchemyDailyGoalRepository
 from src.infrastructure.db.repositories.food_catalog_repository import (
@@ -191,6 +193,13 @@ def get_weight_log_repository(session: SessionDep) -> WeightLogRepositoryProtoco
 
 
 WeightLogRepositoryDep = Annotated[WeightLogRepositoryProtocol, Depends(get_weight_log_repository)]
+
+
+def get_nutrition_tip_repository(session: SessionDep) -> NutritionTipRepositoryProtocol:
+    return SQLAlchemyNutritionTipRepository(session)
+
+
+NutritionTipRepositoryDep = Annotated[NutritionTipRepositoryProtocol, Depends(get_nutrition_tip_repository)]
 
 
 def get_ai_trial_repository(session: SessionDep) -> AiTrialRepositoryProtocol:

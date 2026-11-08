@@ -35,6 +35,12 @@ from src.adapters.schemas.admin_schemas import (
 from src.adapters.schemas.ai_trial_limits_schemas import AiTrialLimitsRequest, AiTrialLimitsResponse
 from src.adapters.schemas.image_schemas import ImageUploadResponse
 from src.adapters.schemas.mascot_schemas import AdminMascotResponse, CreateMascotRequest, UpdateMascotRequest
+from src.adapters.schemas.nutrition_tip_schemas import (
+    AdminNutritionTipResponse,
+    AdminNutritionTipsResponse,
+    CreateNutritionTipRequest,
+    UpdateNutritionTipRequest,
+)
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
 from src.application.dtos.food_admin import FoodServingDTO
 from src.application.dtos.restaurant import ReviewNoticeDTO
@@ -62,7 +68,11 @@ from src.infrastructure.di import (
     invalidate_food_catalog_after_write,
     CreateMascotUseCaseDep,
     DeleteMascotUseCaseDep,
+    CreateNutritionTipUseCaseDep,
+    DeleteNutritionTipUseCaseDep,
     EmailVerificationNotifierDep,
+    ListNutritionTipsUseCaseDep,
+    UpdateNutritionTipUseCaseDep,
     GetAiTrialLimitsUseCaseDep,
     UpdateAiTrialLimitsUseCaseDep,
     ListAdPackagesUseCaseDep,
@@ -259,6 +269,35 @@ async def put_ai_trial_limits(
 ) -> AiTrialLimitsResponse:
     """Both required, each 0..100 (422 ``limit_out_of_range`` with the offending ``field`` otherwise)."""
     return AiTrialLimitsResponse.from_entity(await use_case.execute(body.guest_limit, body.signed_in_limit))
+
+
+@router.get("/nutrition-tips", response_model=AdminNutritionTipsResponse)
+async def list_nutrition_tips(use_case: ListNutritionTipsUseCaseDep) -> AdminNutritionTipsResponse:
+    """Every tip, inactive ones included, newest first."""
+    return AdminNutritionTipsResponse(
+        items=[AdminNutritionTipResponse.from_entity(t) for t in await use_case.execute(active_only=False)]
+    )
+
+
+@router.post("/nutrition-tips", response_model=AdminNutritionTipResponse, status_code=status.HTTP_201_CREATED)
+async def create_nutrition_tip(
+    body: CreateNutritionTipRequest, use_case: CreateNutritionTipUseCaseDep
+) -> AdminNutritionTipResponse:
+    return AdminNutritionTipResponse.from_entity(await use_case.execute(body.text_vi, body.text_en, body.is_active))
+
+
+@router.patch("/nutrition-tips/{tip_id}", response_model=AdminNutritionTipResponse)
+async def update_nutrition_tip(
+    tip_id: UUID, body: UpdateNutritionTipRequest, use_case: UpdateNutritionTipUseCaseDep
+) -> AdminNutritionTipResponse:
+    return AdminNutritionTipResponse.from_entity(
+        await use_case.execute(tip_id, body.text_vi, body.text_en, body.is_active)
+    )
+
+
+@router.delete("/nutrition-tips/{tip_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_nutrition_tip(tip_id: UUID, use_case: DeleteNutritionTipUseCaseDep) -> None:
+    await use_case.execute(tip_id)
 
 
 @router.post("/images", response_model=ImageUploadResponse)

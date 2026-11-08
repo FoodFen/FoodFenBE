@@ -68,6 +68,12 @@ from src.application.use_cases.admin_mascots import (
     UpdateMascotUseCase,
 )
 from src.application.use_cases.equip_mascot import EquipMascotUseCase
+from src.application.use_cases.nutrition_tips import (
+    CreateNutritionTipUseCase,
+    DeleteNutritionTipUseCase,
+    ListNutritionTipsUseCase,
+    UpdateNutritionTipUseCase,
+)
 from src.application.use_cases.get_mascots import GetMascotsUseCase
 from src.application.use_cases.list_coin_transactions import ListCoinTransactionsUseCase
 from src.application.use_cases.list_coin_bundles import ListCoinBundlesUseCase
@@ -134,6 +140,7 @@ from src.infrastructure.di.repositories import (
     ActivityLogRepositoryDep,
     CoinBundleRepositoryDep,
     MascotRepositoryDep,
+    NutritionTipRepositoryDep,
     CoinRepositoryDep,
     QuestRepositoryDep,
     QuizRepositoryDep,
@@ -303,6 +310,34 @@ def get_update_ai_trial_limits_use_case(usage: AiTrialRepositoryDep) -> UpdateAi
 UpdateAiTrialLimitsUseCaseDep = Annotated[
     UpdateAiTrialLimitsUseCase, Depends(get_update_ai_trial_limits_use_case)
 ]
+
+
+def get_list_nutrition_tips_use_case(tips: NutritionTipRepositoryDep) -> ListNutritionTipsUseCase:
+    return ListNutritionTipsUseCase(tips=tips)
+
+
+ListNutritionTipsUseCaseDep = Annotated[ListNutritionTipsUseCase, Depends(get_list_nutrition_tips_use_case)]
+
+
+def get_create_nutrition_tip_use_case(tips: NutritionTipRepositoryDep) -> CreateNutritionTipUseCase:
+    return CreateNutritionTipUseCase(tips=tips)
+
+
+CreateNutritionTipUseCaseDep = Annotated[CreateNutritionTipUseCase, Depends(get_create_nutrition_tip_use_case)]
+
+
+def get_update_nutrition_tip_use_case(tips: NutritionTipRepositoryDep) -> UpdateNutritionTipUseCase:
+    return UpdateNutritionTipUseCase(tips=tips)
+
+
+UpdateNutritionTipUseCaseDep = Annotated[UpdateNutritionTipUseCase, Depends(get_update_nutrition_tip_use_case)]
+
+
+def get_delete_nutrition_tip_use_case(tips: NutritionTipRepositoryDep) -> DeleteNutritionTipUseCase:
+    return DeleteNutritionTipUseCase(tips=tips)
+
+
+DeleteNutritionTipUseCaseDep = Annotated[DeleteNutritionTipUseCase, Depends(get_delete_nutrition_tip_use_case)]
 
 
 @lru_cache

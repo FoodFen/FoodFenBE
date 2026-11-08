@@ -18,6 +18,7 @@ from src.infrastructure.db.models.food_change_model import FoodChangeORM
 from src.infrastructure.db.models.food_miss_model import FoodMissORM
 from src.infrastructure.db.models.food_model import FoodORM
 from src.infrastructure.db.models.mascot_model import MascotImageORM, MascotORM, UserMascotORM
+from src.infrastructure.db.models.nutrition_tip_model import NutritionTipORM
 from src.infrastructure.db.models.payment_model import PaymentORM
 from src.infrastructure.db.models.quest_definition_model import QuestDefinitionORM
 from src.infrastructure.db.models.quest_model import QuestORM
@@ -51,6 +52,7 @@ __all__ = [
     "IngredientORM",
     "MascotImageORM",
     "MascotORM",
+    "NutritionTipORM",
     "PaymentORM",
     "QuestDefinitionORM",
     "QuestORM",

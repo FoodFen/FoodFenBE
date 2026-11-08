@@ -206,6 +206,14 @@ class InvalidAiTrialLimitsException(InvalidFieldException):
     """An AI free-trial limit is outside 0..100."""
 
 
+class InvalidNutritionTipException(InvalidFieldException):
+    """A nutrition tip's text is empty (``text_required``) or too long (``text_too_long``)."""
+
+
+class NutritionTipNotFoundException(EntityNotFoundException):
+    """No such nutrition tip."""
+
+
 class FoodNotFoundException(EntityNotFoundException):
     """No catalog food has this slug."""
 
