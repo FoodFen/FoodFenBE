@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from datetime import date
 from typing import Protocol
 
+from src.domain.entities.ai_trial_limits import AiTrialLimits
 from src.domain.enums import AiTrialMethod
 
 
@@ -16,4 +17,12 @@ class AiTrialRepositoryProtocol(Protocol):
 
     async def increment(self, owner_keys: Sequence[str], method: AiTrialMethod, day: date) -> None:
         """Add one used trial for ``method`` on ``day`` to every owner key."""
+        ...
+
+    async def limits(self) -> AiTrialLimits:
+        """The admin-set daily limits (the defaults if none are stored)."""
+        ...
+
+    async def save_limits(self, limits: AiTrialLimits) -> None:
+        """Replace the stored limits."""
         ...

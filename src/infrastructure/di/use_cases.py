@@ -57,6 +57,10 @@ from src.application.use_cases.admin_foods import (
     SetFoodMissStatusUseCase,
     UpdateFoodUseCase,
 )
+from src.application.use_cases.admin_ai_trial_limits import (
+    GetAiTrialLimitsUseCase,
+    UpdateAiTrialLimitsUseCase,
+)
 from src.application.use_cases.admin_mascots import (
     CreateMascotUseCase,
     DeleteMascotUseCase,
@@ -283,6 +287,22 @@ def get_ai_trial_use_case(usage: AiTrialRepositoryDep) -> AiTrialUseCase:
 
 
 AiTrialUseCaseDep = Annotated[AiTrialUseCase, Depends(get_ai_trial_use_case)]
+
+
+def get_get_ai_trial_limits_use_case(usage: AiTrialRepositoryDep) -> GetAiTrialLimitsUseCase:
+    return GetAiTrialLimitsUseCase(usage=usage)
+
+
+GetAiTrialLimitsUseCaseDep = Annotated[GetAiTrialLimitsUseCase, Depends(get_get_ai_trial_limits_use_case)]
+
+
+def get_update_ai_trial_limits_use_case(usage: AiTrialRepositoryDep) -> UpdateAiTrialLimitsUseCase:
+    return UpdateAiTrialLimitsUseCase(usage=usage)
+
+
+UpdateAiTrialLimitsUseCaseDep = Annotated[
+    UpdateAiTrialLimitsUseCase, Depends(get_update_ai_trial_limits_use_case)
+]
 
 
 @lru_cache

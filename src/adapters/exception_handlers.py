@@ -22,7 +22,7 @@ from src.domain.exceptions import (
     EntityNotFoundException,
     FoodNameTakenException,
     InsufficientCoinsException,
-    InvalidCatalogFoodException,
+    InvalidFieldException,
     InvalidAttributeException,
     InvalidMascotException,
     InvalidWebhookSignatureException,
@@ -44,7 +44,7 @@ from src.domain.exceptions import (
 
 # Domain exception type -> HTTP status. Registration order is irrelevant: Starlette
 # resolves a raised exception against the most specific registered base via its MRO.
-# UserAlreadyExistsException (field-keyed `errors` body) and InvalidCatalogFoodException (`code` + `field`)
+# UserAlreadyExistsException (field-keyed `errors` body) and InvalidFieldException (`code` + `field`)
 # are handled separately below, so they are deliberately not listed here.
 EXCEPTION_STATUS: list[tuple[type[DomainException], int]] = [
     (InvalidWebhookSignatureException, 401),  # a more specific AuthenticationException
@@ -82,7 +82,7 @@ async def _duplicate_email_handler(_: Request, exc: UserAlreadyExistsException) 
     )
 
 
-async def _invalid_catalog_food_handler(_: Request, exc: InvalidCatalogFoodException) -> JSONResponse:
+async def _invalid_field_handler(_: Request, exc: InvalidFieldException) -> JSONResponse:
     """422 with a stable machine ``code`` (and the camelCase wire ``field``), so the admin UI can translate it."""
     content: dict[str, str] = {"message": str(exc), "code": exc.code}
     if exc.field:
@@ -142,7 +142,7 @@ async def _validation_error_handler(_: Request, exc: RequestValidationError) -> 
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(RequestValidationError, _validation_error_handler)
     app.add_exception_handler(UserAlreadyExistsException, _duplicate_email_handler)
-    app.add_exception_handler(InvalidCatalogFoodException, _invalid_catalog_food_handler)
+    app.add_exception_handler(InvalidFieldException, _invalid_field_handler)
     app.add_exception_handler(AiTrialExhaustedException, _ai_trial_exhausted_handler)
     app.add_exception_handler(QuizAlreadySubmittedException, _quiz_already_submitted_handler)
     app.add_exception_handler(RestaurantNotApprovedException, _restaurant_not_approved_handler)

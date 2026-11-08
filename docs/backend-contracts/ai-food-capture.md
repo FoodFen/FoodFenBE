@@ -23,7 +23,7 @@ Neither header present: **401** (as before). An invalid or expired Bearer: **401
 ## Free trials
 
 - Successful analyses per input method **per day**: **3 for a guest** (anonymous device), **5 for a signed-in
-  free user**. Methods are `image`, `text`, `voice`, three independent counters. `GET /ai/food/quota` reports the
+  free user** (defaults; an admin can change both, 0..100, see `docs/feature-notes.md`). Methods are `image`, `text`, `voice`, three independent counters. `GET /ai/food/quota` reports the
   `limit` that applies to the caller.
 - **Daily reset at midnight Vietnam time** (Asia/Ho_Chi_Minh, UTC+7, no DST), the same calendar day the
   diary uses. Not a rolling 24 hours: the reset is the same moment for every user, and the 403 and

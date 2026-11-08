@@ -14,6 +14,7 @@ from src.application.food_catalog_cache import FoodCatalogCache
 from src.application.use_cases.ai_trial import AiTrialUseCase
 from src.application.use_cases.analyze_food_image import AnalyzeFoodImageUseCase
 from src.application.use_cases.analyze_food_text import AnalyzeFoodTextUseCase
+from src.domain.entities.ai_trial_limits import AiTrialLimits
 from src.domain.enums import AiTrialMethod
 
 _INGREDIENT = IngredientSuggestionDTO(
@@ -131,6 +132,9 @@ class _CountingTrialUsage:
 
     async def increment(self, owner_keys, method, day):
         self.increments += 1
+
+    async def limits(self):
+        return AiTrialLimits(3, 5)
 
 
 _FREE_CALLER = AiCallerDTO(keys=("user:1",), is_premium=False, signed_in=True)

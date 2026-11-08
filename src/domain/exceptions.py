@@ -186,8 +186,8 @@ class MascotInUseException(DomainException):
     """Someone owns or has equipped the mascot, so it can only be hidden. Maps to HTTP 409 with error code ``mascot_in_use``."""
 
 
-class InvalidCatalogFoodException(InvalidAttributeException):
-    """A catalog food's slug, name, nutrition, source or servings violates a domain invariant. Maps to HTTP 422.
+class InvalidFieldException(InvalidAttributeException):
+    """An attribute violates a domain invariant. Maps to HTTP 422 ``{message, code, field?}``.
 
     ``code`` is the stable snake_case id of the broken rule; ``field`` is the offending field in snake_case
     (``servings.0.grams``), or None when no single field is at fault. The handler puts both on the wire."""
@@ -196,6 +196,14 @@ class InvalidCatalogFoodException(InvalidAttributeException):
         super().__init__(message)
         self.code = code
         self.field = field
+
+
+class InvalidCatalogFoodException(InvalidFieldException):
+    """A catalog food's slug, name, nutrition, source or servings violates a domain invariant."""
+
+
+class InvalidAiTrialLimitsException(InvalidFieldException):
+    """An AI free-trial limit is outside 0..100."""
 
 
 class FoodNotFoundException(EntityNotFoundException):

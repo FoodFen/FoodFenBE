@@ -1,6 +1,7 @@
 """Free-trial quota for AI food analysis: successes per input method per day.
 
-A guest gets ``AI_TRIAL_LIMIT_GUEST``, a signed-in free user ``AI_TRIAL_LIMIT_SIGNED_IN``.
+A guest gets ``AiTrialLimits.guest``, a signed-in free user ``AiTrialLimits.signed_in``; both are
+admin-editable (0..100, stored in ``ai_trial_limits``, defaults 3 / 5).
 
 A day is a calendar day in Vietnam (UTC+7, no DST), matching the app's diary days.
 """
@@ -14,9 +15,6 @@ from src.application.dtos.ai_trial import AiCallerDTO
 from src.application.ports.ai_trial_repository import AiTrialRepositoryProtocol
 from src.domain.enums import AiTrialMethod
 from src.domain.exceptions import AiTrialExhaustedException
-
-AI_TRIAL_LIMIT_GUEST = 3
-AI_TRIAL_LIMIT_SIGNED_IN = 5
 
 _VN = timezone(timedelta(hours=7))
 
@@ -33,8 +31,9 @@ def _today() -> date:
 class AiTrialUseCase:
     usage: AiTrialRepositoryProtocol
 
-    def limit_for(self, caller: AiCallerDTO) -> int:
-        return AI_TRIAL_LIMIT_SIGNED_IN if caller.signed_in else AI_TRIAL_LIMIT_GUEST
+    async def limit_for(self, caller: AiCallerDTO) -> int:
+        limits = await self.usage.limits()
+        return limits.signed_in if caller.signed_in else limits.guest
 
     def resets_at(self) -> datetime:
         """The next Vietnam midnight, when every counter starts over."""
@@ -45,7 +44,7 @@ class AiTrialUseCase:
         if caller.is_premium:
             return None
         used = await self.usage.used(caller.keys, _today())
-        limit = self.limit_for(caller)
+        limit = await self.limit_for(caller)
         return {m: max(0, limit - used.get(m, 0)) for m in AiTrialMethod}
 
     async def ensure_available(self, caller: AiCallerDTO, method: AiTrialMethod) -> None:

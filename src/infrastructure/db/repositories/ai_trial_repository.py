@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date
+from datetime import UTC, date, datetime
 from uuid import uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.domain.entities.ai_trial_limits import DEFAULT_AI_TRIAL_LIMITS, AiTrialLimits
 from src.domain.enums import AiTrialMethod
+from src.infrastructure.db.models.ai_trial_limits_model import AiTrialLimitsORM
 from src.infrastructure.db.models.ai_trial_usage_model import AiTrialUsageORM
 
 
@@ -36,3 +38,16 @@ class SQLAlchemyAiTrialRepository:
                     set_={"used": AiTrialUsageORM.used + 1},
                 )
             )
+
+    async def limits(self) -> AiTrialLimits:
+        row = await self._session.scalar(select(AiTrialLimitsORM).limit(1))
+        return AiTrialLimits(row.guest_limit, row.signed_in_limit) if row else DEFAULT_AI_TRIAL_LIMITS
+
+    async def save_limits(self, limits: AiTrialLimits) -> None:
+        row = await self._session.scalar(select(AiTrialLimitsORM).limit(1))
+        if row is None:
+            row = AiTrialLimitsORM(id=uuid4())
+            self._session.add(row)
+        row.guest_limit, row.signed_in_limit = limits.guest, limits.signed_in
+        row.updated_at = datetime.now(UTC)
+        await self._session.flush()

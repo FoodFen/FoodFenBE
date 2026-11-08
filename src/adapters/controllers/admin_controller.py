@@ -32,6 +32,7 @@ from src.adapters.schemas.admin_schemas import (
     DashboardResponse,
     ReviewRequest,
 )
+from src.adapters.schemas.ai_trial_limits_schemas import AiTrialLimitsRequest, AiTrialLimitsResponse
 from src.adapters.schemas.image_schemas import ImageUploadResponse
 from src.adapters.schemas.mascot_schemas import AdminMascotResponse, CreateMascotRequest, UpdateMascotRequest
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
@@ -62,6 +63,8 @@ from src.infrastructure.di import (
     CreateMascotUseCaseDep,
     DeleteMascotUseCaseDep,
     EmailVerificationNotifierDep,
+    GetAiTrialLimitsUseCaseDep,
+    UpdateAiTrialLimitsUseCaseDep,
     ListAdPackagesUseCaseDep,
     ListAdminMascotsUseCaseDep,
     UpdateAdPackageUseCaseDep,
@@ -242,6 +245,20 @@ async def update_mascot(
 async def delete_mascot(mascot_id: str, use_case: DeleteMascotUseCaseDep) -> None:
     """409 ``mascot_in_use`` while anyone owns or has it equipped: hide it instead."""
     await use_case.execute(mascot_id)
+
+
+@router.get("/ai/trial-limits", response_model=AiTrialLimitsResponse)
+async def get_ai_trial_limits(use_case: GetAiTrialLimitsUseCaseDep) -> AiTrialLimitsResponse:
+    """Free AI analyses per input method per day: guests and signed-in free users."""
+    return AiTrialLimitsResponse.from_entity(await use_case.execute())
+
+
+@router.put("/ai/trial-limits", response_model=AiTrialLimitsResponse)
+async def put_ai_trial_limits(
+    body: AiTrialLimitsRequest, use_case: UpdateAiTrialLimitsUseCaseDep
+) -> AiTrialLimitsResponse:
+    """Both required, each 0..100 (422 ``limit_out_of_range`` with the offending ``field`` otherwise)."""
+    return AiTrialLimitsResponse.from_entity(await use_case.execute(body.guest_limit, body.signed_in_limit))
 
 
 @router.post("/images", response_model=ImageUploadResponse)

@@ -200,6 +200,19 @@ update it in the same change as any decision.
   `ponytail:` note).
 
 
+## AI free trial limits
+
+- Daily free analyses per input method: **guest** and **signed-in free user**, defaults 3 / 5, each **0..100**
+  (0 = no free trial). They live in the single-row table `ai_trial_limits` (migration 0035 seeds 3 / 5), read by
+  `AiTrialUseCase.limit_for` through `AiTrialRepositoryProtocol.limits()` on every check; if the row is absent the
+  repo returns `DEFAULT_AI_TRIAL_LIMITS`. Rules are in `AiTrialLimits` (rejects `bool`).
+- Admin: `GET` / `PUT /admin/ai/trial-limits`, `{guestLimit, signedInLimit}` (PUT needs both). Out of range is
+  422 `{message, code: "limit_out_of_range", field: "guestLimit" | "signedInLimit"}`. `GET /ai/food/quota` is unchanged
+  on the wire; it just reports the current limit.
+- Coded 422s share `InvalidFieldException(message, code, field?)`; one handler (`_invalid_field_handler`) renders
+  `{message, code, field?}` (field camelCased). Catalog foods, trial limits and nutrition tips subclass it.
+
+
 ## Food catalog
 
 Design (owned by the FE repo): `FoodFenFE/docs/superpowers/specs/2026-11-02-catalog-grounded-ai-design.md`.
