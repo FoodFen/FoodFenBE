@@ -7,7 +7,7 @@ them live), so only its wording can change and it can't be deleted.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from uuid import UUID
 
 from src.application.dish_fit import fold
@@ -71,11 +71,7 @@ class UpdateQuizTopicUseCase:
 
     async def execute(self, topic_id: UUID, label: str | None, active: bool | None) -> AdminQuizTopicDTO:
         topic = await _topic(self.quizzes, topic_id)
-        topic = replace(
-            topic,
-            label=topic.label if label is None else label,
-            active=topic.active if active is None else active,
-        )  # replace() re-runs __post_init__
+        topic = topic.renamed(label, active)
         await self.quizzes.update_topic(topic)
         count = next(t.active_question_count for t in await self.quizzes.admin_topics() if t.id == topic.id)
         return AdminQuizTopicDTO(topic.id, topic.slug, topic.label, topic.active, count)

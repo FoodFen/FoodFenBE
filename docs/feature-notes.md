@@ -172,7 +172,9 @@ Spec: `docs/superpowers/specs/2026-10-03-quiz-design.md`. Wire contract (owned b
   `GET|POST /admin/quiz-topics`, `PATCH /admin/quiz-topics/{id}`, `GET|POST /admin/quizzes`,
   `PATCH|DELETE /admin/quizzes/{id}`. Topic **slug is immutable** (kebab-case; the app sends it to
   `POST /quizzes/practice`) and unique even among inactive topics (409 `quiz_topic_slug_taken`). A question has
-  2-4 options (ids ≤16 chars) and a correct option among them.
+  2-4 options (ids ≤16 chars) and a correct option among them. These content rules apply on admin
+  create/edit only; rows loaded from the DB are checked only for the grading invariants (≥2 options with
+  distinct ids, correct option among them), so a hand-edited legacy row never breaks quiz loading.
 - **Frozen answers.** Issued quizzes store only question ids (`quizzes.question_ids`) and are re-read live, so
   grading and the result of a completed quiz use the question's *current* options. Once any quiz references a
   question (`question_in_use`: a text scan of `quizzes.question_ids`, admin-only), its **option ids and

@@ -131,8 +131,8 @@ def _create(**over):
         ({"options": _opts("a")}, "option_count", "options"),
         ({"options": _opts("a", "b", "c", "d", "e")}, "option_count", "options"),
         ({"options": _opts("a", "a")}, "option_ids_not_unique", "options"),
-        ({"options": [QuizOption("", "A"), QuizOption("b", "B")]}, "option_id_invalid", "options"),
-        ({"options": [QuizOption("x" * 17, "A"), QuizOption("b", "B")]}, "option_id_invalid", "options"),
+        ({"options": [QuizOption("", "A"), QuizOption("b", "B")], "correct_option_id": "b"}, "option_id_invalid", "options"),
+        ({"options": [QuizOption("x" * 17, "A"), QuizOption("b", "B")], "correct_option_id": "b"}, "option_id_invalid", "options"),
         ({"options": [QuizOption("a", "A"), QuizOption("b", " ")]}, "option_text_required", "options.1.text"),
         ({"options": [QuizOption("a", "x" * 201), QuizOption("b", "B")]}, "option_text_too_long", "options.0.text"),
         ({"correct_option_id": "z"}, "correct_option_invalid", "correct_option_id"),
@@ -183,3 +183,39 @@ def test_topic_validation_codes(slug, label, code, field):
 def test_topic_create_trims_the_label_and_defaults_active():
     topic = QuizTopic.create("vitamins-minerals", "  Vitamin  ")
     assert (topic.slug, topic.label, topic.active) == ("vitamins-minerals", "Vitamin", True)
+
+
+_LEGACY = [
+    ({"options": _opts("a", "b", "c", "d", "e")}, "option_count"),
+    ({"options": [QuizOption("a", "A"), QuizOption("b", " ")]}, "option_text_required"),
+    ({"explanation": "x" * 2000}, "explanation_too_long"),
+]
+
+
+@pytest.mark.parametrize(("over", "code"), _LEGACY)
+def test_loading_a_legacy_question_is_lenient_but_admin_create_and_update_are_strict(over, code):
+    args = dict(
+        topic_id=TOPIC_ID, text="q?", options=_opts("a", "b"), correct_option_id="a", explanation="because"
+    ) | over
+    legacy = QuizQuestion(id=uuid4(), **args)  # the DB-loader path: only grading invariants
+    with pytest.raises(InvalidQuizQuestionException) as err:
+        QuizQuestion.create(**args)
+    assert err.value.code == code
+    with pytest.raises(InvalidQuizQuestionException) as err:
+        legacy.update(active=False)  # the whole resulting question is validated
+    assert err.value.code == code and legacy.active is True
+
+
+def test_question_loaded_with_no_explanation_gets_an_empty_one():
+    q = QuizQuestion(uuid4(), TOPIC_ID, "q", _opts("a", "b"), "a", None)
+    assert q.explanation == ""
+
+
+def test_loading_a_legacy_topic_slug_is_lenient_but_rename_validates():
+    legacy = QuizTopic(uuid4(), "Old_Slug", "Old")
+    with pytest.raises(InvalidQuizTopicException) as err:
+        legacy.renamed("New")
+    assert err.value.code == "invalid_slug"
+    with pytest.raises(InvalidQuizTopicException):
+        QuizTopic.create("Old_Slug", "Old")
+    assert QuizTopic.create("ok", "x").renamed("  New ", False).label == "New"

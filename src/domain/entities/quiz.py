@@ -50,7 +50,8 @@ class QuizTopic:
     label: str
     active: bool = True
 
-    def __post_init__(self) -> None:
+    def _check_content(self) -> None:
+        """Admin content rules. Not run on load, so a legacy row never breaks reading."""
         if len(self.slug) > MAX_SLUG_LENGTH or not _SLUG.fullmatch(self.slug):
             raise InvalidQuizTopicException(
                 f"slug must be kebab-case (a-z, 0-9, hyphens), at most {MAX_SLUG_LENGTH} characters",
@@ -68,7 +69,19 @@ class QuizTopic:
 
     @classmethod
     def create(cls, slug: str, label: str, active: bool = True) -> QuizTopic:
-        return cls(uuid4(), slug, label, active)
+        topic = cls(uuid4(), slug, label, active)
+        topic._check_content()
+        return topic
+
+    def renamed(self, label: str | None = None, active: bool | None = None) -> QuizTopic:
+        """A validated copy with the given fields changed (the slug never changes)."""
+        changed = replace(
+            self,
+            label=self.label if label is None else label,
+            active=self.active if active is None else active,
+        )
+        changed._check_content()
+        return changed
 
 
 @dataclass
@@ -82,23 +95,38 @@ class QuizQuestion:
     active: bool = True
 
     def __post_init__(self) -> None:
+        # Only what grading needs, so a hand-edited DB row still loads; the content rules are in
+        # _check_content, run on admin create/update.
+        self.explanation = self.explanation or ""
+        ids = [o.id for o in self.options]
+        if len(ids) < MIN_OPTIONS:
+            raise InvalidQuizQuestionException(
+                f"a question needs at least {MIN_OPTIONS} options", "option_count", "options"
+            )
+        if len(set(ids)) != len(ids):
+            raise InvalidQuizQuestionException("option ids must be distinct", "option_ids_not_unique", "options")
+        if self.correct_option_id not in ids:
+            raise InvalidQuizQuestionException(
+                "correct_option_id must be one of the options", "correct_option_invalid", "correct_option_id"
+            )
+
+    def _check_content(self) -> None:
+        """Admin content rules (and trimming). Raises before anything but the trimming is changed."""
+
         def invalid(message: str, code: str, field_name: str) -> InvalidQuizQuestionException:
             return InvalidQuizQuestionException(message, code, field_name)
 
-        self.text = (self.text or "").strip()
-        if not self.text:
+        text = (self.text or "").strip()
+        if not text:
             raise invalid("text must not be empty", "text_required", "text")
-        if len(self.text) > MAX_QUESTION_TEXT_LENGTH:
+        if len(text) > MAX_QUESTION_TEXT_LENGTH:
             raise invalid(f"text must be at most {MAX_QUESTION_TEXT_LENGTH} characters", "text_too_long", "text")
-        if not MIN_OPTIONS <= len(self.options) <= MAX_OPTIONS:
+        if len(self.options) > MAX_OPTIONS:
             raise invalid(f"a question needs {MIN_OPTIONS} to {MAX_OPTIONS} options", "option_count", "options")
-        ids = [o.id for o in self.options]
-        if any(not 1 <= len(i) <= MAX_OPTION_ID_LENGTH for i in ids):
+        if any(not 1 <= len(o.id) <= MAX_OPTION_ID_LENGTH for o in self.options):
             raise invalid(
                 f"option ids must be 1 to {MAX_OPTION_ID_LENGTH} characters", "option_id_invalid", "options"
             )
-        if len(set(ids)) != len(ids):
-            raise invalid("option ids must be distinct", "option_ids_not_unique", "options")
         cleaned = []
         for index, option in enumerate(self.options):
             option_text = (option.text or "").strip()
@@ -111,16 +139,14 @@ class QuizQuestion:
                     f"options.{index}.text",
                 )
             cleaned.append(QuizOption(option.id, option_text))
-        self.options = cleaned
-        if self.correct_option_id not in ids:
-            raise invalid("correct_option_id must be one of the options", "correct_option_invalid", "correct_option_id")
-        self.explanation = (self.explanation or "").strip()
-        if len(self.explanation) > MAX_EXPLANATION_LENGTH:
+        explanation = self.explanation.strip()
+        if len(explanation) > MAX_EXPLANATION_LENGTH:
             raise invalid(
                 f"explanation must be at most {MAX_EXPLANATION_LENGTH} characters",
                 "explanation_too_long",
                 "explanation",
             )
+        self.text, self.options, self.explanation = text, cleaned, explanation
 
     @classmethod
     def create(
@@ -132,7 +158,9 @@ class QuizQuestion:
         explanation: str = "",
         active: bool = True,
     ) -> QuizQuestion:
-        return cls(uuid4(), topic_id, text, options, correct_option_id, explanation, active)
+        question = cls(uuid4(), topic_id, text, options, correct_option_id, explanation, active)
+        question._check_content()
+        return question
 
     def update(
         self,
@@ -143,7 +171,7 @@ class QuizQuestion:
         explanation: str | None = None,
         active: bool | None = None,
     ) -> None:
-        """Only the given fields change; an invalid result raises before anything does."""
+        """Only the given fields change; the whole result is validated before self is touched."""
         changed = replace(
             self,
             topic_id=self.topic_id if topic_id is None else topic_id,
@@ -152,7 +180,8 @@ class QuizQuestion:
             correct_option_id=self.correct_option_id if correct_option_id is None else correct_option_id,
             explanation=self.explanation if explanation is None else explanation,
             active=self.active if active is None else active,
-        )  # replace() re-runs __post_init__
+        )  # replace() re-runs __post_init__ (grading invariants)
+        changed._check_content()
         vars(self).update(vars(changed))
 
 
