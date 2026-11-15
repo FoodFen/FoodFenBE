@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import random
+import re
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
@@ -13,10 +14,20 @@ from src.domain.exceptions import (
     InvalidAttributeException,
     InvalidQuizAnswersException,
     InvalidQuizDateException,
+    InvalidQuizQuestionException,
+    InvalidQuizTopicException,
 )
 
 QUESTIONS_PER_QUIZ = 5
 DATE_WINDOW_DAYS = 1
+MAX_SLUG_LENGTH = 32
+MAX_LABEL_LENGTH = 64
+MAX_QUESTION_TEXT_LENGTH = 500
+MIN_OPTIONS, MAX_OPTIONS = 2, 4  # the app labels options A-D
+MAX_OPTION_ID_LENGTH = 16
+MAX_OPTION_TEXT_LENGTH = 200
+MAX_EXPLANATION_LENGTH = 1000
+_SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 
 
 def ensure_date_in_window(day: date, today: date) -> None:
@@ -35,8 +46,29 @@ class QuizOption:
 @dataclass(frozen=True)
 class QuizTopic:
     id: UUID
-    slug: str
+    slug: str  # immutable once created: the app sends it to POST /quizzes/practice
     label: str
+    active: bool = True
+
+    def __post_init__(self) -> None:
+        if len(self.slug) > MAX_SLUG_LENGTH or not _SLUG.fullmatch(self.slug):
+            raise InvalidQuizTopicException(
+                f"slug must be kebab-case (a-z, 0-9, hyphens), at most {MAX_SLUG_LENGTH} characters",
+                "invalid_slug",
+                "slug",
+            )
+        label = (self.label or "").strip()
+        if not label:
+            raise InvalidQuizTopicException("label must not be empty", "label_required", "label")
+        if len(label) > MAX_LABEL_LENGTH:
+            raise InvalidQuizTopicException(
+                f"label must be at most {MAX_LABEL_LENGTH} characters", "label_too_long", "label"
+            )
+        object.__setattr__(self, "label", label)  # frozen: normalise in place
+
+    @classmethod
+    def create(cls, slug: str, label: str, active: bool = True) -> QuizTopic:
+        return cls(uuid4(), slug, label, active)
 
 
 @dataclass
@@ -47,13 +79,81 @@ class QuizQuestion:
     options: list[QuizOption]
     correct_option_id: str
     explanation: str
+    active: bool = True
 
     def __post_init__(self) -> None:
+        def invalid(message: str, code: str, field_name: str) -> InvalidQuizQuestionException:
+            return InvalidQuizQuestionException(message, code, field_name)
+
+        self.text = (self.text or "").strip()
+        if not self.text:
+            raise invalid("text must not be empty", "text_required", "text")
+        if len(self.text) > MAX_QUESTION_TEXT_LENGTH:
+            raise invalid(f"text must be at most {MAX_QUESTION_TEXT_LENGTH} characters", "text_too_long", "text")
+        if not MIN_OPTIONS <= len(self.options) <= MAX_OPTIONS:
+            raise invalid(f"a question needs {MIN_OPTIONS} to {MAX_OPTIONS} options", "option_count", "options")
         ids = [o.id for o in self.options]
-        if len(ids) < 2 or len(set(ids)) != len(ids):
-            raise InvalidAttributeException("a question needs at least two options with distinct ids")
+        if any(not 1 <= len(i) <= MAX_OPTION_ID_LENGTH for i in ids):
+            raise invalid(
+                f"option ids must be 1 to {MAX_OPTION_ID_LENGTH} characters", "option_id_invalid", "options"
+            )
+        if len(set(ids)) != len(ids):
+            raise invalid("option ids must be distinct", "option_ids_not_unique", "options")
+        cleaned = []
+        for index, option in enumerate(self.options):
+            option_text = (option.text or "").strip()
+            if not option_text:
+                raise invalid("option text must not be empty", "option_text_required", f"options.{index}.text")
+            if len(option_text) > MAX_OPTION_TEXT_LENGTH:
+                raise invalid(
+                    f"option text must be at most {MAX_OPTION_TEXT_LENGTH} characters",
+                    "option_text_too_long",
+                    f"options.{index}.text",
+                )
+            cleaned.append(QuizOption(option.id, option_text))
+        self.options = cleaned
         if self.correct_option_id not in ids:
-            raise InvalidAttributeException("correct_option_id must be one of the options")
+            raise invalid("correct_option_id must be one of the options", "correct_option_invalid", "correct_option_id")
+        self.explanation = (self.explanation or "").strip()
+        if len(self.explanation) > MAX_EXPLANATION_LENGTH:
+            raise invalid(
+                f"explanation must be at most {MAX_EXPLANATION_LENGTH} characters",
+                "explanation_too_long",
+                "explanation",
+            )
+
+    @classmethod
+    def create(
+        cls,
+        topic_id: UUID,
+        text: str,
+        options: list[QuizOption],
+        correct_option_id: str,
+        explanation: str = "",
+        active: bool = True,
+    ) -> QuizQuestion:
+        return cls(uuid4(), topic_id, text, options, correct_option_id, explanation, active)
+
+    def update(
+        self,
+        topic_id: UUID | None = None,
+        text: str | None = None,
+        options: list[QuizOption] | None = None,
+        correct_option_id: str | None = None,
+        explanation: str | None = None,
+        active: bool | None = None,
+    ) -> None:
+        """Only the given fields change; an invalid result raises before anything does."""
+        changed = replace(
+            self,
+            topic_id=self.topic_id if topic_id is None else topic_id,
+            text=self.text if text is None else text,
+            options=self.options if options is None else options,
+            correct_option_id=self.correct_option_id if correct_option_id is None else correct_option_id,
+            explanation=self.explanation if explanation is None else explanation,
+            active=self.active if active is None else active,
+        )  # replace() re-runs __post_init__
+        vars(self).update(vars(changed))
 
 
 @dataclass

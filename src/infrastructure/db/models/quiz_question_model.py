@@ -1,5 +1,5 @@
-"""ORM model for quiz questions. Questions are deactivated, never deleted: issued quizzes
-reference them by id."""
+"""ORM model for quiz questions. A question that an issued quiz references (by id, in
+``quizzes.question_ids``) can only be deactivated; the admin API refuses to delete it."""
 
 from __future__ import annotations
 
@@ -36,4 +36,17 @@ class QuizQuestionORM(UUIDPrimaryKey, Base):
             options=[QuizOption(id=o["id"], text=o["text"]) for o in self.options],
             correct_option_id=self.correct_option_id,
             explanation=self.explanation,
+            active=self.active,
+        )
+
+    @staticmethod
+    def from_domain(q: QuizQuestion) -> QuizQuestionORM:
+        return QuizQuestionORM(
+            id=q.id,
+            topic_id=q.topic_id,
+            text=q.text,
+            options=[{"id": o.id, "text": o.text} for o in q.options],
+            correct_option_id=q.correct_option_id,
+            explanation=q.explanation,
+            active=q.active,
         )

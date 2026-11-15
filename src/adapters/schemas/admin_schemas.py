@@ -8,11 +8,13 @@ from uuid import UUID
 from pydantic import Field, ValidationInfo, field_validator
 
 from src.adapters.schemas.base import CamelModel
+from src.adapters.schemas.quiz_schemas import QuizOptionResponse
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
 from src.application.dtos.admin import (
     AdminPaymentListDTO,
     AdminQuestDTO,
     AdminQuizQuestionDTO,
+    AdminQuizTopicDTO,
     AdminRestaurantDetailDTO,
     AdminRestaurantListDTO,
     AdminRestaurantRowDTO,
@@ -158,12 +160,62 @@ class AdminUserListResponse(CamelModel):
 class AdminQuizQuestionResponse(CamelModel):
     id: UUID
     question: str
-    topic: str
+    topic: str  # the topic's label
+    topic_id: UUID
+    options: list[QuizOptionResponse]
+    correct_option_id: str
+    explanation: str
     active: bool
 
     @classmethod
     def from_dto(cls, dto: AdminQuizQuestionDTO) -> AdminQuizQuestionResponse:
+        return cls(**{**vars(dto), "options": [QuizOptionResponse(id=o.id, text=o.text) for o in dto.options]})
+
+
+class AdminQuizTopicResponse(CamelModel):
+    id: UUID
+    slug: str
+    label: str
+    active: bool
+    active_question_count: int
+
+    @classmethod
+    def from_dto(cls, dto: AdminQuizTopicDTO) -> AdminQuizTopicResponse:
         return cls(**vars(dto))
+
+
+class AdminQuizTopicsResponse(CamelModel):
+    items: list[AdminQuizTopicResponse]
+
+
+# No pydantic length/shape bounds below: the entities enforce them and answer with a coded 422.
+class CreateQuizTopicRequest(CamelModel):
+    slug: str
+    label: str
+    active: bool = True
+
+
+class UpdateQuizTopicRequest(CamelModel):
+    label: str | None = None
+    active: bool | None = None
+
+
+class CreateQuizQuestionRequest(CamelModel):
+    topic_id: UUID
+    question: str
+    options: list[QuizOptionResponse]
+    correct_option_id: str
+    explanation: str = ""
+    active: bool = True
+
+
+class UpdateQuizQuestionRequest(CamelModel):
+    topic_id: UUID | None = None
+    question: str | None = None
+    options: list[QuizOptionResponse] | None = None
+    correct_option_id: str | None = None
+    explanation: str | None = None
+    active: bool | None = None
 
 
 class AdminQuestResponse(CamelModel):

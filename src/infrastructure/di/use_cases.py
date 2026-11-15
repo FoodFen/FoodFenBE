@@ -112,6 +112,14 @@ from src.application.use_cases.upload_restaurant_image import UploadRestaurantIm
 from src.application.use_cases.get_admin_dashboard import GetAdminDashboardUseCase
 from src.application.use_cases.get_admin_restaurant import GetAdminRestaurantUseCase
 from src.application.use_cases.list_admin_quest_definitions import ListAdminQuestDefinitionsUseCase
+from src.application.use_cases.admin_quiz_content import (
+    CreateQuizQuestionUseCase,
+    CreateQuizTopicUseCase,
+    DeleteQuizQuestionUseCase,
+    ListAdminQuizTopicsUseCase,
+    UpdateQuizQuestionUseCase,
+    UpdateQuizTopicUseCase,
+)
 from src.application.use_cases.list_admin_quiz_questions import ListAdminQuizQuestionsUseCase
 from src.application.use_cases.list_admin_restaurants import ListAdminRestaurantsUseCase
 from src.application.use_cases.list_admin_payments import ListAdminPaymentsUseCase
@@ -936,6 +944,43 @@ def get_list_admin_quiz_questions_use_case(quizzes: QuizRepositoryDep) -> ListAd
 ListAdminQuizQuestionsUseCaseDep = Annotated[
     ListAdminQuizQuestionsUseCase, Depends(get_list_admin_quiz_questions_use_case)
 ]
+
+
+def get_list_admin_quiz_topics_use_case(quizzes: QuizRepositoryDep) -> ListAdminQuizTopicsUseCase:
+    return ListAdminQuizTopicsUseCase(quizzes=quizzes)
+
+
+ListAdminQuizTopicsUseCaseDep = Annotated[ListAdminQuizTopicsUseCase, Depends(get_list_admin_quiz_topics_use_case)]
+
+def get_create_quiz_topic_use_case(quizzes: QuizRepositoryDep) -> CreateQuizTopicUseCase:
+    return CreateQuizTopicUseCase(quizzes=quizzes)
+
+
+CreateQuizTopicUseCaseDep = Annotated[CreateQuizTopicUseCase, Depends(get_create_quiz_topic_use_case)]
+
+def get_update_quiz_topic_use_case(quizzes: QuizRepositoryDep) -> UpdateQuizTopicUseCase:
+    return UpdateQuizTopicUseCase(quizzes=quizzes)
+
+
+UpdateQuizTopicUseCaseDep = Annotated[UpdateQuizTopicUseCase, Depends(get_update_quiz_topic_use_case)]
+
+def get_create_quiz_question_use_case(quizzes: QuizRepositoryDep) -> CreateQuizQuestionUseCase:
+    return CreateQuizQuestionUseCase(quizzes=quizzes)
+
+
+CreateQuizQuestionUseCaseDep = Annotated[CreateQuizQuestionUseCase, Depends(get_create_quiz_question_use_case)]
+
+def get_update_quiz_question_use_case(quizzes: QuizRepositoryDep) -> UpdateQuizQuestionUseCase:
+    return UpdateQuizQuestionUseCase(quizzes=quizzes)
+
+
+UpdateQuizQuestionUseCaseDep = Annotated[UpdateQuizQuestionUseCase, Depends(get_update_quiz_question_use_case)]
+
+def get_delete_quiz_question_use_case(quizzes: QuizRepositoryDep) -> DeleteQuizQuestionUseCase:
+    return DeleteQuizQuestionUseCase(quizzes=quizzes)
+
+
+DeleteQuizQuestionUseCaseDep = Annotated[DeleteQuizQuestionUseCase, Depends(get_delete_quiz_question_use_case)]
 
 
 def get_list_admin_quest_definitions_use_case(quests: QuestRepositoryDep) -> ListAdminQuestDefinitionsUseCase:

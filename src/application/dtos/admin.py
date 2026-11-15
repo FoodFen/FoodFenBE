@@ -7,7 +7,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
+from src.application.dtos.quiz import QuizOptionDTO
 from src.application.dtos.restaurant import DishOutputDTO, RestaurantOutputDTO
+from src.domain.entities.quiz import QuizQuestion
 from src.domain.enums import (
     ModerationStatus,
     PaymentProvider,
@@ -92,9 +94,30 @@ class AdminUserListDTO:
 @dataclass(frozen=True)
 class AdminQuizQuestionDTO:
     id: UUID
-    question: str
-    topic: str
+    question: str  # the question text
+    topic: str  # the topic's label
+    topic_id: UUID
+    options: list[QuizOptionDTO]
+    correct_option_id: str
+    explanation: str
     active: bool
+
+    @classmethod
+    def from_entity(cls, q: QuizQuestion, topic_label: str) -> AdminQuizQuestionDTO:
+        return cls(
+            id=q.id, question=q.text, topic=topic_label, topic_id=q.topic_id,
+            options=[QuizOptionDTO(o.id, o.text) for o in q.options],
+            correct_option_id=q.correct_option_id, explanation=q.explanation, active=q.active,
+        )
+
+
+@dataclass(frozen=True)
+class AdminQuizTopicDTO:
+    id: UUID
+    slug: str
+    label: str
+    active: bool
+    active_question_count: int
 
 
 @dataclass(frozen=True)

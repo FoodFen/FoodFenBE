@@ -35,6 +35,8 @@ from src.domain.exceptions import (
     PaymentProviderUnavailableException,
     PremiumRequiredException,
     QuizAlreadySubmittedException,
+    QuizQuestionInUseException,
+    QuizTopicSlugTakenException,
     RateLimitedException,
     RestaurantAlreadyExistsException,
     RestaurantNotApprovedException,
@@ -152,6 +154,8 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(MascotDefaultLockedException, _conflict_with_code("mascot_default_locked"))
     app.add_exception_handler(MascotMissingIdleImageException, _conflict_with_code("mascot_missing_idle_image"))
     app.add_exception_handler(MascotInUseException, _conflict_with_code("mascot_in_use"))
+    app.add_exception_handler(QuizTopicSlugTakenException, _conflict_with_code("quiz_topic_slug_taken"))
+    app.add_exception_handler(QuizQuestionInUseException, _conflict_with_code("quiz_question_in_use"))
     app.add_exception_handler(FoodNameTakenException, _conflict_with_code("food_name_taken"))
     for exc_type, status_code in EXCEPTION_STATUS:
         app.add_exception_handler(exc_type, _domain_exception_handler(status_code))

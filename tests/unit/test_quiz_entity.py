@@ -17,10 +17,13 @@ from src.domain.entities.quiz import (
     pick_questions,
 )
 from src.domain.enums import CoinReason, QuizKind
+from src.domain.entities.quiz import QuizTopic
 from src.domain.exceptions import (
     InvalidAttributeException,
     InvalidQuizAnswersException,
     InvalidQuizDateException,
+    InvalidQuizQuestionException,
+    InvalidQuizTopicException,
 )
 
 TOPIC_ID = uuid4()
@@ -107,3 +110,76 @@ def test_pick_prefers_unseen_questions_then_fills_from_seen():
 def test_pick_with_a_small_pool_returns_what_exists():
     pool = [_question() for _ in range(3)]
     assert len(pick_questions(pool, set(), rng=random.Random(0))) == 3
+
+
+def _opts(*ids: str) -> list[QuizOption]:
+    return [QuizOption(i, i.upper()) for i in ids]
+
+
+def _create(**over):
+    args = dict(
+        topic_id=TOPIC_ID, text="q?", options=_opts("a", "b"), correct_option_id="a", explanation="because"
+    )
+    return QuizQuestion.create(**{**args, **over})
+
+
+@pytest.mark.parametrize(
+    ("over", "code", "field"),
+    [
+        ({"text": "  "}, "text_required", "text"),
+        ({"text": "x" * 501}, "text_too_long", "text"),
+        ({"options": _opts("a")}, "option_count", "options"),
+        ({"options": _opts("a", "b", "c", "d", "e")}, "option_count", "options"),
+        ({"options": _opts("a", "a")}, "option_ids_not_unique", "options"),
+        ({"options": [QuizOption("", "A"), QuizOption("b", "B")]}, "option_id_invalid", "options"),
+        ({"options": [QuizOption("x" * 17, "A"), QuizOption("b", "B")]}, "option_id_invalid", "options"),
+        ({"options": [QuizOption("a", "A"), QuizOption("b", " ")]}, "option_text_required", "options.1.text"),
+        ({"options": [QuizOption("a", "x" * 201), QuizOption("b", "B")]}, "option_text_too_long", "options.0.text"),
+        ({"correct_option_id": "z"}, "correct_option_invalid", "correct_option_id"),
+        ({"explanation": "x" * 1001}, "explanation_too_long", "explanation"),
+    ],
+)
+def test_question_validation_codes(over, code, field):
+    with pytest.raises(InvalidQuizQuestionException) as err:
+        _create(**over)
+    assert (err.value.code, err.value.field) == (code, field)
+
+
+def test_question_create_trims_and_allows_an_empty_explanation():
+    q = _create(text="  hi  ", options=[QuizOption("a", " A "), QuizOption("b", "B")], explanation="  ")
+    assert (q.text, q.options[0].text, q.explanation, q.active) == ("hi", "A", "", True)
+
+
+def test_question_update_changes_only_given_fields_and_validates_before_mutating():
+    q = _create()
+    q.update(text="new", active=False)
+    assert (q.text, q.active, q.correct_option_id, len(q.options)) == ("new", False, "a", 2)
+    with pytest.raises(InvalidQuizQuestionException):
+        q.update(text="fine", correct_option_id="z")
+    assert q.text == "new"  # nothing changed by the failed update
+    q.update(options=_opts("a", "b", "c"), correct_option_id="c")
+    assert [o.id for o in q.options] == ["a", "b", "c"] and q.correct_option_id == "c"
+
+
+@pytest.mark.parametrize(
+    ("slug", "label", "code", "field"),
+    [
+        ("Macros", "L", "invalid_slug", "slug"),
+        ("a_b", "L", "invalid_slug", "slug"),
+        ("-a", "L", "invalid_slug", "slug"),
+        ("a--b", "L", "invalid_slug", "slug"),
+        ("", "L", "invalid_slug", "slug"),
+        ("a" * 33, "L", "invalid_slug", "slug"),
+        ("ok", "  ", "label_required", "label"),
+        ("ok", "x" * 65, "label_too_long", "label"),
+    ],
+)
+def test_topic_validation_codes(slug, label, code, field):
+    with pytest.raises(InvalidQuizTopicException) as err:
+        QuizTopic.create(slug, label)
+    assert (err.value.code, err.value.field) == (code, field)
+
+
+def test_topic_create_trims_the_label_and_defaults_active():
+    topic = QuizTopic.create("vitamins-minerals", "  Vitamin  ")
+    assert (topic.slug, topic.label, topic.active) == ("vitamins-minerals", "Vitamin", True)

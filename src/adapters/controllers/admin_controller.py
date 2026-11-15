@@ -25,6 +25,12 @@ from src.adapters.schemas.admin_food_schemas import (
 from src.adapters.schemas.admin_schemas import (
     AdminQuestResponse,
     AdminQuizQuestionResponse,
+    AdminQuizTopicResponse,
+    AdminQuizTopicsResponse,
+    CreateQuizQuestionRequest,
+    CreateQuizTopicRequest,
+    UpdateQuizQuestionRequest,
+    UpdateQuizTopicRequest,
     AdminRestaurantDetailResponse,
     AdminPaymentListResponse,
     AdminRestaurantListResponse,
@@ -43,6 +49,7 @@ from src.adapters.schemas.nutrition_tip_schemas import (
 )
 from src.adapters.schemas.restaurant_schemas import DishResponse, RestaurantResponse
 from src.application.dtos.food_admin import FoodServingDTO
+from src.application.dtos.quiz import QuizOptionDTO
 from src.application.dtos.restaurant import ReviewNoticeDTO
 from src.application.ports.email_verification_notifier import EmailVerificationNotifierProtocol
 from src.domain.enums import (
@@ -83,7 +90,13 @@ from src.infrastructure.di import (
     GetAdminDashboardUseCaseDep,
     GetAdminRestaurantUseCaseDep,
     ListAdminQuestDefinitionsUseCaseDep,
+    CreateQuizQuestionUseCaseDep,
+    CreateQuizTopicUseCaseDep,
+    DeleteQuizQuestionUseCaseDep,
     ListAdminQuizQuestionsUseCaseDep,
+    ListAdminQuizTopicsUseCaseDep,
+    UpdateQuizQuestionUseCaseDep,
+    UpdateQuizTopicUseCaseDep,
     ListAdminRestaurantsUseCaseDep,
     ListAdminPaymentsUseCaseDep,
     ListAdminUsersUseCaseDep,
@@ -195,6 +208,63 @@ async def list_payments(
 @router.get("/quizzes", response_model=list[AdminQuizQuestionResponse])
 async def list_quizzes(use_case: ListAdminQuizQuestionsUseCaseDep) -> list[AdminQuizQuestionResponse]:
     return [AdminQuizQuestionResponse.from_dto(q) for q in await use_case.execute()]
+
+
+def _option_dtos(options):
+    return None if options is None else [QuizOptionDTO(o.id, o.text) for o in options]
+
+
+@router.post("/quizzes", response_model=AdminQuizQuestionResponse, status_code=status.HTTP_201_CREATED)
+async def create_quiz_question(
+    body: CreateQuizQuestionRequest, use_case: CreateQuizQuestionUseCaseDep
+) -> AdminQuizQuestionResponse:
+    return AdminQuizQuestionResponse.from_dto(
+        await use_case.execute(
+            body.topic_id, body.question, _option_dtos(body.options), body.correct_option_id,
+            body.explanation, body.active,
+        )
+    )
+
+
+@router.patch("/quizzes/{question_id}", response_model=AdminQuizQuestionResponse)
+async def update_quiz_question(
+    question_id: UUID, body: UpdateQuizQuestionRequest, use_case: UpdateQuizQuestionUseCaseDep
+) -> AdminQuizQuestionResponse:
+    """Only the sent fields change. A question already in a player's quiz keeps its option ids and
+    correct answer (409 ``quiz_question_in_use``); its wording stays editable."""
+    return AdminQuizQuestionResponse.from_dto(
+        await use_case.execute(
+            question_id, body.topic_id, body.question, _option_dtos(body.options), body.correct_option_id,
+            body.explanation, body.active,
+        )
+    )
+
+
+@router.delete("/quizzes/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_quiz_question(question_id: UUID, use_case: DeleteQuizQuestionUseCaseDep) -> None:
+    """Only a question no player's quiz has used; otherwise 409 ``quiz_question_in_use`` (deactivate it)."""
+    await use_case.execute(question_id)
+
+
+@router.get("/quiz-topics", response_model=AdminQuizTopicsResponse)
+async def list_quiz_topics(use_case: ListAdminQuizTopicsUseCaseDep) -> AdminQuizTopicsResponse:
+    """Every topic, inactive ones included, with its active-question count."""
+    return AdminQuizTopicsResponse(items=[AdminQuizTopicResponse.from_dto(t) for t in await use_case.execute()])
+
+
+@router.post("/quiz-topics", response_model=AdminQuizTopicResponse, status_code=status.HTTP_201_CREATED)
+async def create_quiz_topic(
+    body: CreateQuizTopicRequest, use_case: CreateQuizTopicUseCaseDep
+) -> AdminQuizTopicResponse:
+    return AdminQuizTopicResponse.from_dto(await use_case.execute(body.slug, body.label, body.active))
+
+
+@router.patch("/quiz-topics/{topic_id}", response_model=AdminQuizTopicResponse)
+async def update_quiz_topic(
+    topic_id: UUID, body: UpdateQuizTopicRequest, use_case: UpdateQuizTopicUseCaseDep
+) -> AdminQuizTopicResponse:
+    """The slug is immutable (the app sends it to ``POST /quizzes/practice``)."""
+    return AdminQuizTopicResponse.from_dto(await use_case.execute(topic_id, body.label, body.active))
 
 
 @router.get("/quests", response_model=list[AdminQuestResponse])

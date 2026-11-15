@@ -106,6 +106,19 @@ class QuizTopicNotFoundException(EntityNotFoundException):
     """A requested quiz topic doesn't exist or is inactive."""
 
 
+class QuizTopicSlugTakenException(DomainException):
+    """A quiz topic with this slug exists (active or not). Maps to HTTP 409 with error code ``quiz_topic_slug_taken``."""
+
+
+class QuizQuestionNotFoundException(EntityNotFoundException):
+    """No such quiz question."""
+
+
+class QuizQuestionInUseException(DomainException):
+    """The question is in an issued quiz, so its answer is frozen and it can't be deleted. Maps to HTTP 409
+    with error code ``quiz_question_in_use``."""
+
+
 class QuizAlreadySubmittedException(DomainException):
     """The quiz was already graded. Maps to HTTP 409 with error code ``quiz_already_submitted``."""
 
@@ -212,6 +225,14 @@ class InvalidNutritionTipException(InvalidFieldException):
 
 class NutritionTipNotFoundException(EntityNotFoundException):
     """No such nutrition tip."""
+
+
+class InvalidQuizTopicException(InvalidFieldException):
+    """A quiz topic's slug or label violates a domain invariant."""
+
+
+class InvalidQuizQuestionException(InvalidFieldException):
+    """A quiz question's text, options, answer or explanation violates a domain invariant (or its topic is unknown)."""
 
 
 class FoodNotFoundException(EntityNotFoundException):

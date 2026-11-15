@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import String, cast, delete, exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.application.dtos.admin import AdminQuizQuestionDTO
-from src.domain.entities.quiz import Quiz, QuizQuestion, QuizTopic
+from src.application.dtos.admin import AdminQuizQuestionDTO, AdminQuizTopicDTO
+from src.domain.entities.quiz import QUESTIONS_PER_QUIZ, Quiz, QuizQuestion, QuizTopic
 from src.domain.enums import QuizKind
 from src.infrastructure.db.models.quiz_model import QuizORM
 from src.infrastructure.db.models.quiz_question_model import QuizQuestionORM
@@ -22,9 +22,16 @@ class SQLAlchemyQuizRepository:
         self._session = session
 
     async def list_topics(self) -> list[QuizTopic]:
+        active_questions = (
+            select(func.count())
+            .where(QuizQuestionORM.topic_id == QuizTopicORM.id, QuizQuestionORM.active.is_(True))
+            .scalar_subquery()
+        )
         rows = (
             await self._session.execute(
-                select(QuizTopicORM).where(QuizTopicORM.active.is_(True)).order_by(QuizTopicORM.label)
+                select(QuizTopicORM)
+                .where(QuizTopicORM.active.is_(True), active_questions >= QUESTIONS_PER_QUIZ)
+                .order_by(QuizTopicORM.label)
             )
         ).scalars()
         return [row.to_domain() for row in rows]
@@ -36,17 +43,70 @@ class SQLAlchemyQuizRepository:
         return row.to_domain() if row else None
 
     async def active_questions(self, topic_id: UUID | None) -> list[QuizQuestion]:
-        stmt = select(QuizQuestionORM).where(QuizQuestionORM.active.is_(True))
+        stmt = (
+            select(QuizQuestionORM)
+            .join(QuizTopicORM, QuizTopicORM.id == QuizQuestionORM.topic_id)
+            .where(QuizQuestionORM.active.is_(True), QuizTopicORM.active.is_(True))
+        )
         if topic_id is not None:
             stmt = stmt.where(QuizQuestionORM.topic_id == topic_id)
         return [row.to_domain() for row in (await self._session.execute(stmt)).scalars()]
 
     async def all_questions(self) -> list[AdminQuizQuestionDTO]:
         rows = await self._session.execute(
-            select(QuizQuestionORM.id, QuizQuestionORM.text, QuizTopicORM.label, QuizQuestionORM.active)
-            .join(QuizTopicORM, QuizTopicORM.id == QuizQuestionORM.topic_id)
+            select(QuizQuestionORM, QuizTopicORM.label).join(
+                QuizTopicORM, QuizTopicORM.id == QuizQuestionORM.topic_id
+            )
         )
-        return [AdminQuizQuestionDTO(*row) for row in rows.all()]
+        return [AdminQuizQuestionDTO.from_entity(q.to_domain(), label) for q, label in rows.all()]
+
+    async def admin_topics(self) -> list[AdminQuizTopicDTO]:
+        active_questions = (
+            select(func.count())
+            .where(QuizQuestionORM.topic_id == QuizTopicORM.id, QuizQuestionORM.active.is_(True))
+            .scalar_subquery()
+        )
+        rows = await self._session.execute(select(QuizTopicORM, active_questions))
+        return [
+            AdminQuizTopicDTO(t.id, t.slug, t.label, t.active, count) for t, count in rows.all()
+        ]
+
+    async def get_topic(self, topic_id: UUID) -> QuizTopic | None:
+        row = await self._session.get(QuizTopicORM, topic_id)
+        return row.to_domain() if row else None
+
+    async def topic_slug_exists(self, slug: str) -> bool:
+        return await self._session.scalar(select(exists().where(QuizTopicORM.slug == slug)))
+
+    async def add_topic(self, topic: QuizTopic) -> None:
+        self._session.add(QuizTopicORM.from_domain(topic))
+        await self._session.flush()
+
+    async def update_topic(self, topic: QuizTopic) -> None:
+        await self._session.merge(QuizTopicORM.from_domain(topic))
+        await self._session.flush()
+
+    async def get_question(self, question_id: UUID) -> QuizQuestion | None:
+        row = await self._session.get(QuizQuestionORM, question_id)
+        return row.to_domain() if row else None
+
+    async def add_question(self, question: QuizQuestion) -> None:
+        self._session.add(QuizQuestionORM.from_domain(question))
+        await self._session.flush()
+
+    async def update_question(self, question: QuizQuestion) -> None:
+        await self._session.merge(QuizQuestionORM.from_domain(question))
+        await self._session.flush()
+
+    async def delete_question(self, question_id: UUID) -> None:
+        await self._session.execute(delete(QuizQuestionORM).where(QuizQuestionORM.id == question_id))
+
+    async def question_in_use(self, question_id: UUID) -> bool:
+        # ponytail: scans `quizzes` as text — fine for the admin-only, rare edit/delete paths; the
+        # upgrade path is a quiz_question link table once quizzes grow large.
+        return await self._session.scalar(
+            select(exists().where(cast(QuizORM.question_ids, String).like(f'%"{question_id}"%')))
+        )
 
     async def seen_question_ids(self, user_id: int) -> set[UUID]:
         # ponytail: only the latest 200 quizzes count as "seen"; a heavier player re-sees old

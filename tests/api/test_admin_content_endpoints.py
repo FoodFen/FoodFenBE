@@ -103,11 +103,15 @@ async def test_quizzes_lists_inactive_too_ordered_by_topic_then_text(client, mak
     rows = [question(zed, "b?", True), question(alpha, "z?", False), question(alpha, "a?", True)]
     await _add(*rows)
     body = (await client.get("/admin/quizzes", headers=admin)).json()
-    assert body == [
-        {"id": str(rows[2].id), "question": "a?", "topic": "Alpha", "active": True},
-        {"id": str(rows[1].id), "question": "z?", "topic": "Alpha", "active": False},
-        {"id": str(rows[0].id), "question": "b?", "topic": "Zed", "active": True},
+    assert [(q["id"], q["question"], q["topic"], q["active"]) for q in body] == [
+        (str(rows[2].id), "a?", "Alpha", True),
+        (str(rows[1].id), "z?", "Alpha", False),
+        (str(rows[0].id), "b?", "Zed", True),
     ]
+    assert body[0] == {
+        "id": str(rows[2].id), "question": "a?", "topic": "Alpha", "topicId": str(alpha.id),
+        "options": opts, "correctOptionId": "a", "explanation": "e", "active": True,
+    }
 
 
 async def test_quests_lists_inactive_too_ordered_by_cadence_then_title(client, make_user):

@@ -19,4 +19,8 @@ class QuizTopicORM(UUIDPrimaryKey, Base):
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
 
     def to_domain(self) -> QuizTopic:
-        return QuizTopic(id=self.id, slug=self.slug, label=self.label)
+        return QuizTopic(id=self.id, slug=self.slug, label=self.label, active=self.active)
+
+    @staticmethod
+    def from_domain(t: QuizTopic) -> QuizTopicORM:
+        return QuizTopicORM(id=t.id, slug=t.slug, label=t.label, active=t.active)

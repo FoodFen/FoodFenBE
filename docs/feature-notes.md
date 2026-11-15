@@ -167,8 +167,19 @@ Spec: `docs/superpowers/specs/2026-10-03-quiz-design.md`. Wire contract (owned b
   ledger row.
 - **Rewards** are settings, not data: `QUIZ_DAILY_COINS_PER_CORRECT` (4), `QUIZ_PRACTICE_COINS_PER_CORRECT` (1),
   `QUIZ_PRACTICE_DAILY_CAP` (10).
-- **Content** is Vietnamese, seeded by migration 0017; add or fix questions with SQL. Deactivate
-  (`active = false`), never delete: issued quizzes reference questions by id.
+- **Content** is Vietnamese, seeded by migration 0017, then managed in the admin API (`admin_controller.py`,
+  use cases in `admin_quiz_content.py`, rules in the `QuizTopic`/`QuizQuestion` entities, coded 422s):
+  `GET|POST /admin/quiz-topics`, `PATCH /admin/quiz-topics/{id}`, `GET|POST /admin/quizzes`,
+  `PATCH|DELETE /admin/quizzes/{id}`. Topic **slug is immutable** (kebab-case; the app sends it to
+  `POST /quizzes/practice`) and unique even among inactive topics (409 `quiz_topic_slug_taken`). A question has
+  2-4 options (ids ≤16 chars) and a correct option among them.
+- **Frozen answers.** Issued quizzes store only question ids (`quizzes.question_ids`) and are re-read live, so
+  grading and the result of a completed quiz use the question's *current* options. Once any quiz references a
+  question (`question_in_use`: a text scan of `quizzes.question_ids`, admin-only), its **option ids and
+  `correct_option_id` can't change** and it **can't be deleted** (409 `quiz_question_in_use`); wording, option
+  texts, explanation, topic and `active` stay editable. Unused questions can be hard-deleted.
+- **Visibility.** Public `GET /quizzes/topics` lists only active topics with at least 5 (`QUESTIONS_PER_QUIZ`)
+  active questions, so a half-filled topic never reaches the app; the daily pool skips questions of inactive topics.
 
 ## Restaurants & admin
 
