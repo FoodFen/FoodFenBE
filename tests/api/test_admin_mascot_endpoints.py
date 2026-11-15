@@ -82,6 +82,13 @@ async def test_create_with_images_and_active(client, admin):
     assert (await client.get("/admin/mascots", headers=admin)).json()[-1]["images"] == resp.json()["images"]
 
 
+async def test_sad_image_is_accepted_and_served_on_the_public_catalogue(client, admin, make_user):
+    await _create(client, admin, active=True, images={"idle": _img("i"), "sad": _img("s")})
+    user, _ = await make_user("u@example.com")
+    public = {m["id"]: m for m in (await client.get("/mascots", headers=user)).json()["mascots"]}
+    assert public["mochi"]["images"]["sad"] == _img("s")
+
+
 async def test_create_with_a_taken_id_is_409(client, admin):
     assert (await _create(client, admin)).status_code == 201
     resp = await _create(client, admin)

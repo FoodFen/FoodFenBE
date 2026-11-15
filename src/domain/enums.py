@@ -181,6 +181,7 @@ class MascotState(StrEnum):
     THINKING = "thinking"
     HAPPY = "happy"
     CONFUSED = "confused"
+    SAD = "sad"
 
 
 class UserRole(StrEnum):

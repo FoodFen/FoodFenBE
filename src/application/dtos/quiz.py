@@ -24,11 +24,14 @@ class QuizOptionDTO:
 
 @dataclass(frozen=True)
 class QuizQuestionOutputDTO:
-    """A question as shown to the player — deliberately has no correct option or explanation."""
+    """A question as shown to the player. Carries the answer so the app can give instant feedback;
+    grading and coins still happen server-side on submit."""
 
     id: UUID
     text: str
     options: list[QuizOptionDTO]
+    correct_option_id: str
+    explanation: str
 
 
 @dataclass(frozen=True)

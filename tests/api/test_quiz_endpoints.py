@@ -101,7 +101,7 @@ async def test_topics_are_public_and_list_only_active_topics(client, bank):
     assert resp.json() == {"topics": [{"id": "macros", "label": "Đạm, tinh bột và chất béo"}]}
 
 
-async def test_daily_quiz_is_created_once_and_never_reveals_answers(client, auth, bank):
+async def test_daily_quiz_is_created_once_and_carries_answers_for_instant_feedback(client, auth, bank):
     first = (await _daily(client, auth)).json()
     again = (await _daily(client, auth)).json()
     assert first["id"] == again["id"]
@@ -110,7 +110,9 @@ async def test_daily_quiz_is_created_once_and_never_reveals_answers(client, auth
     assert (first["status"], first["result"]) == ("available", None)
     assert len(first["questions"]) == 5
     for question in first["questions"]:
-        assert set(question) == {"id", "text", "options"}
+        assert set(question) == {"id", "text", "options", "correctOptionId", "explanation"}
+        assert question["correctOptionId"] == "a"
+        assert question["explanation"].startswith("giải thích")
         assert all(set(option) == {"id", "text"} for option in question["options"])
 
 

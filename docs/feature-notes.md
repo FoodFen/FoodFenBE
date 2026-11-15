@@ -156,8 +156,9 @@ Spec: `docs/superpowers/specs/2026-10-03-quiz-design.md`. Wire contract (owned b
 
 - **Endpoints** (`quiz_controller.py`, `CurrentUserDep` except the public `GET /quizzes/topics`): `GET /quizzes/topics`, `GET /quizzes/daily?date=`,
   `POST /quizzes/practice {topic, date}`, `GET /quizzes/{id}`, `POST /quizzes/{id}/submit`.
-- **The client never reports a score.** Correct answers and explanations live in `quiz_questions` and
-  appear only in the submit response / a completed quiz — never in a question payload.
+- **The client never reports a score** — the server still grades on submit and is the only one that pays
+  coins. Since 2026-11-15 (user decision, low risk) each question payload also carries `correctOptionId`
+  and `explanation` so the app can show instant per-question feedback.
 - **Payout** only happens for the request whose `QuizRepository.mark_submitted()` (conditional UPDATE on
   `submitted_at IS NULL`) succeeds; a loser gets 409 with `error: "quiz_already_submitted"`. Practice also
   takes the user row `FOR UPDATE` first, so the daily cap can't be overshot by concurrent submits.

@@ -69,6 +69,8 @@ async def quiz_output(
                 id=q.id,
                 text=q.text,
                 options=[QuizOptionDTO(id=o.id, text=o.text) for o in q.options],
+                correct_option_id=q.correct_option_id,
+                explanation=q.explanation,
             )
             for q in quiz.questions
         ],

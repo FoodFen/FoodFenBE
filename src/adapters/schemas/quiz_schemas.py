@@ -34,6 +34,8 @@ class QuizQuestionResponse(CamelModel):
     id: UUID
     text: str
     options: list[QuizOptionResponse]
+    correct_option_id: str
+    explanation: str
 
 
 class QuizAnswerResultResponse(CamelModel):
