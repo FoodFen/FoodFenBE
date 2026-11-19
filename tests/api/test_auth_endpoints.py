@@ -368,7 +368,9 @@ async def test_brevo_notifier_posts_expected_request():
 def test_password_reset_message_is_bilingual_with_fallback_greeting():
     from src.infrastructure.notifications.email_verification_notifier import _password_reset_message
 
-    _, text, html = _password_reset_message(None, "http://x/auth/reset-password?token=t")
+    link = "http://x/auth/reset-password?token=t"
+    _, text, html = _password_reset_message(None, link)
     assert "Chào bạn," in text and "Hi there," in text
-    assert "http://x/auth/reset-password?token=t" in html
-    assert "Đặt lại mật khẩu / Reset password" in html
+    # one button per language section + the bilingual fallback link
+    assert html.count('href="' + link + '"') == 3
+    assert ">Đặt lại mật khẩu</a>" in html and ">Reset password</a>" in html

@@ -23,7 +23,7 @@ from src.infrastructure.logging import configure_logging
 _log = configure_logging()
 _BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 _FONT = "Inter, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif"
-_REVIEW_BUTTON = "Quản lý nhà hàng / Manage restaurant"
+_REVIEW_BUTTON = ("Quản lý nhà hàng", "Manage restaurant")
 _REVIEW_FOOTER = (
     "Bạn nhận được email này vì bạn là chủ nhà hàng trên FoodFen.",
     "You received this email because you own a restaurant on FoodFen.",
@@ -51,7 +51,8 @@ def _render_html(
     vi: list[str],
     heading_en: str,
     en: list[str],
-    button: str,
+    button_vi: str,
+    button_en: str,
     link: str,
     footer_vi: str,
     footer_en: str,
@@ -74,13 +75,15 @@ def _render_html(
     def row(inner: str, style: str = "") -> str:
         return f'<tr><td style="{style}">{inner}</td></tr>'
 
-    cta = (
-        '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>'
-        '<td bgcolor="#15803D" style="border-radius:10px;background:#15803D;">'
-        f'<a href="{href}" style="display:inline-block;padding:14px 28px;color:#FFFFFF;'
-        "font-size:16px;font-weight:600;text-decoration:none;border-radius:10px;"
-        f'font-family:{_FONT};">{e(button)}</a></td></tr></table>'
-    )
+    def cta(label: str) -> str:
+        return (
+            '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>'
+            '<td bgcolor="#15803D" style="border-radius:10px;background:#15803D;">'
+            f'<a href="{href}" style="display:inline-block;padding:14px 28px;color:#FFFFFF;'
+            "font-size:16px;font-weight:600;text-decoration:none;border-radius:10px;"
+            f'font-family:{_FONT};">{e(label)}</a></td></tr></table>'
+        )
+
     fallback = (
         '<p style="margin:0;font-size:13px;line-height:20px;color:#6B7280;">'
         "Nếu nút không hoạt động, hãy mở liên kết này · If the button doesn't work, open this link:"
@@ -97,9 +100,10 @@ def _render_html(
                 "padding-bottom:24px;",
             ),
             row(section(heading_vi, vi)),
+            row(cta(button_vi), "padding:12px 0 24px;"),
             row("", "border-top:1px solid #E5E7EB;font-size:0;line-height:0;height:1px;padding-bottom:24px;"),
             row(section(heading_en, en)),
-            row(cta, "padding:12px 0 24px;"),
+            row(cta(button_en), "padding:12px 0 24px;"),
             row(fallback, "padding-bottom:24px;"),
             row(footer),
         ]
@@ -128,7 +132,8 @@ def _compose(
     vi: list[str],
     heading_en: str,
     en: list[str],
-    button: str,
+    button_vi: str,
+    button_en: str,
     footer_vi: str,
     footer_en: str,
     link: str,
@@ -136,7 +141,7 @@ def _compose(
     return (
         subject,
         _render_text(vi, en, link),
-        _render_html(preheader, heading_vi, vi, heading_en, en, button, link, footer_vi, footer_en),
+        _render_html(preheader, heading_vi, vi, heading_en, en, button_vi, button_en, link, footer_vi, footer_en),
     )
 
 
@@ -156,7 +161,8 @@ def _verification_message(name: str | None, link: str) -> tuple[str, str, str]:
             "Confirm your email address to activate your FoodFen account.",
             "The link expires in 24 hours. If you didn't create an account, ignore this email.",
         ],
-        "Xác nhận email / Confirm email",
+        "Xác nhận email",
+        "Confirm email",
         "Bạn nhận được email này vì địa chỉ này vừa được dùng để đăng ký tài khoản FoodFen.",
         "You received this email because this address was used to sign up for FoodFen.",
         link,
@@ -181,7 +187,8 @@ def _password_reset_message(name: str | None, link: str) -> tuple[str, str, str]
             "The link expires soon. If you didn't request this, ignore this email — "
             "your password will not change.",
         ],
-        "Đặt lại mật khẩu / Reset password",
+        "Đặt lại mật khẩu",
+        "Reset password",
         "Bạn nhận được email này vì có yêu cầu đặt lại mật khẩu cho tài khoản FoodFen dùng địa chỉ này.",
         "You received this email because a password reset was requested for the FoodFen account "
         "using this address.",
@@ -248,7 +255,7 @@ def _review_message(
             "Update your restaurant to send it back for review.",
         ]
     return _compose(
-        subject, preheader, heading_vi, vi, heading_en, en, _REVIEW_BUTTON, *_REVIEW_FOOTER, link
+        subject, preheader, heading_vi, vi, heading_en, en, *_REVIEW_BUTTON, *_REVIEW_FOOTER, link
     )
 
 
