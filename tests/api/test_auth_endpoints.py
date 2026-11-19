@@ -361,4 +361,14 @@ async def test_brevo_notifier_posts_expected_request():
     assert body["sender"] == {"name": "FoodFen", "email": "no-reply@foodfen.app"}
     assert body["to"] == [{"email": "u@example.com"}]
     assert "http://x/auth/verify-email?token=tok" in body["textContent"]
-    assert body["subject"]
+    assert "http://x/auth/verify-email?token=tok" in body["htmlContent"]
+    assert "Xác nhận email" in body["subject"]
+
+
+def test_password_reset_message_is_bilingual_with_fallback_greeting():
+    from src.infrastructure.notifications.email_verification_notifier import _password_reset_message
+
+    _, text, html = _password_reset_message(None, "http://x/auth/reset-password?token=t")
+    assert "Chào bạn," in text and "Hi there," in text
+    assert "http://x/auth/reset-password?token=t" in html
+    assert "Đặt lại mật khẩu / Reset password" in html

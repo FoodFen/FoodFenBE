@@ -248,8 +248,20 @@ async def test_review_emails_owner_only_when_status_changes(
 async def test_review_message_links_to_owner_portal_and_includes_reason():
     from src.infrastructure.notifications.email_verification_notifier import _review_message
 
-    subject, body = _review_message("Ann", "Quán Ngon", False, "bad photo", "Phở", "http://x/restaurant")
+    subject, body, html = _review_message("Ann", "Quán Ngon", False, "bad photo", "Phở", "http://x/restaurant")
     assert "Phở" in subject and "Quán Ngon" in subject
     assert "Reason: bad photo" in body and "http://x/restaurant" in body
-    subject, body = _review_message(None, "Quán Ngon", True, None, None, "http://x/restaurant")
+    assert "Lý do: bad photo" in body
+    assert "http://x/restaurant" in html and "bad photo" in html
+    subject, body, _ = _review_message(None, "Quán Ngon", True, None, None, "http://x/restaurant")
     assert "approved" in subject and "visible to diners" in body and "Hi there" in body
+
+
+async def test_review_message_html_escapes_user_supplied_values():
+    from src.infrastructure.notifications.email_verification_notifier import _review_message
+
+    _, _, html = _review_message(
+        "<i>Ann</i>", "<script>x</script>", False, "a<b", "Phở & co", "http://x/restaurant"
+    )
+    assert "<script>" not in html and "<i>" not in html and "a<b" not in html
+    assert "&lt;script&gt;" in html and "Phở &amp; co" in html
